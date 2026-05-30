@@ -1,0 +1,145 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* Responsive breakpoints: 320px (default/mobile-first), 768px, 1024px, 1440px, 2560px */
+  --breakpoint-sm: 320px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1440px;
+  --breakpoint-2xl: 2560px;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.375rem;
+  /* Linear-inspired light theme */
+  --background: #ffffff;
+  --foreground: #08090a;
+  --card: #ffffff;
+  --card-foreground: #08090a;
+  --popover: #ffffff;
+  --popover-foreground: #08090a;
+  --primary: #6366f1;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #08090a;
+  --muted: #f4f4f5;
+  --muted-foreground: #62666d;
+  --accent: #f4f4f5;
+  --accent-foreground: #08090a;
+  --destructive: #eb5757;
+  --destructive-foreground: #ffffff;
+  --border: #e5e5e6;
+  --input: #e5e5e6;
+  --ring: #6366f1;
+  --chart-1: #6366f1;
+  --chart-2: #8b5cf6;
+  --chart-3: #39b350;
+  --chart-4: #eb5757;
+  --chart-5: #5e6ad2;
+  --sidebar: #fafafa;
+  --sidebar-foreground: #08090a;
+  --sidebar-primary: #6366f1;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f4f4f5;
+  --sidebar-accent-foreground: #08090a;
+  --sidebar-border: #e5e5e6;
+  --sidebar-ring: #6366f1;
+}
+
+.dark {
+  /* Linear-inspired dark theme (primary mode) */
+  --background: #0f1011;
+  --foreground: #f7f8f8;
+  --card: #161719;
+  --card-foreground: #f7f8f8;
+  --popover: #161719;
+  --popover-foreground: #f7f8f8;
+  --primary: #6366f1;
+  --primary-foreground: #ffffff;
+  --secondary: #1e2023;
+  --secondary-foreground: #f7f8f8;
+  --muted: #1e2023;
+  --muted-foreground: #62666d;
+  --accent: #1e2023;
+  --accent-foreground: #f7f8f8;
+  --destructive: #eb5757;
+  --destructive-foreground: #ffffff;
+  --border: #24282c;
+  --input: #24282c;
+  --ring: #6366f1;
+  --chart-1: #6366f1;
+  --chart-2: #8b5cf6;
+  --chart-3: #39b350;
+  --chart-4: #eb5757;
+  --chart-5: #5e6ad2;
+  --sidebar: #0f1011;
+  --sidebar-foreground: #f7f8f8;
+  --sidebar-primary: #6366f1;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1e2023;
+  --sidebar-accent-foreground: #f7f8f8;
+  --sidebar-border: #24282c;
+  --sidebar-ring: #6366f1;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body {
+    @apply overflow-x-hidden;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Requirement 7.4: Minimum 16px body text on mobile */
+  @media (max-width: 768px) {
+    body {
+      font-size: 16px;
+    }
+  }
+}

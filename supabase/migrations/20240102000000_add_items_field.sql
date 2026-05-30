@@ -1,0 +1,1 @@
+ALTER TABLE lunch_offers ADD COLUMN IF NOT EXISTS items TEXT[] DEFAULT '{}';
