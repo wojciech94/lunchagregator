@@ -29,14 +29,18 @@ vi.mock('@/lib/supabase/server', () => ({
   ),
 }));
 
+const TEST_USER_ID = '123e4567-e89b-12d3-a456-426614174001';
+
 // Helper to create a valid DB row
 function createDbRow(overrides: Record<string, unknown> = {}) {
   return {
     id: '123e4567-e89b-12d3-a456-426614174000',
     dish_name: 'Pierogi ruskie',
+    items: [],
     price: 25.0,
     currency: 'PLN',
     description: 'Tradycyjne pierogi',
+    restaurant_id: null,
     restaurant_name: 'Restauracja Polska',
     restaurant_address: 'ul. Główna 1, Warszawa',
     restaurant_location: null,
@@ -45,6 +49,7 @@ function createDbRow(overrides: Record<string, unknown> = {}) {
     dietary_tags: ['vegetarian'],
     allergens: ['gluten', 'mleko'],
     source_type: 'text',
+    user_id: TEST_USER_ID,
     session_token: 'test-session-token',
     created_at: '2024-01-01T12:00:00Z',
     updated_at: '2024-01-01T12:00:00Z',
@@ -82,7 +87,7 @@ describe('OfferService CRUD', () => {
       mockEq.mockReturnValue({ single: mockSingle });
       mockSingle.mockResolvedValue({ data: dbRow, error: null });
 
-      const result = await getOffer(dbRow.id);
+      const result = await getOffer(dbRow.id as string);
 
       expect(result.success).toBe(true);
       if (result.success) {
@@ -91,6 +96,7 @@ describe('OfferService CRUD', () => {
         expect(result.data.price).toBe(25.0);
         expect(result.data.restaurantName).toBe('Restauracja Polska');
         expect(result.data.dietaryTags).toEqual(['vegetarian']);
+        expect(result.data.userId).toBe(TEST_USER_ID);
       }
     });
 
@@ -128,19 +134,19 @@ describe('OfferService CRUD', () => {
   });
 
   describe('createOffer', () => {
-    it('creates offer with valid data', async () => {
+    it('creates offer with valid data and sets user_id', async () => {
       const input = createValidInput();
       const dbRow = createDbRow();
 
       mockInsert.mockReturnValue({ select: vi.fn().mockReturnValue({ single: mockSingle }) });
       mockSingle.mockResolvedValue({ data: dbRow, error: null });
 
-      const result = await createOffer(input, 'test-session-token');
+      const result = await createOffer(input, TEST_USER_ID);
 
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.dishName).toBe('Pierogi ruskie');
-        expect(result.data.sessionToken).toBe('test-session-token');
+        expect(result.data.userId).toBe(TEST_USER_ID);
       }
     });
 
@@ -153,7 +159,7 @@ describe('OfferService CRUD', () => {
         sourceType: 'text',
       };
 
-      const result = await createOffer(input, 'test-session-token');
+      const result = await createOffer(input, TEST_USER_ID);
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -165,14 +171,14 @@ describe('OfferService CRUD', () => {
       }
     });
 
-    it('returns error when session token is empty', async () => {
+    it('returns error when user ID is empty', async () => {
       const input = createValidInput();
 
       const result = await createOffer(input, '');
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error).toBe('Session token is required');
+        expect(result.error).toBe('User ID is required');
       }
     });
 
@@ -187,7 +193,7 @@ describe('OfferService CRUD', () => {
         error: { message: 'Insert failed' },
       });
 
-      const result = await createOffer(input, 'test-session-token');
+      const result = await createOffer(input, TEST_USER_ID);
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -198,7 +204,7 @@ describe('OfferService CRUD', () => {
     it('rejects dish name exceeding 100 characters', async () => {
       const input = createValidInput({ dishName: 'a'.repeat(101) });
 
-      const result = await createOffer(input, 'test-session-token');
+      const result = await createOffer(input, TEST_USER_ID);
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -209,7 +215,7 @@ describe('OfferService CRUD', () => {
     it('rejects price above 9999.99', async () => {
       const input = createValidInput({ price: 10000 });
 
-      const result = await createOffer(input, 'test-session-token');
+      const result = await createOffer(input, TEST_USER_ID);
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -219,18 +225,10 @@ describe('OfferService CRUD', () => {
   });
 
   describe('updateOffer', () => {
-    it('updates offer when session token matches', async () => {
+    it('updates offer with valid data', async () => {
       const dbRow = createDbRow();
 
-      // First call: ownership check
-      mockSelect.mockReturnValueOnce({ eq: mockEq });
-      mockEq.mockReturnValueOnce({ single: mockSingle });
-      mockSingle.mockResolvedValueOnce({
-        data: { session_token: 'test-session-token' },
-        error: null,
-      });
-
-      // Second call: update
+      // Update call
       mockUpdate.mockReturnValue({
         eq: vi.fn().mockReturnValue({
           select: vi.fn().mockReturnValue({ single: mockSingle }),
@@ -238,78 +236,13 @@ describe('OfferService CRUD', () => {
       });
       mockSingle.mockResolvedValueOnce({ data: dbRow, error: null });
 
-      const result = await updateOffer(
-        dbRow.id,
-        { dishName: 'Updated name' },
-        'test-session-token'
-      );
+      const result = await updateOffer(dbRow.id as string, { dishName: 'Updated name' });
 
       expect(result.success).toBe(true);
     });
 
-    it('rejects update when session token does not match', async () => {
-      mockSelect.mockReturnValue({ eq: mockEq });
-      mockEq.mockReturnValue({ single: mockSingle });
-      mockSingle.mockResolvedValue({
-        data: { session_token: 'owner-token' },
-        error: null,
-      });
-
-      const result = await updateOffer(
-        'some-id',
-        { dishName: 'Updated' },
-        'different-token'
-      );
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toContain('Unauthorized');
-      }
-    });
-
-    it('returns error when offer not found', async () => {
-      mockSelect.mockReturnValue({ eq: mockEq });
-      mockEq.mockReturnValue({ single: mockSingle });
-      mockSingle.mockResolvedValue({
-        data: null,
-        error: { code: 'PGRST116', message: 'Not found' },
-      });
-
-      const result = await updateOffer(
-        'non-existent',
-        { dishName: 'Updated' },
-        'test-token'
-      );
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toBe('Offer not found');
-      }
-    });
-
-    it('returns error when session token is empty', async () => {
-      const result = await updateOffer('some-id', { dishName: 'Updated' }, '');
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toBe('Session token is required');
-      }
-    });
-
     it('returns validation errors for invalid update data', async () => {
-      // Ownership check passes
-      mockSelect.mockReturnValue({ eq: mockEq });
-      mockEq.mockReturnValue({ single: mockSingle });
-      mockSingle.mockResolvedValue({
-        data: { session_token: 'test-token' },
-        error: null,
-      });
-
-      const result = await updateOffer(
-        'some-id',
-        { price: -5 },
-        'test-token'
-      );
+      const result = await updateOffer('some-id', { price: -5 });
 
       expect(result.success).toBe(false);
       if (!result.success) {
@@ -317,86 +250,46 @@ describe('OfferService CRUD', () => {
         expect(result.fieldErrors!['price']).toBeDefined();
       }
     });
+
+    it('returns error on database update failure', async () => {
+      mockUpdate.mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({ single: mockSingle }),
+        }),
+      });
+      mockSingle.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'Update failed' },
+      });
+
+      const result = await updateOffer('some-id', { dishName: 'Updated' });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('Failed to update offer');
+      }
+    });
   });
 
   describe('deleteOffer', () => {
-    it('deletes offer when session token matches', async () => {
-      // Ownership check
-      mockSelect.mockReturnValue({ eq: mockEq });
-      mockEq.mockReturnValue({ single: mockSingle });
-      mockSingle.mockResolvedValue({
-        data: { session_token: 'test-token' },
-        error: null,
-      });
-
-      // Delete
+    it('deletes offer successfully', async () => {
       mockDelete.mockReturnValue({
         eq: vi.fn().mockResolvedValue({ error: null }),
       });
 
-      const result = await deleteOffer('some-id', 'test-token');
+      const result = await deleteOffer('some-id');
 
       expect(result.success).toBe(true);
     });
 
-    it('rejects delete when session token does not match', async () => {
-      mockSelect.mockReturnValue({ eq: mockEq });
-      mockEq.mockReturnValue({ single: mockSingle });
-      mockSingle.mockResolvedValue({
-        data: { session_token: 'owner-token' },
-        error: null,
-      });
-
-      const result = await deleteOffer('some-id', 'different-token');
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toContain('Unauthorized');
-      }
-    });
-
-    it('returns error when offer not found', async () => {
-      mockSelect.mockReturnValue({ eq: mockEq });
-      mockEq.mockReturnValue({ single: mockSingle });
-      mockSingle.mockResolvedValue({
-        data: null,
-        error: { code: 'PGRST116', message: 'Not found' },
-      });
-
-      const result = await deleteOffer('non-existent', 'test-token');
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toBe('Offer not found');
-      }
-    });
-
-    it('returns error when session token is empty', async () => {
-      const result = await deleteOffer('some-id', '');
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toBe('Session token is required');
-      }
-    });
-
     it('returns error on database delete failure', async () => {
-      // Ownership check passes
-      mockSelect.mockReturnValue({ eq: mockEq });
-      mockEq.mockReturnValue({ single: mockSingle });
-      mockSingle.mockResolvedValue({
-        data: { session_token: 'test-token' },
-        error: null,
-      });
-
-      // Delete fails
       mockDelete.mockReturnValue({
         eq: vi.fn().mockResolvedValue({
           error: { message: 'Delete failed' },
         }),
       });
 
-      const result = await deleteOffer('some-id', 'test-token');
+      const result = await deleteOffer('some-id');
 
       expect(result.success).toBe(false);
       if (!result.success) {

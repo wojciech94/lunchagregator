@@ -31,6 +31,7 @@ function createMockOffer(overrides: Partial<LunchOffer> = {}): LunchOffer {
     dietaryTags: ['vegetarian'],
     allergens: ['gluten', 'mleko'],
     sourceType: 'text',
+    userId: null,
     sessionToken: 'session-123',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

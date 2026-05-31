@@ -2,11 +2,11 @@
 
 ## Introduction
 
-Funkcjonalność zarządzania restauracjami jako samodzielnymi encjami w aplikacji Lunch Aggregator. Obecnie dane restauracji (nazwa, adres, lokalizacja) są zduplikowane w każdej ofercie lunchowej. Nowa funkcjonalność wprowadza osobną tabelę restauracji z pełnym zestawem metadanych (lokalizacja, poziom cenowy, godziny lunchowe, typ kuchni) oraz umożliwia powiązanie ofert lunchowych z restauracjami zamiast osadzania danych restauracji w każdej ofercie. Użytkownicy mogą tworzyć, edytować i usuwać restauracje w ramach swojej sesji anonimowej.
+Funkcjonalność zarządzania restauracjami jako samodzielnymi encjami w aplikacji Lunch Agregator. Obecnie dane restauracji (nazwa, adres, lokalizacja) są zduplikowane w każdej ofercie lunchowej. Nowa funkcjonalność wprowadza osobną tabelę restauracji z pełnym zestawem metadanych (lokalizacja, poziom cenowy, godziny lunchowe, typ kuchni) oraz umożliwia powiązanie ofert lunchowych z restauracjami zamiast osadzania danych restauracji w każdej ofercie. Użytkownicy mogą tworzyć, edytować i usuwać restauracje w ramach swojej sesji anonimowej.
 
 ## Glossary
 
-- **System**: Aplikacja webowa agregująca oferty lunchowe (Lunch Aggregator)
+- **System**: Aplikacja webowa agregująca oferty lunchowe (Lunch Agregator)
 - **User**: Osoba korzystająca z aplikacji — może przeglądać restauracje, dodawać nowe oraz zarządzać nimi
 - **Restaurant**: Samodzielna encja reprezentująca restaurację z metadanymi (nazwa, adres, lokalizacja, poziom cenowy, godziny lunchowe, typ kuchni)
 - **Lunch_Offer**: Pojedyncza oferta lunchowa powiązana z Restaurant

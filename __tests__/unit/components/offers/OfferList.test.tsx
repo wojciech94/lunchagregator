@@ -25,6 +25,7 @@ function createMockOffer(
     dietaryTags: [],
     allergens: [],
     sourceType: "text",
+    userId: null,
     sessionToken: "session-123",
     createdAt: "2024-01-15T10:00:00Z",
     updatedAt: "2024-01-15T10:00:00Z",

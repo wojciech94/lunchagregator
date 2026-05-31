@@ -1,8 +1,8 @@
-# Implementation Plan: Lunch Aggregator
+# Implementation Plan: Lunch Agregator
 
 ## Overview
 
-Implementacja aplikacji Lunch Aggregator w Next.js (App Router) z TypeScript, Supabase (PostgreSQL + PostGIS), Vercel AI SDK, z testami property-based (fast-check), unit (Vitest) i E2E (Playwright). Plan podzielony na fazy: setup, baza danych, serwisy, AI, UI, testy i integracja.
+Implementacja aplikacji Lunch Agregator w Next.js (App Router) z TypeScript, Supabase (PostgreSQL + PostGIS), Vercel AI SDK, z testami property-based (fast-check), unit (Vitest) i E2E (Playwright). Plan podzielony na fazy: setup, baza danych, serwisy, AI, UI, testy i integracja.
 
 ## Tasks
 

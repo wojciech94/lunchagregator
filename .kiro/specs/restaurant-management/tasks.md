@@ -119,10 +119,10 @@
 - [x] 17.1 Strona edycji restauracji `src/app/restaurants/[id]/edit/page.tsx` — formularz pre-filled, wywołanie `updateRestaurant`. RestaurantForm rozszerzony o tryb edycji (`restaurantId` prop + UpdateRestaurantInput).
 - [x] 17.2 Strony edycji i usuwania oferty `src/app/offers/[id]/edit/page.tsx` oraz `/delete` — dedykowany formularz edycji (pre-filled, `updateOfferAction`) + ekran potwierdzenia usunięcia (`deleteOfferAction`)
 - [x] 17.3 Lista aktywnych ofert na stronie restauracji (Req 6.5) — `getOffersByRestaurant` + sekcja na stronie szczegółów z linkami do ofert
-- [ ] 17.4 Reverse geocoding dla lokalizacji GPS — zamienić „Bieżąca lokalizacja" na czytelny adres (np. dzielnica/miasto)
-- [ ] 17.5 Link „Dodaj ofertę" z pre-wybraną restauracją na stronie szczegółów restauracji (auto-populate przez RestaurantSelect) — obecnie link prowadzi do `/add` bez pre-selekcji
-- [ ] 17.6 Potwierdzenie usunięcia restauracji z informacją o liczbie powiązanych ofert (Req 3.3) — obecnie zwykły `window.confirm` bez liczby ofert
-- [ ] 17.7 Edycja/usuwanie pojedynczych dań w `WeeklyMenuPreview` przed publikacją (np. korekta ceny wykrytej przez AI)
+- [ ] 17.4 Reverse geocoding dla lokalizacji GPS — zamienić „Bieżąca lokalizacja" na czytelny adres (np. dzielnica/miasto) w `LocationIndicator`
+- [ ] 17.5 Link „Dodaj ofertę" z pre-wybraną restauracją na stronie szczegółów restauracji — przekazać `restaurantId` jako query param do `/add?restaurantId=...` i auto-populate `RestaurantSelect` w formularzu
+- [ ] 17.6 Potwierdzenie usunięcia restauracji z informacją o liczbie powiązanych ofert — zastąpić `window.confirm` dedykowanym dialogiem pokazującym liczbę ofert, które zostaną odłączone
+- [ ] 17.7 Edycja/usuwanie pojedynczych dań w `WeeklyMenuPreview` przed publikacją — inline edycja nazwy i ceny dania, przycisk usunięcia dania z listy
 - [ ] 17.8 Testy property-based/integ. dla nowych funkcji: `nextDateForDay`, batch creation, filtr daty ofert
 - [ ] 17.9 Filtr daty również na stronie restauracji (spójność z selektorem dni na ofertach)
 - [ ] 17.10 Walidacja/limit liczby ofert w batchu (ochrona przed nadużyciem przy dużych menu)

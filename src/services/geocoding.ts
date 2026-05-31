@@ -35,7 +35,7 @@ export async function geocodeAddress(address: string): Promise<Coordinates | nul
     const response = await fetch(url.toString(), {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'LunchAggregator/1.0',
+        'User-Agent': 'LunchAgregator/1.0',
       },
     });
 

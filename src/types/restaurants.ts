@@ -18,7 +18,8 @@ export interface Restaurant {
   cuisineTypes: CuisineType[];
   phoneNumber: string | null;
   websiteUrl: string | null;
-  sessionToken: string;
+  sessionToken: string | null;
+  userId: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -45,7 +46,6 @@ export interface CreateRestaurantInput {
   cuisineTypes?: CuisineType[];
   phoneNumber?: string;
   websiteUrl?: string;
-  sessionToken: string;
 }
 
 export interface UpdateRestaurantInput {

@@ -1,6 +1,8 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { getUser } from '@/lib/auth';
+import { checkOwnership } from '@/lib/ownership';
 import { createRestaurantSchema, updateRestaurantSchema } from '@/schemas/restaurant.schema';
 import { geocodeAddress } from '@/services/geocoding';
 import type {
@@ -38,7 +40,8 @@ interface DbRestaurant {
   cuisine_types: string[];
   phone_number: string | null;
   website_url: string | null;
-  session_token: string;
+  session_token: string | null;
+  user_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -103,6 +106,7 @@ function mapDbRowToRestaurant(row: DbRestaurant): Restaurant {
     phoneNumber: row.phone_number,
     websiteUrl: row.website_url,
     sessionToken: row.session_token,
+    userId: row.user_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -122,6 +126,12 @@ function mapDbRowToRestaurant(row: DbRestaurant): Restaurant {
 export async function createRestaurant(
   data: CreateRestaurantInput
 ): Promise<ActionResult<Restaurant>> {
+  // 0. Verify authentication
+  const user = await getUser();
+  if (!user) {
+    return { success: false, error: 'Brak autoryzacji' };
+  }
+
   // 1. Validate input with Zod
   const parsed = createRestaurantSchema.safeParse(data);
 
@@ -161,7 +171,7 @@ export async function createRestaurant(
     cuisine_types: validated.cuisineTypes ?? [],
     phone_number: validated.phoneNumber ?? null,
     website_url: validated.websiteUrl ?? null,
-    session_token: validated.sessionToken,
+    user_id: user.id,
   };
 
   // Set location as PostGIS POINT format if coordinates are available
@@ -190,17 +200,22 @@ export async function createRestaurant(
 
 /**
  * Server action to delete a restaurant.
- * Verifies ownership via session token, snapshots restaurant data into
+ * Verifies ownership via user_id from getUser(), snapshots restaurant data into
  * associated offers (to preserve name/address/location after deletion),
  * then deletes the restaurant. The FK ON DELETE SET NULL will automatically
  * set restaurant_id to NULL on associated offers.
  *
- * Validates: Requirements 3.2, 3.4, 3.5
+ * Validates: Requirements 3.2, 3.4, 3.5, 4.5, 5.3, 5.4, 5.5
  */
 export async function deleteRestaurant(
-  id: string,
-  sessionToken: string
+  id: string
 ): Promise<ActionResult<void>> {
+  // 0. Verify authentication
+  const user = await getUser();
+  if (!user) {
+    return { success: false, error: 'Brak autoryzacji' };
+  }
+
   const supabase = await createClient();
 
   // 1. Fetch existing restaurant
@@ -219,11 +234,11 @@ export async function deleteRestaurant(
 
   const existingRow = existing as DbRestaurant;
 
-  // 2. Verify ownership: session token must match
-  if (existingRow.session_token !== sessionToken) {
+  // 2. Verify ownership via user_id
+  if (!checkOwnership(user.id, existingRow.user_id)) {
     return {
       success: false,
-      error: 'Nie masz uprawnień do usunięcia tej restauracji',
+      error: 'Brak uprawnień do tej operacji',
     };
   }
 
@@ -283,16 +298,21 @@ export async function deleteRestaurant(
 
 /**
  * Server action to update an existing restaurant.
- * Verifies ownership via session token, validates input with Zod,
+ * Verifies ownership via user_id from getUser(), validates input with Zod,
  * re-geocodes if address changed, and updates in Supabase.
  *
- * Validates: Requirements 2.2, 2.3, 2.4, 2.5
+ * Validates: Requirements 2.2, 2.3, 2.4, 2.5, 4.5, 5.3, 5.4, 5.5
  */
 export async function updateRestaurant(
   id: string,
-  data: UpdateRestaurantInput,
-  sessionToken: string
+  data: UpdateRestaurantInput
 ): Promise<ActionResult<Restaurant>> {
+  // 0. Verify authentication
+  const user = await getUser();
+  if (!user) {
+    return { success: false, error: 'Brak autoryzacji' };
+  }
+
   const supabase = await createClient();
 
   // 1. Fetch existing restaurant
@@ -311,11 +331,11 @@ export async function updateRestaurant(
 
   const existingRow = existing as DbRestaurant;
 
-  // 2. Verify ownership: session token must match
-  if (existingRow.session_token !== sessionToken) {
+  // 2. Verify ownership via user_id
+  if (!checkOwnership(user.id, existingRow.user_id)) {
     return {
       success: false,
-      error: 'Nie masz uprawnień do edycji tej restauracji',
+      error: 'Brak uprawnień do tej operacji',
     };
   }
 

@@ -14,7 +14,12 @@ vi.mock('@/services/geocoding', () => ({
   ),
 }));
 
+vi.mock('@/lib/auth', () => ({
+  getUser: vi.fn(),
+}));
+
 import { createClient } from '@/lib/supabase/server';
+import { getUser } from '@/lib/auth';
 import {
   createRestaurant,
   updateRestaurant,
@@ -25,6 +30,10 @@ import {
 } from '@/actions/restaurants';
 
 const mockedCreateClient = vi.mocked(createClient);
+const mockedGetUser = vi.mocked(getUser);
+
+const TEST_USER_ID = '11111111-1111-1111-1111-111111111111';
+const OTHER_USER_ID = '22222222-2222-2222-2222-222222222222';
 
 // ============================================================================
 // Helpers
@@ -43,7 +52,8 @@ function createDbRestaurantRow(overrides: Record<string, unknown> = {}) {
     cuisine_types: ['polska', 'wloska'],
     phone_number: '123456789',
     website_url: 'https://test.pl',
-    session_token: 'test-session-token',
+    session_token: null,
+    user_id: TEST_USER_ID,
     created_at: '2024-01-01T12:00:00Z',
     updated_at: '2024-01-01T12:00:00Z',
     ...overrides,
@@ -76,6 +86,8 @@ function createChainableMock(terminalMethod: string, result: unknown) {
 describe('Restaurant CRUD Server Actions — Integration Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: authenticated user
+    mockedGetUser.mockResolvedValue({ id: TEST_USER_ID } as never);
   });
 
   // ==========================================================================
@@ -98,7 +110,6 @@ describe('Restaurant CRUD Server Actions — Integration Tests', () => {
         cuisineTypes: ['polska', 'wloska'],
         phoneNumber: '123456789',
         websiteUrl: 'https://test.pl',
-        sessionToken: 'test-session-token',
       });
 
       expect(result.success).toBe(true);
@@ -107,7 +118,21 @@ describe('Restaurant CRUD Server Actions — Integration Tests', () => {
         expect(result.data.address).toBe('ul. Testowa 1, Warszawa');
         expect(result.data.priceLevel).toBe('średnia');
         expect(result.data.cuisineTypes).toEqual(['polska', 'wloska']);
-        expect(result.data.sessionToken).toBe('test-session-token');
+        expect(result.data.userId).toBe(TEST_USER_ID);
+      }
+    });
+
+    it('returns auth error when user is not authenticated', async () => {
+      mockedGetUser.mockResolvedValue(null);
+
+      const result = await createRestaurant({
+        name: 'Restauracja Testowa',
+        address: 'ul. Testowa 1',
+      });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('Brak autoryzacji');
       }
     });
 
@@ -115,7 +140,6 @@ describe('Restaurant CRUD Server Actions — Integration Tests', () => {
       const result = await createRestaurant({
         name: 'A', // too short (min 2)
         address: 'ul. Testowa 1',
-        sessionToken: 'test-session-token',
       });
 
       expect(result.success).toBe(false);
@@ -129,27 +153,12 @@ describe('Restaurant CRUD Server Actions — Integration Tests', () => {
     it('returns validation errors when neither address nor location is provided', async () => {
       const result = await createRestaurant({
         name: 'Restauracja Testowa',
-        sessionToken: 'test-session-token',
         // no address, no location
       });
 
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error).toBe('Nieprawidłowe dane restauracji');
-      }
-    });
-
-    it('returns validation errors for empty session token', async () => {
-      const result = await createRestaurant({
-        name: 'Restauracja Testowa',
-        address: 'ul. Testowa 1',
-        sessionToken: '', // empty
-      });
-
-      expect(result.success).toBe(false);
-      if (!result.success) {
-        expect(result.error).toBe('Nieprawidłowe dane restauracji');
-        expect(result.fieldErrors).toBeDefined();
       }
     });
 
@@ -163,7 +172,6 @@ describe('Restaurant CRUD Server Actions — Integration Tests', () => {
       const result = await createRestaurant({
         name: 'Restauracja Testowa',
         address: 'ul. Testowa 1',
-        sessionToken: 'test-session-token',
       });
 
       expect(result.success).toBe(false);
@@ -178,7 +186,7 @@ describe('Restaurant CRUD Server Actions — Integration Tests', () => {
   // ==========================================================================
 
   describe('updateRestaurant', () => {
-    it('updates restaurant when session token matches', async () => {
+    it('updates restaurant when user_id matches', async () => {
       const existingRow = createDbRestaurantRow();
       const updatedRow = createDbRestaurantRow({ name: 'Nowa Nazwa' });
 
@@ -194,8 +202,7 @@ describe('Restaurant CRUD Server Actions — Integration Tests', () => {
 
       const result = await updateRestaurant(
         '550e8400-e29b-41d4-a716-446655440000',
-        { name: 'Nowa Nazwa' },
-        'test-session-token'
+        { name: 'Nowa Nazwa' }
       );
 
       expect(result.success).toBe(true);
@@ -204,21 +211,51 @@ describe('Restaurant CRUD Server Actions — Integration Tests', () => {
       }
     });
 
-    it('rejects update when session token does not match', async () => {
-      const existingRow = createDbRestaurantRow({ session_token: 'owner-token' });
+    it('rejects update when user_id does not match', async () => {
+      const existingRow = createDbRestaurantRow({ user_id: OTHER_USER_ID });
 
       const fetchChain = createChainableMock('single', { data: existingRow, error: null });
       mockedCreateClient.mockResolvedValue({ from: vi.fn().mockReturnValue(fetchChain) } as never);
 
       const result = await updateRestaurant(
         '550e8400-e29b-41d4-a716-446655440000',
-        { name: 'Nowa Nazwa' },
-        'wrong-token'
+        { name: 'Nowa Nazwa' }
       );
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error).toBe('Nie masz uprawnień do edycji tej restauracji');
+        expect(result.error).toBe('Brak uprawnień do tej operacji');
+      }
+    });
+
+    it('rejects update when resource user_id is null (unmigrated)', async () => {
+      const existingRow = createDbRestaurantRow({ user_id: null });
+
+      const fetchChain = createChainableMock('single', { data: existingRow, error: null });
+      mockedCreateClient.mockResolvedValue({ from: vi.fn().mockReturnValue(fetchChain) } as never);
+
+      const result = await updateRestaurant(
+        '550e8400-e29b-41d4-a716-446655440000',
+        { name: 'Nowa Nazwa' }
+      );
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('Brak uprawnień do tej operacji');
+      }
+    });
+
+    it('returns auth error when user is not authenticated', async () => {
+      mockedGetUser.mockResolvedValue(null);
+
+      const result = await updateRestaurant(
+        '550e8400-e29b-41d4-a716-446655440000',
+        { name: 'Nowa Nazwa' }
+      );
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('Brak autoryzacji');
       }
     });
 
@@ -231,8 +268,7 @@ describe('Restaurant CRUD Server Actions — Integration Tests', () => {
 
       const result = await updateRestaurant(
         'non-existent-id',
-        { name: 'Nowa Nazwa' },
-        'test-session-token'
+        { name: 'Nowa Nazwa' }
       );
 
       expect(result.success).toBe(false);
@@ -247,7 +283,7 @@ describe('Restaurant CRUD Server Actions — Integration Tests', () => {
   // ==========================================================================
 
   describe('deleteRestaurant', () => {
-    it('deletes restaurant when session token matches and no associated offers', async () => {
+    it('deletes restaurant when user_id matches and no associated offers', async () => {
       const existingRow = createDbRestaurantRow();
 
       // Fetch restaurant chain
@@ -270,28 +306,47 @@ describe('Restaurant CRUD Server Actions — Integration Tests', () => {
 
       mockedCreateClient.mockResolvedValue({ from: mockFromFn } as never);
 
-      const result = await deleteRestaurant(
-        '550e8400-e29b-41d4-a716-446655440000',
-        'test-session-token'
-      );
+      const result = await deleteRestaurant('550e8400-e29b-41d4-a716-446655440000');
 
       expect(result.success).toBe(true);
     });
 
-    it('rejects delete when session token does not match', async () => {
-      const existingRow = createDbRestaurantRow({ session_token: 'owner-token' });
+    it('rejects delete when user_id does not match', async () => {
+      const existingRow = createDbRestaurantRow({ user_id: OTHER_USER_ID });
 
       const fetchChain = createChainableMock('single', { data: existingRow, error: null });
       mockedCreateClient.mockResolvedValue({ from: vi.fn().mockReturnValue(fetchChain) } as never);
 
-      const result = await deleteRestaurant(
-        '550e8400-e29b-41d4-a716-446655440000',
-        'wrong-token'
-      );
+      const result = await deleteRestaurant('550e8400-e29b-41d4-a716-446655440000');
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error).toBe('Nie masz uprawnień do usunięcia tej restauracji');
+        expect(result.error).toBe('Brak uprawnień do tej operacji');
+      }
+    });
+
+    it('rejects delete when resource user_id is null (unmigrated)', async () => {
+      const existingRow = createDbRestaurantRow({ user_id: null });
+
+      const fetchChain = createChainableMock('single', { data: existingRow, error: null });
+      mockedCreateClient.mockResolvedValue({ from: vi.fn().mockReturnValue(fetchChain) } as never);
+
+      const result = await deleteRestaurant('550e8400-e29b-41d4-a716-446655440000');
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('Brak uprawnień do tej operacji');
+      }
+    });
+
+    it('returns auth error when user is not authenticated', async () => {
+      mockedGetUser.mockResolvedValue(null);
+
+      const result = await deleteRestaurant('550e8400-e29b-41d4-a716-446655440000');
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe('Brak autoryzacji');
       }
     });
 
@@ -327,10 +382,7 @@ describe('Restaurant CRUD Server Actions — Integration Tests', () => {
 
       mockedCreateClient.mockResolvedValue({ from: mockFromFn } as never);
 
-      const result = await deleteRestaurant(
-        '550e8400-e29b-41d4-a716-446655440000',
-        'test-session-token'
-      );
+      const result = await deleteRestaurant('550e8400-e29b-41d4-a716-446655440000');
 
       expect(result.success).toBe(true);
     });
@@ -342,7 +394,7 @@ describe('Restaurant CRUD Server Actions — Integration Tests', () => {
       });
       mockedCreateClient.mockResolvedValue({ from: vi.fn().mockReturnValue(fetchChain) } as never);
 
-      const result = await deleteRestaurant('non-existent-id', 'test-session-token');
+      const result = await deleteRestaurant('non-existent-id');
 
       expect(result.success).toBe(false);
       if (!result.success) {

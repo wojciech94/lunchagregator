@@ -39,8 +39,6 @@ const validWebsiteUrlArb = fc.constantFrom(
   'https://my-restaurant.com/about'
 );
 
-const sessionTokenArb = fc.string({ minLength: 1, maxLength: 50 }).filter((s) => s.length >= 1);
-
 // Generator for valid inputs that should pass validation
 const validInputArb = fc
   .record({
@@ -50,7 +48,6 @@ const validInputArb = fc
     location: fc.option(validLocationArb, { nil: undefined }),
     phoneNumber: fc.option(validPhoneNumberArb, { nil: undefined }),
     websiteUrl: fc.option(validWebsiteUrlArb, { nil: undefined }),
-    sessionToken: sessionTokenArb,
   })
   .filter((input) => input.address !== undefined || input.location !== undefined);
 
@@ -71,8 +68,8 @@ describe('Property 1: Restaurant validation — required and optional field cons
       const shortNameArb = fc.string({ minLength: 0, maxLength: 1 });
 
       fc.assert(
-        fc.property(shortNameArb, validAddressArb, sessionTokenArb, (name, address, sessionToken) => {
-          const input = { name, address, sessionToken };
+        fc.property(shortNameArb, validAddressArb, (name, address) => {
+          const input = { name, address };
           const result = createRestaurantSchema.safeParse(input);
           expect(result.success).toBe(false);
         })
@@ -83,8 +80,8 @@ describe('Property 1: Restaurant validation — required and optional field cons
       const longNameArb = fc.string({ minLength: 101, maxLength: 200 });
 
       fc.assert(
-        fc.property(longNameArb, validAddressArb, sessionTokenArb, (name, address, sessionToken) => {
-          const input = { name, address, sessionToken };
+        fc.property(longNameArb, validAddressArb, (name, address) => {
+          const input = { name, address };
           const result = createRestaurantSchema.safeParse(input);
           expect(result.success).toBe(false);
         })
@@ -93,8 +90,8 @@ describe('Property 1: Restaurant validation — required and optional field cons
 
     it('should reject inputs where neither address nor location is provided', () => {
       fc.assert(
-        fc.property(validNameArb, sessionTokenArb, (name, sessionToken) => {
-          const input = { name, sessionToken };
+        fc.property(validNameArb, (name) => {
+          const input = { name };
           const result = createRestaurantSchema.safeParse(input);
           expect(result.success).toBe(false);
         })
@@ -111,9 +108,8 @@ describe('Property 1: Restaurant validation — required and optional field cons
           validNameArb,
           longDescriptionArb,
           validAddressArb,
-          sessionTokenArb,
-          (name, description, address, sessionToken) => {
-            const input = { name, description, address, sessionToken };
+          (name, description, address) => {
+            const input = { name, description, address };
             const result = createRestaurantSchema.safeParse(input);
             expect(result.success).toBe(false);
           }
@@ -129,9 +125,8 @@ describe('Property 1: Restaurant validation — required and optional field cons
           validNameArb,
           longPhoneArb,
           validAddressArb,
-          sessionTokenArb,
-          (name, phoneNumber, address, sessionToken) => {
-            const input = { name, phoneNumber, address, sessionToken };
+          (name, phoneNumber, address) => {
+            const input = { name, phoneNumber, address };
             const result = createRestaurantSchema.safeParse(input);
             expect(result.success).toBe(false);
           }
@@ -150,9 +145,8 @@ describe('Property 1: Restaurant validation — required and optional field cons
           validNameArb,
           longUrlArb,
           validAddressArb,
-          sessionTokenArb,
-          (name, websiteUrl, address, sessionToken) => {
-            const input = { name, websiteUrl, address, sessionToken };
+          (name, websiteUrl, address) => {
+            const input = { name, websiteUrl, address };
             const result = createRestaurantSchema.safeParse(input);
             expect(result.success).toBe(false);
           }

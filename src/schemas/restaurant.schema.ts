@@ -75,7 +75,6 @@ export const createRestaurantSchema = z
       .max(500, 'URL może mieć maksymalnie 500 znaków')
       .url('Nieprawidłowy format URL')
       .optional(),
-    sessionToken: z.string().min(1),
   })
   .refine(
     (data) => data.address !== undefined || data.location !== undefined,

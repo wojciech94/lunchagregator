@@ -9,7 +9,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Lunch Aggregator",
+  title: "Lunch Agregator",
   description: "Agregator ofert lunchowych z pobliskich restauracji",
 };
 

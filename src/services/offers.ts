@@ -35,6 +35,7 @@ interface DbLunchOffer {
   dietary_tags: string[];
   allergens: string[];
   source_type: string;
+  user_id: string | null;
   session_token: string;
   created_at: string;
   updated_at: string;
@@ -60,6 +61,7 @@ function mapDbRowToOffer(row: DbLunchOffer): LunchOffer {
     dietaryTags: row.dietary_tags as LunchOffer['dietaryTags'],
     allergens: row.allergens as LunchOffer['allergens'],
     sourceType: row.source_type as LunchOffer['sourceType'],
+    userId: row.user_id ?? null,
     sessionToken: row.session_token,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -110,7 +112,7 @@ function parseLocation(
  */
 function mapOfferToDbRow(
   data: CreateOfferInput,
-  sessionToken: string
+  userId: string
 ): Record<string, unknown> {
   const row: Record<string, unknown> = {
     dish_name: data.dishName,
@@ -119,7 +121,7 @@ function mapOfferToDbRow(
     restaurant_name: data.restaurantName,
     available_date: data.availableDate,
     source_type: data.sourceType,
-    session_token: sessionToken,
+    user_id: userId,
     description: data.description ?? null,
     cuisine_type: data.cuisineType ?? null,
     dietary_tags: data.dietaryTags ?? [],
@@ -214,12 +216,13 @@ export async function getOffersByRestaurant(
 
 /**
  * Create a new offer with Zod validation.
+ * Sets user_id from the authenticated user on the inserted record.
  * When restaurantId is provided, fetches the restaurant's location
  * to store as a snapshot in the offer's restaurant_location field.
  */
 export async function createOffer(
   data: unknown,
-  sessionToken: string
+  userId: string
 ): Promise<ActionResult<LunchOffer>> {
   // Validate input with Zod
   const parsed = createOfferSchema.safeParse(data);
@@ -237,12 +240,12 @@ export async function createOffer(
     };
   }
 
-  if (!sessionToken) {
-    return { success: false, error: 'Session token is required' };
+  if (!userId) {
+    return { success: false, error: 'User ID is required' };
   }
 
   const supabase = await createClient();
-  const dbRow = mapOfferToDbRow(parsed.data, sessionToken);
+  const dbRow = mapOfferToDbRow(parsed.data, userId);
 
   // If restaurantId is provided, fetch the restaurant's location for the snapshot
   if (parsed.data.restaurantId) {
@@ -271,39 +274,14 @@ export async function createOffer(
 }
 
 /**
- * Update an existing offer with ownership check (session_token match).
+ * Update an existing offer.
+ * Ownership must be verified by the caller (action layer) before calling this function.
  */
 export async function updateOffer(
   id: string,
-  data: unknown,
-  sessionToken: string
+  data: unknown
 ): Promise<ActionResult<LunchOffer>> {
-  if (!sessionToken) {
-    return { success: false, error: 'Session token is required' };
-  }
-
   const supabase = await createClient();
-
-  // First, check ownership
-  const { data: existing, error: fetchError } = await supabase
-    .from('lunch_offers')
-    .select('session_token')
-    .eq('id', id)
-    .single();
-
-  if (fetchError) {
-    if (fetchError.code === 'PGRST116') {
-      return { success: false, error: 'Offer not found' };
-    }
-    return { success: false, error: 'Failed to fetch offer' };
-  }
-
-  if (existing.session_token !== sessionToken) {
-    return {
-      success: false,
-      error: 'Unauthorized: you can only edit your own offers',
-    };
-  }
 
   // Validate input with Zod
   const parsed = updateOfferSchema.safeParse(data);
@@ -341,38 +319,13 @@ export async function updateOffer(
 }
 
 /**
- * Delete an offer with ownership check (session_token match).
+ * Delete an offer.
+ * Ownership must be verified by the caller (action layer) before calling this function.
  */
 export async function deleteOffer(
-  id: string,
-  sessionToken: string
+  id: string
 ): Promise<ActionResult<void>> {
-  if (!sessionToken) {
-    return { success: false, error: 'Session token is required' };
-  }
-
   const supabase = await createClient();
-
-  // First, check ownership
-  const { data: existing, error: fetchError } = await supabase
-    .from('lunch_offers')
-    .select('session_token')
-    .eq('id', id)
-    .single();
-
-  if (fetchError) {
-    if (fetchError.code === 'PGRST116') {
-      return { success: false, error: 'Offer not found' };
-    }
-    return { success: false, error: 'Failed to fetch offer' };
-  }
-
-  if (existing.session_token !== sessionToken) {
-    return {
-      success: false,
-      error: 'Unauthorized: you can only delete your own offers',
-    };
-  }
 
   const { error: deleteError } = await supabase
     .from('lunch_offers')
@@ -450,6 +403,7 @@ function mapDbRowToOfferWithDistance(
     dietaryTags: (row.dietary_tags as LunchOfferWithDistance['dietaryTags']) ?? [],
     allergens: (row.allergens as LunchOfferWithDistance['allergens']) ?? [],
     sourceType: row.source_type as LunchOfferWithDistance['sourceType'],
+    userId: (row.user_id as string) ?? null,
     sessionToken: row.session_token as string,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,

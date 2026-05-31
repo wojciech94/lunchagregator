@@ -48,6 +48,7 @@ export interface LunchOffer {
   dietaryTags: DietaryTag[];
   allergens: Allergen[];
   sourceType: 'link' | 'text' | 'photo';
+  userId: string | null;
   sessionToken: string;
   createdAt: string;
   updatedAt: string;

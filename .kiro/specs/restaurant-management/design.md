@@ -2,7 +2,7 @@
 
 ## Overview
 
-Funkcjonalność zarządzania restauracjami wprowadza osobną encję `Restaurant` do aplikacji Lunch Aggregator. Restauracje będą przechowywane w dedykowanej tabeli z pełnym zestawem metadanych (lokalizacja, poziom cenowy, godziny lunchowe, typ kuchni). Oferty lunchowe mogą być opcjonalnie powiązane z restauracją przez klucz obcy, zachowując jednocześnie kompatybilność wsteczną z istniejącymi ofertami (embedded restaurant data).
+Funkcjonalność zarządzania restauracjami wprowadza osobną encję `Restaurant` do aplikacji Lunch Agregator. Restauracje będą przechowywane w dedykowanej tabeli z pełnym zestawem metadanych (lokalizacja, poziom cenowy, godziny lunchowe, typ kuchni). Oferty lunchowe mogą być opcjonalnie powiązane z restauracją przez klucz obcy, zachowując jednocześnie kompatybilność wsteczną z istniejącymi ofertami (embedded restaurant data).
 
 ### Kluczowe decyzje architektoniczne
 

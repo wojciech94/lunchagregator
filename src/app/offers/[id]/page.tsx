@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { ArrowLeft, Pencil, Trash2, MapPin, Calendar, Utensils, Tag } from 'lucide-react';
 
 import { getOfferById } from '@/actions/offers';
-import { getSessionToken } from '@/lib/session';
+import { getUser } from '@/lib/auth';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,8 +21,8 @@ export default async function OfferDetailsPage({ params }: OfferDetailsPageProps
   }
 
   const offer = result.data;
-  const sessionToken = await getSessionToken();
-  const isOwner = sessionToken !== null && sessionToken === offer.sessionToken;
+  const user = await getUser();
+  const isOwner = user !== null && offer.userId !== null && user.id === offer.userId;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">

@@ -14,11 +14,19 @@ vi.mock('@/services/geocoding', () => ({
   ),
 }));
 
+vi.mock('@/lib/auth', () => ({
+  getUser: vi.fn(),
+}));
+
 import { createClient } from '@/lib/supabase/server';
+import { getUser } from '@/lib/auth';
 import { createOffer } from '@/services/offers';
 import { updateRestaurant, deleteRestaurant } from '@/actions/restaurants';
 
 const mockedCreateClient = vi.mocked(createClient);
+const mockedGetUser = vi.mocked(getUser);
+
+const TEST_USER_ID = '11111111-1111-1111-1111-111111111111';
 
 // ============================================================================
 // Helpers
@@ -37,7 +45,8 @@ function createDbRestaurantRow(overrides: Record<string, unknown> = {}) {
     cuisine_types: ['polska', 'wloska'],
     phone_number: '123456789',
     website_url: 'https://test.pl',
-    session_token: 'test-session-token',
+    session_token: null,
+    user_id: TEST_USER_ID,
     created_at: '2024-01-01T12:00:00Z',
     updated_at: '2024-01-01T12:00:00Z',
     ...overrides,
@@ -99,6 +108,7 @@ function createChainableMock(terminalMethod: string, result: unknown) {
 describe('Restaurant-Offer Association — Integration Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedGetUser.mockResolvedValue({ id: TEST_USER_ID } as never);
   });
 
   // ==========================================================================
@@ -319,8 +329,7 @@ describe('Restaurant-Offer Association — Integration Tests', () => {
 
       const result = await updateRestaurant(
         '550e8400-e29b-41d4-a716-446655440000',
-        { name: 'Nowa Nazwa Restauracji', address: 'ul. Nowa 99, Warszawa' },
-        'test-session-token'
+        { name: 'Nowa Nazwa Restauracji', address: 'ul. Nowa 99, Warszawa' }
       );
 
       expect(result.success).toBe(true);
@@ -409,8 +418,7 @@ describe('Restaurant-Offer Association — Integration Tests', () => {
 
       const updateResult = await updateRestaurant(
         restaurantId,
-        { name: 'Zmieniona Nazwa' },
-        'test-session-token'
+        { name: 'Zmieniona Nazwa' }
       );
 
       expect(updateResult.success).toBe(true);
@@ -462,7 +470,7 @@ describe('Restaurant-Offer Association — Integration Tests', () => {
 
       mockedCreateClient.mockResolvedValue({ from: mockFromFn } as never);
 
-      const result = await deleteRestaurant(restaurantId, 'test-session-token');
+      const result = await deleteRestaurant(restaurantId);
 
       expect(result.success).toBe(true);
 
@@ -503,7 +511,7 @@ describe('Restaurant-Offer Association — Integration Tests', () => {
 
       mockedCreateClient.mockResolvedValue({ from: mockFromFn } as never);
 
-      const result = await deleteRestaurant(restaurantId, 'test-session-token');
+      const result = await deleteRestaurant(restaurantId);
 
       expect(result.success).toBe(true);
 
@@ -549,7 +557,7 @@ describe('Restaurant-Offer Association — Integration Tests', () => {
 
       mockedCreateClient.mockResolvedValue({ from: mockFromFn } as never);
 
-      const result = await deleteRestaurant(restaurantId, 'test-session-token');
+      const result = await deleteRestaurant(restaurantId);
 
       expect(result.success).toBe(true);
 

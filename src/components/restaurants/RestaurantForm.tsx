@@ -17,7 +17,6 @@ import type { CuisineType, Coordinates } from "@/types/offers";
 // ============================================================================
 
 export interface RestaurantFormProps {
-  sessionToken: string;
   initialData?: Partial<Restaurant>;
   /** When provided, the form operates in EDIT mode and calls updateRestaurant. */
   restaurantId?: string;
@@ -51,7 +50,6 @@ const PRICE_LEVEL_OPTIONS: { value: PriceLevel; label: string }[] = [
 // ============================================================================
 
 export function RestaurantForm({
-  sessionToken,
   initialData,
   restaurantId,
   className,
@@ -100,7 +98,6 @@ export function RestaurantForm({
 
     const inputData: CreateRestaurantInput = {
       name: name.trim(),
-      sessionToken,
       ...(description.trim() && { description: description.trim() }),
       ...(address.trim() && { address: address.trim() }),
       ...(location && { location }),
@@ -140,7 +137,7 @@ export function RestaurantForm({
         websiteUrl: websiteUrl.trim() || null,
       };
 
-      const result = await updateRestaurant(restaurantId, updateData, sessionToken);
+      const result = await updateRestaurant(restaurantId, updateData);
       if (result.success) {
         onSuccess?.(result.data);
       } else {

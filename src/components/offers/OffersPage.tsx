@@ -206,7 +206,6 @@ export function OffersPage({ initialData }: OffersPageProps) {
         initialFilters={
           coordinates ? { sortBy: "distance" } : { sortBy: "newest" }
         }
-        showEmptyState={!isLoading && displayOffers.length === 0}
       />
 
       {/* Loading indicator */}
@@ -216,8 +215,19 @@ export function OffersPage({ initialData }: OffersPageProps) {
         </div>
       )}
 
+      {/* Single empty state — context-aware */}
+      {!isLoading && displayOffers.length === 0 && (
+        <div className="rounded-lg border border-border bg-muted/50 p-6 text-center">
+          <p className="text-muted-foreground">
+            {Object.keys(filters).length > 0
+              ? "Brak ofert spełniających wybrane kryteria. Spróbuj zmienić filtry."
+              : "Brak ofert lunchowych na dziś. Sprawdź później lub dodaj własną ofertę!"}
+          </p>
+        </div>
+      )}
+
       {/* Offer list */}
-      {!isLoading && (
+      {!isLoading && displayOffers.length > 0 && (
         <OfferList
           offers={displayOffers}
           pagination={pagination}

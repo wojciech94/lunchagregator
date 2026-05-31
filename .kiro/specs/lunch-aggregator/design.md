@@ -1,8 +1,8 @@
-# Design Document: Lunch Aggregator
+# Design Document: Lunch Agregator
 
 ## Overview
 
-Lunch Aggregator to aplikacja webowa zbudowana w Next.js (App Router) z TypeScript, wykorzystująca Supabase jako bazę danych (PostgreSQL + PostGIS) oraz Vercel AI SDK do analizy treści i rekomendacji. Aplikacja umożliwia anonimowe przeglądanie, filtrowanie i dodawanie ofert lunchowych, a także korzystanie z czatu AI do rekomendacji posiłków.
+Lunch Agregator to aplikacja webowa zbudowana w Next.js (App Router) z TypeScript, wykorzystująca Supabase jako bazę danych (PostgreSQL + PostGIS) oraz Vercel AI SDK do analizy treści i rekomendacji. Aplikacja umożliwia anonimowe przeglądanie, filtrowanie i dodawanie ofert lunchowych, a także korzystanie z czatu AI do rekomendacji posiłków.
 
 ### Kluczowe decyzje architektoniczne
 
@@ -494,7 +494,7 @@ Konfiguracja: minimum 100 iteracji na property test.
 
 Każdy test property-based będzie oznaczony komentarzem:
 ```typescript
-// Feature: lunch-aggregator, Property {number}: {property_text}
+// Feature: lunch-agregator, Property {number}: {property_text}
 ```
 
 Testy property-based pokrywają:

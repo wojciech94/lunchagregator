@@ -1,6 +1,7 @@
 'use server';
 
-import { getOrCreateSessionToken, getSessionToken } from '@/lib/session';
+import { getUser } from '@/lib/auth';
+import { checkOwnership } from '@/lib/ownership';
 import { offerFiltersSchema } from '@/lib/validations/filters';
 import {
   listOffers,
@@ -92,15 +93,20 @@ export async function getOffersByRestaurantAction(
 
 /**
  * Server action to create a new offer.
- * Gets or creates a session token, then delegates to the service layer
- * which handles Zod validation and database insertion.
+ * Requires an authenticated user; sets user_id from getUser() on the inserted record.
+ * Requirements: 4.5, 5.2
  */
 export async function createOfferAction(
   data: unknown
 ): Promise<ActionResult<LunchOffer>> {
   try {
-    const sessionToken = await getOrCreateSessionToken();
-    return await createOffer(data, sessionToken);
+    const user = await getUser();
+
+    if (!user) {
+      return { success: false, error: 'Brak autoryzacji' };
+    }
+
+    return await createOffer(data, user.id);
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Failed to create offer';
@@ -110,8 +116,9 @@ export async function createOfferAction(
 
 /**
  * Server action to create multiple offers at once (e.g. a weekly menu where each
- * weekday has its own dish/date). Creates them sequentially under the same session
+ * weekday has its own dish/date). Creates them sequentially under the same user
  * and returns a summary of successes and failures.
+ * Requirements: 4.5, 5.2
  */
 export async function createOffersBatchAction(
   items: unknown[]
@@ -121,13 +128,17 @@ export async function createOffersBatchAction(
       return { success: false, error: 'Brak ofert do utworzenia.' };
     }
 
-    const sessionToken = await getOrCreateSessionToken();
+    const user = await getUser();
+
+    if (!user) {
+      return { success: false, error: 'Brak autoryzacji' };
+    }
 
     const created: LunchOffer[] = [];
     const failed: { index: number; error: string }[] = [];
 
     for (let i = 0; i < items.length; i++) {
-      const result = await createOffer(items[i], sessionToken);
+      const result = await createOffer(items[i], user.id);
       if (result.success) {
         created.push(result.data);
       } else {
@@ -153,8 +164,8 @@ export async function createOffersBatchAction(
 
 /**
  * Server action to update an existing offer.
- * Gets the current session token and delegates to the service layer
- * which handles ownership check, Zod validation, and database update.
+ * Requires an authenticated user; verifies ownership via user_id before updating.
+ * Requirements: 4.5, 5.3, 5.4, 5.5
  */
 export async function updateOfferAction(
   id: string,
@@ -165,16 +176,25 @@ export async function updateOfferAction(
       return { success: false, error: 'Invalid offer ID' };
     }
 
-    const sessionToken = await getSessionToken();
+    const user = await getUser();
 
-    if (!sessionToken) {
-      return {
-        success: false,
-        error: 'No session found. You must have a session to edit offers.',
-      };
+    if (!user) {
+      return { success: false, error: 'Brak autoryzacji' };
     }
 
-    return await updateOffer(id, data, sessionToken);
+    // Fetch the existing offer to check ownership
+    const existing = await getOffer(id);
+    if (!existing.success) {
+      return existing;
+    }
+
+    const recordUserId = existing.data.userId ?? null;
+
+    if (!checkOwnership(user.id, recordUserId)) {
+      return { success: false, error: 'Brak uprawnień do tej operacji' };
+    }
+
+    return await updateOffer(id, data);
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Failed to update offer';
@@ -184,8 +204,8 @@ export async function updateOfferAction(
 
 /**
  * Server action to delete an offer.
- * Gets the current session token and delegates to the service layer
- * which handles ownership check and database deletion.
+ * Requires an authenticated user; verifies ownership via user_id before deleting.
+ * Requirements: 4.5, 5.3, 5.4, 5.5
  */
 export async function deleteOfferAction(
   id: string
@@ -195,16 +215,25 @@ export async function deleteOfferAction(
       return { success: false, error: 'Invalid offer ID' };
     }
 
-    const sessionToken = await getSessionToken();
+    const user = await getUser();
 
-    if (!sessionToken) {
-      return {
-        success: false,
-        error: 'No session found. You must have a session to delete offers.',
-      };
+    if (!user) {
+      return { success: false, error: 'Brak autoryzacji' };
     }
 
-    return await deleteOffer(id, sessionToken);
+    // Fetch the existing offer to check ownership
+    const existing = await getOffer(id);
+    if (!existing.success) {
+      return existing;
+    }
+
+    const recordUserId = existing.data.userId ?? null;
+
+    if (!checkOwnership(user.id, recordUserId)) {
+      return { success: false, error: 'Brak uprawnień do tej operacji' };
+    }
+
+    return await deleteOffer(id);
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Failed to delete offer';

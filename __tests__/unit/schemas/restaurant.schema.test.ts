@@ -8,7 +8,6 @@ import {
 const validMinimalInput = {
   name: 'Restauracja Polska',
   address: 'ul. Marszałkowska 1, Warszawa',
-  sessionToken: 'test-session-token-123',
 };
 
 const validFullInput = {
@@ -21,7 +20,6 @@ const validFullInput = {
   cuisineTypes: ['polska', 'srodziemnomorska'] as const,
   phoneNumber: '+48 22 123 45 67',
   websiteUrl: 'https://restauracja-polska.pl',
-  sessionToken: 'test-session-token-123',
 };
 
 describe('lunchHoursSchema', () => {
@@ -77,7 +75,7 @@ describe('lunchHoursSchema', () => {
 });
 
 describe('createRestaurantSchema', () => {
-  it('accepts valid minimal input (name + address + sessionToken)', () => {
+  it('accepts valid minimal input (name + address)', () => {
     const result = createRestaurantSchema.safeParse(validMinimalInput);
     expect(result.success).toBe(true);
   });
@@ -91,7 +89,6 @@ describe('createRestaurantSchema', () => {
     const result = createRestaurantSchema.safeParse({
       name: 'Test Restaurant',
       location: { latitude: 52.2297, longitude: 21.0122 },
-      sessionToken: 'token-123',
     });
     expect(result.success).toBe(true);
   });
@@ -134,7 +131,6 @@ describe('createRestaurantSchema', () => {
     it('rejects when both address and location are missing', () => {
       const result = createRestaurantSchema.safeParse({
         name: 'Test Restaurant',
-        sessionToken: 'token-123',
       });
       expect(result.success).toBe(false);
     });
@@ -143,7 +139,6 @@ describe('createRestaurantSchema', () => {
       const result = createRestaurantSchema.safeParse({
         name: 'Test Restaurant',
         address: 'ul. Testowa 1',
-        sessionToken: 'token-123',
       });
       expect(result.success).toBe(true);
     });
@@ -152,7 +147,6 @@ describe('createRestaurantSchema', () => {
       const result = createRestaurantSchema.safeParse({
         name: 'Test Restaurant',
         location: { latitude: 50.0, longitude: 20.0 },
-        sessionToken: 'token-123',
       });
       expect(result.success).toBe(true);
     });
@@ -217,16 +211,6 @@ describe('createRestaurantSchema', () => {
         phoneNumber: '1'.repeat(20),
       });
       expect(result.success).toBe(true);
-    });
-  });
-
-  describe('sessionToken validation', () => {
-    it('rejects empty sessionToken', () => {
-      const result = createRestaurantSchema.safeParse({
-        ...validMinimalInput,
-        sessionToken: '',
-      });
-      expect(result.success).toBe(false);
     });
   });
 });

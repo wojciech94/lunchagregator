@@ -29,14 +29,7 @@ export function OfferList({
   const showPagination = hasMore || page > 1;
 
   if (offers.length === 0) {
-    return (
-      <div className={cn("py-12 text-center", className)}>
-        <p className="text-base text-muted-foreground">
-          Brak ofert lunchowych na dziś. Sprawdź później lub dodaj własną
-          ofertę!
-        </p>
-      </div>
-    );
+    return null;
   }
 
   return (

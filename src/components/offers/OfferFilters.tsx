@@ -47,15 +47,12 @@ interface OfferFiltersProps {
   onChange: (filters: OfferFiltersType) => void;
   userLocation?: Coordinates | null;
   initialFilters?: Partial<OfferFiltersType>;
-  /** When true, displays an empty state message indicating no offers match */
-  showEmptyState?: boolean;
 }
 
 export function OfferFilters({
   onChange,
   userLocation,
   initialFilters,
-  showEmptyState = false,
 }: OfferFiltersProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState(
@@ -403,15 +400,6 @@ export function OfferFilters({
           </div>
         </div>
       </div>
-
-      {/* Empty state message when no offers match filters */}
-      {showEmptyState && (
-        <div className="rounded-lg border border-border bg-muted/50 p-6 text-center">
-          <p className="text-muted-foreground">
-            Brak ofert spełniających wybrane kryteria. Spróbuj zmienić filtry.
-          </p>
-        </div>
-      )}
     </div>
   );
 }

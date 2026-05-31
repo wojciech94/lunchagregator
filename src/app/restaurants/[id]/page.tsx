@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 
 import { getRestaurant } from '@/actions/restaurants';
 import { getOffersByRestaurant } from '@/services/offers';
-import { getSessionToken } from '@/lib/session';
+import { getUser } from '@/lib/auth';
 import { RestaurantDetail } from '@/components/restaurants/RestaurantDetail';
 
 interface RestaurantDetailPageProps {
@@ -17,8 +17,8 @@ export default async function RestaurantDetailPage({ params }: RestaurantDetailP
     notFound();
   }
 
-  const [sessionToken, offers] = await Promise.all([
-    getSessionToken(),
+  const [user, offers] = await Promise.all([
+    getUser(),
     getOffersByRestaurant(id),
   ]);
 
@@ -26,7 +26,7 @@ export default async function RestaurantDetailPage({ params }: RestaurantDetailP
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
       <RestaurantDetail
         restaurant={restaurant}
-        sessionToken={sessionToken ?? ''}
+        currentUserId={user?.id ?? null}
         offers={offers}
       />
     </div>

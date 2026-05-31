@@ -5,20 +5,10 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RestaurantForm } from "@/components/restaurants/RestaurantForm";
-import { ensureSessionToken } from "@/actions/session";
 import type { Restaurant } from "@/types/restaurants";
 
 export default function NewRestaurantPage() {
   const router = useRouter();
-  const [sessionToken, setSessionToken] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    async function loadSession() {
-      const token = await ensureSessionToken();
-      setSessionToken(token);
-    }
-    loadSession();
-  }, []);
 
   function handleSuccess(restaurant: Restaurant) {
     router.push(`/restaurants/${restaurant.id}`);
@@ -41,14 +31,7 @@ export default function NewRestaurantPage() {
       </div>
 
       {/* Form */}
-      {sessionToken ? (
-        <RestaurantForm
-          sessionToken={sessionToken}
-          onSuccess={handleSuccess}
-        />
-      ) : (
-        <p className="text-sm text-muted-foreground">Ładowanie...</p>
-      )}
+      <RestaurantForm onSuccess={handleSuccess} />
     </div>
   );
 }

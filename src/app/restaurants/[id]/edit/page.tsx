@@ -6,7 +6,6 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RestaurantForm } from "@/components/restaurants/RestaurantForm";
 import { getRestaurant } from "@/actions/restaurants";
-import { ensureSessionToken } from "@/actions/session";
 import type { Restaurant } from "@/types/restaurants";
 
 interface EditRestaurantPageProps {
@@ -17,7 +16,7 @@ type LoadState =
   | { status: "loading" }
   | { status: "not_found" }
   | { status: "forbidden" }
-  | { status: "ready"; restaurant: Restaurant; sessionToken: string };
+  | { status: "ready"; restaurant: Restaurant };
 
 export default function EditRestaurantPage({ params }: EditRestaurantPageProps) {
   const router = useRouter();
@@ -28,10 +27,7 @@ export default function EditRestaurantPage({ params }: EditRestaurantPageProps) 
 
     async function load() {
       const { id } = await params;
-      const [restaurant, sessionToken] = await Promise.all([
-        getRestaurant(id),
-        ensureSessionToken(),
-      ]);
+      const restaurant = await getRestaurant(id);
 
       if (cancelled) return;
 
@@ -40,12 +36,7 @@ export default function EditRestaurantPage({ params }: EditRestaurantPageProps) 
         return;
       }
 
-      if (restaurant.sessionToken !== sessionToken) {
-        setState({ status: "forbidden" });
-        return;
-      }
-
-      setState({ status: "ready", restaurant, sessionToken });
+      setState({ status: "ready", restaurant });
     }
 
     load();
@@ -96,7 +87,6 @@ export default function EditRestaurantPage({ params }: EditRestaurantPageProps) 
 
       {state.status === "ready" && (
         <RestaurantForm
-          sessionToken={state.sessionToken}
           restaurantId={state.restaurant.id}
           initialData={state.restaurant}
           onSuccess={handleSuccess}

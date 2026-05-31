@@ -22,7 +22,7 @@ import type { LunchOffer } from '@/types/offers';
 
 interface RestaurantDetailProps {
   restaurant: RestaurantWithDistance;
-  sessionToken: string;
+  currentUserId?: string | null;
   offers?: LunchOffer[];
 }
 
@@ -38,11 +38,11 @@ const priceLevelColors: Record<string, string> = {
   premium: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
 };
 
-export function RestaurantDetail({ restaurant, sessionToken, offers = [] }: RestaurantDetailProps) {
+export function RestaurantDetail({ restaurant, currentUserId, offers = [] }: RestaurantDetailProps) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const isOwner = sessionToken === restaurant.sessionToken;
+  const isOwner = currentUserId != null && currentUserId === restaurant.userId;
 
   async function handleDelete() {
     const confirmed = window.confirm(
@@ -53,7 +53,7 @@ export function RestaurantDetail({ restaurant, sessionToken, offers = [] }: Rest
 
     setIsDeleting(true);
 
-    const result = await deleteRestaurant(restaurant.id, sessionToken);
+    const result = await deleteRestaurant(restaurant.id);
 
     if (result.success) {
       router.push('/restaurants');
