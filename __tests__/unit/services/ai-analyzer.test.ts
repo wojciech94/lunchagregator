@@ -293,7 +293,7 @@ describe('AIAnalyzerService', () => {
       // Requirement 5.3: the photo itself must reach the model. Without this
       // the test still passes if the image part stops being sent.
       const callArgs = mockGenerateObject.mock.calls[0][0];
-      const parts = callArgs.messages[0].content;
+      const parts = callArgs.messages?.[0].content;
       expect(parts).toContainEqual({
         type: 'image',
         image: 'https://storage.example.com/menu.jpg',
