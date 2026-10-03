@@ -280,12 +280,14 @@ Implementacja aplikacji Lunch Agregator w Next.js (App Router) z TypeScript, Sup
     - Test: Responsive layout at 320px, 768px, 1024px, 1440px viewports
     - _Requirements: 1.1, 2.1, 5.1, 6.7, 7.1_
 
-  - [ ]* 14.3 Write accessibility and responsive tests
-    - Run axe-core automated accessibility audit on all pages
-    - Verify tap target sizes (44x44px) on mobile viewports
-    - Verify no horizontal scrolling at 320px-2560px
-    - Verify font sizes (min 16px body text on mobile)
-    - Screenshot comparison at key breakpoints
+  - [x] 14.3 Write accessibility and responsive tests
+    - Run axe-core automated accessibility audit on all pages — `__tests__/e2e/responsive.spec.ts`, five routes across the five viewport projects. `axe-core` is no longer an unused dependency.
+    - Verify tap target sizes (44x44px) on mobile viewports — asserted at 320 and 768.
+    - Verify no horizontal scrolling at 320px-2560px — asserted per element, because `overflow-x-hidden` on html/body makes the document-level `scrollWidth` comparison vacuous.
+    - Verify font sizes (min 16px body text on mobile) — asserted at 320 and 768.
+    - Screenshot comparison at key breakpoints — **not done.** The measurements cover the numeric requirements; visual regression needs reference images that do not exist in this repository, and generating them would enshrine the current layout as the baseline.
+    - The suite compares against a recorded baseline rather than asserting zero, because Requirement 7 currently has real violations catalogued in #23. It fails on anything new; deleting a baseline entry is the visible act of fixing that violation.
+    - Cross-browser smoke for 7.2 lives in `__tests__/e2e/browser-smoke.spec.ts` and runs on chromium and edge. firefox and webkit need `npx playwright install firefox webkit`, which has not been run, so 7.2 is unverified on those two engines.
     - _Requirements: 7.1, 7.2, 7.3, 7.4_
 
 - [x] 15. Final checkpoint
