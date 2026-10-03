@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { ChatMessage } from "./ChatMessage";
 import type { Coordinates } from "@/types/offers";
 import { cn } from "@/lib/utils";
+import { isRateLimitError, RATE_LIMIT_MESSAGE } from "@/lib/ai/errors";
 
 interface ChatWindowProps {
   userLocation?: Coordinates;
@@ -48,6 +49,10 @@ export function ChatWindow({ userLocation, className, onMessageCountChange }: Ch
   const isServiceUnavailable =
     error?.message?.includes("503") ||
     error?.message?.toLowerCase().includes("unavailable");
+
+  // A rate limit is an expected condition on the free tier, not an outage,
+  // so it gets its own message instead of the generic error.
+  const isRateLimited = isRateLimitError(error);
 
   return (
     <div
@@ -100,7 +105,9 @@ export function ChatWindow({ userLocation, className, onMessageCountChange }: Ch
         <div className="mx-4 mb-2 flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
           <p>
-            {isServiceUnavailable
+            {isRateLimited
+              ? RATE_LIMIT_MESSAGE
+              : isServiceUnavailable
               ? "Usługa rekomendacji jest tymczasowo niedostępna. Spróbuj ponownie później."
               : "Wystąpił błąd. Spróbuj ponownie."}
           </p>

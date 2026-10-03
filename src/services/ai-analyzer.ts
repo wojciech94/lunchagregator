@@ -1,6 +1,8 @@
 import { generateObject } from 'ai';
 import { google } from '@ai-sdk/google';
 import { AI_MODEL_ID } from '@/lib/ai/models';
+import { RATE_LIMIT_MESSAGE, isRateLimitError } from '@/lib/ai/errors';
+import { AI_TIMEOUT_MS, GEMINI_THINKING_OFF } from '@/lib/ai/constants';
 import { z } from 'zod';
 import type { DietaryTag, Allergen } from '@/types/offers';
 
@@ -38,6 +40,12 @@ export interface ExtractedOffers {
   sourceType: 'link' | 'text' | 'photo';
   confidence: number;
   missingFields: string[];
+  /**
+   * Set when the AI call failed for a reason the User should hear about,
+   * such as a rate limit. Absent means either a successful extraction or an
+   * ordinary failure with nothing useful to add.
+   */
+  message?: string;
 }
 
 // ============================================================================
@@ -132,23 +140,39 @@ const extractionResultSchema = z.object({
 /**
  * Wraps an AI call with a timeout and fallback.
  * Returns the fallback value if the AI call times out or throws.
+ *
+ * The timer is always cleared. Without that, every successful call leaks a
+ * pending timer until it fires.
  */
 async function withAIFallback<T>(
   aiCall: () => Promise<T>,
-  fallback: () => T,
-  timeoutMs: number = 30000
+  fallback: (message?: string) => T,
+  timeoutMs: number = AI_TIMEOUT_MS
 ): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
   try {
     const result = await Promise.race([
       aiCall(),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('AI service timeout')), timeoutMs)
-      ),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error('AI service timeout')),
+          timeoutMs
+        );
+      }),
     ]);
     return result;
   } catch (error) {
     console.error('AI service error:', error);
-    return fallback();
+    // A rate limit is not the same as "nothing found": say so rather than
+    // returning a silently empty result the User reads as a real answer.
+    return isRateLimitError(error)
+      ? fallback(RATE_LIMIT_MESSAGE)
+      : fallback();
+  } finally {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
   }
 }
 
@@ -203,12 +227,16 @@ function identifyMissingFields(offers: ExtractedOffer[]): string[] {
 // Empty Fallback
 // ============================================================================
 
-function emptyExtraction(sourceType: 'link' | 'text' | 'photo'): ExtractedOffers {
+function emptyExtraction(
+  sourceType: 'link' | 'text' | 'photo',
+  message?: string
+): ExtractedOffers {
   return {
     offers: [],
     sourceType,
     confidence: 0,
     missingFields: ['restaurantName', 'dishName', 'price'],
+    ...(message ? { message } : {}),
   };
 }
 
@@ -256,10 +284,11 @@ Rules:
  * Fetches the URL content and uses AI to extract structured data.
  */
 export async function analyzeUrl(url: string): Promise<ExtractedOffers> {
-  return withAIFallback(
+  return withAIFallback<ExtractedOffers>(
     async () => {
       const { object } = await generateObject({
         model: google(AI_MODEL_ID),
+        providerOptions: GEMINI_THINKING_OFF,
         schema: extractionResultSchema,
         system: EXTRACTION_SYSTEM_PROMPT,
         prompt: `Extract lunch offer information from the following URL. Analyze the content at this URL and extract all lunch offers you can find:\n\nURL: ${url}`,
@@ -274,7 +303,7 @@ export async function analyzeUrl(url: string): Promise<ExtractedOffers> {
         missingFields,
       };
     },
-    () => emptyExtraction('link')
+    (message) => emptyExtraction('link', message)
   );
 }
 
@@ -297,10 +326,11 @@ export async function analyzeText(text: string): Promise<ExtractedOffers> {
     );
   }
 
-  return withAIFallback(
+  return withAIFallback<ExtractedOffers>(
     async () => {
       const { object } = await generateObject({
         model: google(AI_MODEL_ID),
+        providerOptions: GEMINI_THINKING_OFF,
         schema: extractionResultSchema,
         system: EXTRACTION_SYSTEM_PROMPT,
         prompt: `Extract lunch offer information from the following text:\n\n${text}`,
@@ -315,7 +345,7 @@ export async function analyzeText(text: string): Promise<ExtractedOffers> {
         missingFields,
       };
     },
-    () => emptyExtraction('text')
+    (message) => emptyExtraction('text', message)
   );
 }
 
@@ -324,10 +354,11 @@ export async function analyzeText(text: string): Promise<ExtractedOffers> {
  * Uses a vision-capable model for OCR and content analysis.
  */
 export async function analyzeImage(imageUrl: string): Promise<ExtractedOffers> {
-  return withAIFallback(
+  return withAIFallback<ExtractedOffers>(
     async () => {
       const { object } = await generateObject({
         model: google(AI_MODEL_ID),
+        providerOptions: GEMINI_THINKING_OFF,
         schema: extractionResultSchema,
         system: EXTRACTION_SYSTEM_PROMPT,
         messages: [
@@ -356,6 +387,6 @@ export async function analyzeImage(imageUrl: string): Promise<ExtractedOffers> {
         missingFields,
       };
     },
-    () => emptyExtraction('photo')
+    (message) => emptyExtraction('photo', message)
   );
 }

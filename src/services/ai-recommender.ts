@@ -1,6 +1,7 @@
 import { streamText, type CoreMessage } from 'ai';
 import { google } from '@ai-sdk/google';
 import { AI_MODEL_ID } from '@/lib/ai/models';
+import { AI_TIMEOUT_MS, GEMINI_THINKING_OFF } from '@/lib/ai/constants';
 import type { Coordinates, LunchOffer } from '@/types/offers';
 
 /**
@@ -84,8 +85,14 @@ export function createAIRecommenderService(): AIRecommenderService {
 
       return streamText({
         model: google(AI_MODEL_ID),
+        providerOptions: GEMINI_THINKING_OFF,
         system: systemPrompt,
         messages: coreMessages,
+        // Requirement 4.2 budgets the whole response at 10 seconds. Racing
+        // the stream against a timer is not possible — the result is handed
+        // back before any token exists — so the deadline is enforced by
+        // aborting the provider request instead.
+        abortSignal: AbortSignal.timeout(AI_TIMEOUT_MS),
       });
     },
   };

@@ -108,11 +108,15 @@ export default function AddOfferPage() {
       const validation = validateExtraction(result.data);
 
       if (validation.prefilledData.length === 0) {
-        // No offers extracted at all
+        // No offers extracted at all. A rate limit arrives as an empty
+        // extraction too, and it carries its own message so the User is not
+        // told the model found nothing.
         setState((prev) => ({
           ...prev,
           step: "input",
-          error: "Nie udało się wyekstrahować żadnych ofert. Spróbuj ponownie lub wprowadź dane ręcznie.",
+          error:
+            result.data.message ??
+            "Nie udało się wyekstrahować żadnych ofert. Spróbuj ponownie lub wprowadź dane ręcznie.",
         }));
         return;
       }
