@@ -2,16 +2,23 @@
 
 ## Introduction
 
-Aplikacja webowa agregująca oferty lunchowe z pobliskich restauracji. Każdy użytkownik może przeglądać aktualne menu lunchowe, filtrować oferty według lokalizacji, kuchni i ceny, a także korzystać z czatu AI do rekomendacji posiłków w ramach bieżącej sesji. Użytkownicy mogą anonimowo dodawać oferty — wklejając linki, tekst lub zdjęcia, które AI analizuje i tworzy z nich ustrukturyzowaną ofertę. Aplikacja nie wymaga logowania (z możliwością dodania autentykacji w przyszłości). Zbudowana w oparciu o Next.js, TypeScript, Supabase (baza danych) oraz Vercel AI SDK (analiza treści i rekomendacje).
+Aplikacja webowa agregująca oferty lunchowe z pobliskich restauracji. Przeglądanie aktualnych menu lunchowych, filtrowanie ofert według lokalizacji, kuchni i ceny, geolokalizacja oraz czat AI z rekomendacjami posiłków są dostępne bez logowania. Dodawanie i zarządzanie ofertami wymaga zalogowanego konta — użytkownik wkleja link, tekst lub zdjęcie, AI analizuje je i tworzy z nich ustrukturyzowaną ofertę. Zbudowana w oparciu o Next.js, TypeScript, Supabase (baza danych) oraz Vercel AI SDK (analiza treści i rekomendacje).
+
+Anonimowe dodawanie ofert zostało **świadomie wycofane**. Pierwotna wersja tego dokumentu zakładała, że każdy może dodawać oferty bez konta; wymagało to identyfikacji wyłącznie tokenem sesji, co nie jest mechanizmem własności. Kryteria 5.1–5.8 oraz 6.1–6.6 są teraz zapisane jako „WHEN a User…", czyli wymagają konta. Sposób działania autentykacji jest opisany w `.kiro/specs/user-authentication/` i **nie** jest zakresem tego dokumentu.
 
 ## Glossary
 
 - **System**: Aplikacja webowa agregująca oferty lunchowe
-- **User**: Osoba korzystająca z aplikacji — może przeglądać oferty, dodawać nowe oraz korzystać z rekomendacji AI
+- **User**: Zalogowane konto — może przeglądać oferty, filtrować, dodawać nowe, zarządzać własnymi oraz korzystać z rekomendacji AI
+- **Visitor**: Osoba bez konta — może przeglądać oferty, filtrować, korzystać z geolokalizacji i rekomendacji AI, ale **nie może** dodawać ani zarządzać ofertami
 - **Lunch_Offer**: Pojedyncza oferta lunchowa zawierająca nazwę dania, cenę, opis, restaurację i dostępność
 - **AI_Recommender**: Moduł oparty na Vercel AI SDK generujący rekomendacje posiłków w ramach sesji czatu
 - **AI_Analyzer**: Moduł oparty na Vercel AI SDK analizujący wklejone treści (linki, tekst, zdjęcia) i tworzący z nich ustrukturyzowane oferty
 - **Location_Service**: Moduł odpowiedzialny za geolokalizację i obliczanie odległości
+
+> **Uwaga o zakresie.** `User` i `Visitor` dzielą tu tylko uprawnienia, nie mechanizm logowania. Sposób uwierzytelniania, sesji i migracji danych ze starych tokenów jest specyfikowany w `.kiro/specs/user-authentication/`. Ten dokument wymaga konta tam, gdzie kryterium mówi „User", i nie powtarza zasad autentykacji.
+
+**Wykorzystanie danych na darmowym tierze.** Dostawca AI działa na darmowym tierze, więc treści przesyłane przez użytkowników — w tym zdjęcia menu z kryterium 5.3 — są wykorzystywane do ulepszania produktów Google. Jest to przyjęty koszt ograniczenia do darmowego tiera, a nie skutek uboczny, o którym użytkownik nie wie.
 
 ## Requirements
 
@@ -21,7 +28,10 @@ Aplikacja webowa agregująca oferty lunchowe z pobliskich restauracji. Każdy u�
 
 #### Acceptance Criteria
 
-1. WHEN a User opens the main page, THE System SHALL display a list of available Lunch_Offers for the current day, sorted by distance from the User in ascending order (nearest first), limited to a maximum of 50 offers per page
+1. WHEN a User opens the main page, THE System SHALL display a list of available Lunch_Offers for the current day, limited to a maximum of 50 offers per page, and — once the User's location is available — sorted by distance from the User in ascending order (nearest first)
+
+> **Uwaga do 1.1.** Sortowanie według odległości obowiązuje *od chwili, gdy lokalizacja jest dostępna*. Zimne wejście nie może być posortowane po odległości dla nikogo — przeglądarka musi najpierw poprosić o zgodę na geolokalizację. Do tego czasu obowiązuje 1.2.
+
 2. IF the User's location is not available, THEN THE System SHALL display the list of Lunch_Offers sorted alphabetically by restaurant name and SHALL hide the distance field for each offer
 3. THE System SHALL display for each Lunch_Offer: restaurant name, dish name, price (with currency), description (maximum 150 characters), and distance from User (if location is available)
 4. WHEN a User selects a Lunch_Offer, THE System SHALL display full details including allergens, dietary tags, and restaurant address
@@ -72,7 +82,9 @@ Aplikacja webowa agregująca oferty lunchowe z pobliskich restauracji. Każdy u�
 
 ### Requirement 5: Dodawanie ofert przez użytkowników
 
-**User Story:** As a User, I want to add lunch offers by pasting links, text, or photos, so that the community can benefit from shared information about lunch deals.
+**User Story:** As a User with a logged-in account, I want to add lunch offers by pasting links, text, or photos, so that the community can benefit from shared information about lunch deals.
+
+Anonimowe dodawanie ofert zostało świadomie wycofane — patrz Introduction. Kryteria poniżej nie zmieniają się: każde z nich czyta się jako „WHEN a User…", czyli wymaga konta.
 
 #### Acceptance Criteria
 
@@ -92,12 +104,12 @@ Aplikacja webowa agregująca oferty lunchowe z pobliskich restauracji. Każdy u�
 #### Acceptance Criteria
 
 1. WHEN a User submits a confirmed Lunch_Offer, THE System SHALL store the offer in the database and make it visible on the main listing within 5 seconds
-2. THE System SHALL require each Lunch_Offer to include: dish name (maximum 100 characters), price (from 0.01 to 9999.99 in PLN), restaurant name (maximum 100 characters), and available date (a single calendar date, today or in the future, up to 30 days ahead)
+2. THE System SHALL require each Lunch_Offer to include: dish name (maximum 100 characters), price (from 0.01 to 9999.99 in PLN), restaurant name (maximum 100 characters), and available date (a single calendar date, today or in the future, up to 30 days ahead). **Inwariant:** nazwa restauracji zapisana na ofercie jest źródłem prawdy dla wyświetlania — zmiana nazwy w `restaurants` nie zmienia tego, co widać na liście. `restaurant_id` jest opcjonalne i może być `null`; semantyka tego powiązania należy do specyfikacji `restaurant-management`, nie do tej
 3. THE System SHALL allow optional fields for each Lunch_Offer: description (maximum 500 characters), cuisine type (one selection from a predefined list), dietary tags (up to 5 selections from a predefined list), allergens (up to 10 selections from a predefined list), and restaurant address (maximum 200 characters)
 4. WHEN a User provides a restaurant address, THE System SHALL geocode the address to obtain geographic coordinates for distance calculations
 5. IF the System cannot geocode a provided restaurant address, THEN THE System SHALL store the Lunch_Offer without coordinates and display a message indicating that distance-based sorting will not be available for this offer
 6. IF a User submits a Lunch_Offer with missing or invalid required fields, THEN THE System SHALL reject the submission, highlight the invalid fields, and display a message indicating what correction is needed
-7. WHEN a User selects a Lunch_Offer they previously submitted (identified by session token), THE System SHALL allow the User to edit all fields or delete the offer from the listing
+7. WHEN a User selects a Lunch_Offer they previously submitted, THE System SHALL allow the User to edit all fields or delete the offer from the listing. Ownership is by authenticated account and never by session token — `session_token` survives only as the legacy migration concept
 
 ### Requirement 7: Responsywność
 
