@@ -12,9 +12,37 @@ import { loginSchema, registerSchema } from '@/schemas/auth.schema';
 const AUTH_TIMEOUT_MS = 5_000;
 const LOGOUT_TIMEOUT_MS = 3_000;
 
-export type AuthActionResult =
-  | { success: true; migrationWarning?: string; redirectTo: string }
-  | { success: false; error: string; fieldErrors?: Record<string, string> };
+export type AuthFailure = {
+  success: false;
+  error: string;
+  fieldErrors?: Record<string, string>;
+};
+
+export type AuthSuccess = {
+  success: true;
+  migrationWarning?: string;
+  redirectTo: string;
+};
+
+/**
+ * Login and logout always finish with a session or an error, so their callers
+ * can rely on `redirectTo` being present.
+ */
+export type SessionActionResult = AuthSuccess | AuthFailure;
+
+/**
+ * Registration has one outcome the others cannot have: the account is created
+ * and is waiting on the emailed link. Not an error -- the User has to click it
+ * before they can sign in -- but distinct from a redirect, so the form can say
+ * so instead of inviting a retry that cannot succeed.
+ */
+export type RegisterActionResult =
+  | AuthSuccess
+  | AuthFailure
+  | { success: true; pendingEmailConfirmation: true };
+
+/** @deprecated Prefer SessionActionResult or RegisterActionResult. */
+export type AuthActionResult = SessionActionResult;
 
 class AuthOperationTimeoutError extends Error {
   constructor() {
@@ -111,7 +139,7 @@ async function attemptMigration(userId: string): Promise<string | null> {
  */
 export async function registerAction(
   formData: FormData
-): Promise<AuthActionResult> {
+): Promise<RegisterActionResult> {
   const raw = {
     email: formData.get('email'),
     password: formData.get('password'),
@@ -185,6 +213,13 @@ export async function registerAction(
       );
 
       if (signIn.error || !signIn.data.user || !signIn.data.session) {
+        if (signIn.error?.code === 'email_not_confirmed') {
+          // The account exists and is waiting on the emailed link. Signing in
+          // cannot succeed until the address is confirmed, and no amount of
+          // retrying changes that, so this is a success with a next step
+          // rather than a failure.
+          return { success: true, pendingEmailConfirmation: true };
+        }
         if (signIn.error) {
           console.error('[auth] post-registration sign-in error:', signIn.error);
         }
@@ -231,7 +266,7 @@ export async function registerAction(
 export async function loginAction(
   formData: FormData,
   redirectTo: string | null = null
-): Promise<AuthActionResult> {
+): Promise<SessionActionResult> {
   const raw = {
     email: formData.get('email'),
     password: formData.get('password'),
@@ -321,7 +356,7 @@ export async function loginAction(
 /**
  * Invalidates the active session within three seconds and redirects on success.
  */
-export async function logoutAction(): Promise<AuthActionResult> {
+export async function logoutAction(): Promise<SessionActionResult> {
   try {
     const supabase = await createClient();
     const { error } = await withTimeout(

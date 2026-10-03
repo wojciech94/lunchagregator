@@ -108,6 +108,57 @@ describe('auth Server Actions', () => {
     });
   });
 
+  it('reports pending confirmation instead of a generic failure', async () => {
+    // Confirm email is enabled: Supabase creates the account and returns no
+    // session, then the follow-up sign-in is refused. That is a success with a
+    // next step, not a failure -- retrying cannot help.
+    mockSupabaseAuth.signUp.mockResolvedValue({
+      data: { user: { id: 'user-123' }, session: null },
+      error: null,
+    });
+    mockSupabaseAuth.signInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { code: 'email_not_confirmed', message: 'Email not confirmed' },
+    });
+
+    await expect(registerAction(credentials())).resolves.toEqual({
+      success: true,
+      pendingEmailConfirmation: true,
+    });
+  });
+
+  it('does not try to redirect or migrate when confirmation is pending', async () => {
+    mockSupabaseAuth.signUp.mockResolvedValue({
+      data: { user: { id: 'user-123' }, session: null },
+      error: null,
+    });
+    mockSupabaseAuth.signInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { code: 'email_not_confirmed', message: 'Email not confirmed' },
+    });
+
+    await registerAction(credentials());
+
+    // No session means nothing to migrate and nowhere to send the User.
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
+  it('still falls back to the generic error for an unconfirmed sign-in failure', async () => {
+    mockSupabaseAuth.signUp.mockResolvedValue({
+      data: { user: { id: 'user-123' }, session: null },
+      error: null,
+    });
+    mockSupabaseAuth.signInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { code: 'unexpected_error', message: 'provider detail' },
+    });
+
+    await expect(registerAction(credentials())).resolves.toEqual({
+      success: false,
+      error: 'Wystąpił błąd podczas rejestracji. Spróbuj ponownie.',
+    });
+  });
+
   it('maps duplicate email registration responses to the documented message', async () => {
     mockSupabaseAuth.signUp.mockResolvedValue({
       data: { user: null, session: null },

@@ -21,6 +21,9 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState<string | null>(
+    null
+  );
 
   const {
     register,
@@ -32,6 +35,7 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
 
   function onSubmit(data: RegisterInput) {
     setServerError(null);
+    setAwaitingConfirmation(null);
 
     startTransition(async () => {
       const formData = new FormData();
@@ -45,6 +49,11 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
 
       if (!result.success) {
         setServerError(result.error);
+        return;
+      }
+
+      if ('pendingEmailConfirmation' in result) {
+        setAwaitingConfirmation(data.email);
         return;
       }
 
@@ -62,6 +71,20 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
+      {awaitingConfirmation && (
+        <div
+          className="rounded-lg border border-border bg-muted/50 p-4 text-sm"
+          role="status"
+          data-testid="awaiting-confirmation"
+        >
+          <p className="font-medium">Sprawdź skrzynkę</p>
+          <p className="mt-1 text-muted-foreground">
+            Wysłaliśmy link potwierdzający na adres {awaitingConfirmation}.
+            Konto zostanie aktywne po kliknięciu w niego.
+          </p>
+        </div>
+      )}
+
       <div className="space-y-1">
         <Label htmlFor="email">Adres e-mail</Label>
         <Input

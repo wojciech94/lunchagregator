@@ -71,4 +71,39 @@ describe('auth form migration warning delivery', () => {
     );
     expect(mockRouter.refresh).toHaveBeenCalledTimes(1);
   });
+
+  it('tells a pending-confirmation user to check their inbox and does not navigate', async () => {
+    registerAction.mockResolvedValue({
+      success: true,
+      pendingEmailConfirmation: true,
+    });
+
+    render(<RegisterForm />);
+    await submitForm();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('awaiting-confirmation')).toBeInTheDocument();
+    });
+    expect(screen.getByText(/owner@example\.com/)).toBeInTheDocument();
+    // There is no session yet, so navigating would only show the login page.
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+    expect(mockRouter.refresh).not.toHaveBeenCalled();
+  });
+
+  it('does not show the inbox message when registration fails', async () => {
+    registerAction.mockResolvedValue({
+      success: false,
+      error: 'Konto z tym adresem e-mail już istnieje',
+    });
+
+    render(<RegisterForm />);
+    await submitForm();
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Konto z tym adresem e-mail już istnieje')
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('awaiting-confirmation')).not.toBeInTheDocument();
+  });
 });
