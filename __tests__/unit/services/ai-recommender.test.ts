@@ -232,7 +232,7 @@ describe('AIRecommenderService', () => {
 
       const callArgs = mockedStreamText.mock.calls[0][0];
       expect(callArgs.abortSignal).toBeInstanceOf(AbortSignal);
-      expect(callArgs.abortSignal.aborted).toBe(false);
+      expect(callArgs.abortSignal?.aborted).toBe(false);
     });
   });
 });
