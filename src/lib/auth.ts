@@ -96,6 +96,94 @@ export function getSiteOrigin(): string | null {
 }
 
 /**
+ * Node/undici error codes that mean "the request never reached the provider".
+ */
+const CONNECTIVITY_CAUSE_CODES = new Set([
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ETIMEDOUT',
+]);
+
+/**
+ * True when a Supabase call failed to reach the provider at all, rather than
+ * being rejected by it.
+ *
+ * This is not a guess at message text. Captured from a real
+ * `signUp` against a host that does not resolve:
+ *
+ *   name     AuthRetryableFetchError
+ *   message  'fetch failed'
+ *   status   0
+ *   code     undefined
+ *   cause    Error { code: 'ENOTFOUND', errno: -3008 }
+ *
+ * Three details matter. `status` is 0 because there is no HTTP response to
+ * carry one. `code` is undefined, so a classifier that checks it sees nothing.
+ * And the diagnostic that actually says what went wrong is on `cause`, one
+ * level down — a classifier reading only the top-level message cannot tell
+ * this apart from a provider rejection.
+ *
+ * The cause chain is walked because wrappers differ by SDK version and by
+ * runtime; `cause` may hold the value directly or behind another wrapper.
+ *
+ * A provider rejection carries a real status and a real error code, so it
+ * never matches here.
+ */
+export function isConnectivityError(error: unknown): boolean {
+  let current: unknown = error;
+
+  // Bounded because `cause` is attacker-influenced in principle and an
+  // unbounded walk would be a hazard in a request path.
+  for (let depth = 0; depth < 5; depth++) {
+    if (typeof current !== 'object' || current === null) {
+      return false;
+    }
+
+    const candidate = current as {
+      status?: unknown;
+      statusCode?: unknown;
+      code?: unknown;
+      name?: unknown;
+      message?: unknown;
+      cause?: unknown;
+    };
+
+    if (candidate.status === 0 || candidate.statusCode === 0) {
+      return true;
+    }
+
+    if (
+      typeof candidate.name === 'string' &&
+      /RetryableFetchError$/i.test(candidate.name)
+    ) {
+      return true;
+    }
+
+    if (
+      typeof candidate.code === 'string' &&
+      CONNECTIVITY_CAUSE_CODES.has(candidate.code)
+    ) {
+      return true;
+    }
+
+    if (
+      typeof candidate.message === 'string' &&
+      /\bfetch failed\b/i.test(candidate.message)
+    ) {
+      return true;
+    }
+
+    current = candidate.cause;
+  }
+
+  return false;
+}
+
+/**
  * Absolute URL for an email link, or undefined when no origin is configured.
  *
  * The path still goes through sanitizeRedirectTo, so a `redirectTo` arriving

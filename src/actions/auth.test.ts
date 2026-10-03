@@ -159,6 +159,76 @@ describe('auth Server Actions', () => {
     });
   });
 
+  it('reports an unreachable backend instead of inviting an immediate retry', async () => {
+    // The real shape captured from signUp against a host that does not
+    // resolve: status 0, no code, and the diagnostic on `cause`.
+    const unreachable = Object.assign(new Error('fetch failed'), {
+      status: 0,
+      cause: Object.assign(new Error('getaddrinfo ENOTFOUND app.invalid'), {
+        code: 'ENOTFOUND',
+      }),
+    });
+    mockSupabaseAuth.signUp.mockRejectedValue(unreachable);
+
+    await expect(registerAction(credentials())).resolves.toEqual({
+      success: false,
+      error: 'Nie udało się połączyć z usługą uwierzytelniania. Spróbuj ponownie za chwilę.',
+    });
+  });
+
+  it('reports an unreachable backend when it fails after registration too', async () => {
+    mockSupabaseAuth.signUp.mockResolvedValue({
+      data: { user: { id: 'user-123' }, session: null },
+      error: null,
+    });
+    mockSupabaseAuth.signInWithPassword.mockRejectedValue(
+      Object.assign(new Error('fetch failed'), { status: 0 })
+    );
+
+    await expect(registerAction(credentials())).resolves.toEqual({
+      success: false,
+      error: 'Nie udało się połączyć z usługą uwierzytelniania. Spróbuj ponownie za chwilę.',
+    });
+  });
+
+  it.each([
+    [
+      'over_email_send_rate_limit',
+      'Zbyt wiele wiadomości z prośbą o potwierdzenie. Spróbuj ponownie za kilka minut.',
+    ],
+    [
+      'over_request_rate_limit',
+      'Zbyt wiele prób rejestracji. Spróbuj ponownie za kilka minut.',
+    ],
+    ['weak_password', 'Hasło jest zbyt słabe. Użyj dłuższego hasła.'],
+  ])('maps the %s registration response', async (code, expectedError) => {
+    mockSupabaseAuth.signUp.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { code, message: 'Provider error' },
+    });
+
+    await expect(registerAction(credentials())).resolves.toEqual({
+      success: false,
+      error: expectedError,
+    });
+  });
+
+  it('recognises a duplicate email reported as 422 prose rather than a code', async () => {
+    mockSupabaseAuth.signUp.mockResolvedValue({
+      data: { user: null, session: null },
+      error: {
+        code: undefined,
+        status: 422,
+        message: 'User already registered',
+      },
+    });
+
+    await expect(registerAction(credentials())).resolves.toEqual({
+      success: false,
+      error: 'Konto z tym adresem e-mail już istnieje',
+    });
+  });
+
   it('maps duplicate email registration responses to the documented message', async () => {
     mockSupabaseAuth.signUp.mockResolvedValue({
       data: { user: null, session: null },
