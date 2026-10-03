@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { analyzeUrlAction, analyzeTextAction, analyzeImageAction } from "@/actions/analyze";
 import { createOfferAction, createOffersBatchAction } from "@/actions/offers";
-import { geocodeAddressAction } from "@/actions/geocode";
 import { validateExtraction, isWeeklyMenu, type PrefilledOffer, type PrefilledDish } from "@/lib/validations/extraction";
 import { todayISO } from "@/utils/day-of-week";
 import type { ExtractedOffers } from "@/services/ai-analyzer";
@@ -187,7 +186,10 @@ export default function AddOfferPage() {
     setState((prev) => ({ ...prev, error: null, fieldErrors: {} }));
 
     try {
-      // Step 1: Create the offer
+      // Create the offer. Geocoding happens on the server, before the INSERT
+      // -- see createOffer in services/offers.ts. It used to happen here,
+      // afterwards, and the coordinates were discarded, which left every
+      // AI-added offer permanently invisible to distance queries.
       const createResult = await createOfferAction(data);
 
       if (!createResult.success) {
@@ -200,18 +202,6 @@ export default function AddOfferPage() {
         return;
       }
 
-      // Step 2: Geocode address if provided (per requirement 6.4)
-      if (data.restaurantAddress && data.restaurantAddress.trim().length > 0) {
-        const geocodeResult = await geocodeAddressAction(data.restaurantAddress);
-        // Per requirement 6.5: if geocoding fails, we still save without coordinates
-        // The geocodeAddressAction already handles this gracefully
-        if (!geocodeResult.success) {
-          // Non-critical: just log, offer is already saved
-          console.warn("Geocoding failed:", geocodeResult.error);
-        }
-      }
-
-      // Step 3: Success!
       setState((prev) => ({
         ...prev,
         step: "success",
