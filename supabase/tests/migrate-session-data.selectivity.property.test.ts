@@ -51,25 +51,25 @@ const migrateSessionData = (records: readonly LegacyRecord[], sessionToken: stri
       : record
   );
 
-const mixedRecordsArb = (sessionToken: string, userId: string) => {
+const mixedRecordsArb = (
+  sessionToken: string,
+  userId: string
+): fc.Arbitrary<LegacyRecord[]> => {
   const kinds = ['matching-unowned', 'matching-owned', 'other-unowned', 'other-owned'] as const;
   const additionalRecordsArb: fc.Arbitrary<LegacyRecord[]> = fc.array(
     fc.constantFrom(...kinds).chain((kind) => recordArb(sessionToken, userId, kind)),
     { maxLength: 20 }
   );
 
+  // The four fixed-shape records go in an inner tuple rather than being
+  // spread as separate arguments to fc.tuple. Spreading loses the arity,
+  // so the trailing `additional` element widens to
+  // `LegacyRecord | LegacyRecord[]` and poisons every later use.
+  const fixedRecordsArb = fc.tuple(...kinds.map((kind) => recordArb(sessionToken, userId, kind)));
+
   return fc
-    .tuple(
-      ...kinds.map((kind) => recordArb(sessionToken, userId, kind)),
-      additionalRecordsArb
-    )
-    .map(([matchingUnowned, matchingOwned, otherUnowned, otherOwned, additional]) => [
-      matchingUnowned,
-      matchingOwned,
-      otherUnowned,
-      otherOwned,
-      ...(additional as LegacyRecord[]),
-    ]);
+    .tuple(fixedRecordsArb, additionalRecordsArb)
+    .map(([fixed, additional]) => [...fixed, ...additional]);
 };
 
 const migrationScenarioArb = fc.uuid().chain((sessionToken) =>
