@@ -1,0 +1,27 @@
+-- Seed contract for the local test database.
+--
+-- This file is intentionally free of rows. `lunch_offers` and `restaurants`
+-- hold user-generated content, and the schema has no reference or lookup
+-- tables: cuisine_type, dietary_tags and allergens are TEXT columns whose
+-- allowed values live in Zod schemas and TypeScript enums under `src/types/`,
+-- not in the database. There is therefore nothing that both belongs in the
+-- schema and belongs to everybody's tests.
+--
+-- The rule for tests:
+--
+--   A test may assume the schema from `supabase/migrations/` is applied and
+--   that auth roles exist. It may assume NOTHING about rows.
+--
+-- Every test creates its own rows and deletes them in teardown, keyed by a
+-- unique run token so parallel runs cannot collide. The Playwright specs
+-- already follow this shape -- see the `session_token` run-id prefixes and the
+-- `afterEach` cleanup in `__tests__/e2e/post-auth-migration.spec.ts`.
+--
+-- Authenticated fixtures are created at runtime through the admin client
+-- (`auth.admin.createUser`), never seeded here: a seeded user has a fixed id,
+-- and a fixed id in shared test data is how one test's ownership assertion
+-- becomes another test's false pass.
+--
+-- If a future change introduces a table that genuinely is reference data
+-- (allergen codes, price-level bands), it belongs here, and the rule above
+-- should be amended to say so.
