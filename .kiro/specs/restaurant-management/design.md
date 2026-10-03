@@ -611,3 +611,5 @@ __tests__/
     ├── restaurant-crud.test.ts
     └── restaurant-offer-association.test.ts
 ```
+
+> **`integration/` w tym drzewie to plan, nie rzeczywistość.** Oba pliki istnieją dziś pod `__tests__/unit/actions/` i testują server actions na **mockowanym** kliencie Supabase, bez bazy. Nie są testami integracyjnymi mimo nazwy katalogu w tym diagramie — nazwa została zachowana tylko jako zapis pierwotnego planu. Realne testy na prawdziwym Postgresie należą do projektu `db` (`npm run test:db`), wprowadzonego wraz z lokalnym stosem Supabase.

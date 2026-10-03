@@ -26,7 +26,7 @@ Implementacja aplikacji Lunch Agregator w Next.js (App Router) z TypeScript, Sup
     - Configure Vitest with `vitest.config.ts` (path aliases, coverage thresholds)
     - Configure fast-check with minimum 100 iterations per property test
     - Configure Playwright with `playwright.config.ts` (multiple viewports, browsers)
-    - Create test directory structure: `__tests__/properties/`, `__tests__/unit/`, `__tests__/integration/`, `__tests__/e2e/`
+    - Create test directory structure: `__tests__/properties/`, `__tests__/unit/`, `__tests__/e2e/`
     - _Requirements: 7.2_
 
 - [x] 2. Database schema and migrations
