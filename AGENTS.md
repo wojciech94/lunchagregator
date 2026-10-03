@@ -15,7 +15,7 @@ npm run test:e2e   # Playwright E2E
 
 - Zod waliduje dane wejściowe w server actions; schematy w `src/lib/validations/`, `src/schemas/`
 - Supabase client w `src/lib/supabase/` — `client.ts` (browser), `server.ts` (server actions)
-- Dostęp do zasobów chroniony `session_token` w bazie + RLS, nie przez JWT — patrz `src/lib/ownership.ts`
+- Dostęp do zasobów chroniony dwukrotnie: politykami RLS w bazie (`auth.uid() = user_id`, migracja `20250101000000`) **i** kodem aplikacji (`getUser()` + `checkOwnership()` w `src/actions/*.ts`). Żadna z tych warstw nie wystarcza jako jedyna — każda zakłada, że druga może zawieść. Polityki `USING (true)` z `20240202000000` są nieaktualne i obalone; patrz nagłówek tego pliku.
 - Property tests (fast-check) mieszkają obok kodu jako `*.property.test.ts`; testy jednostkowe w `src/**/*.test.ts`
 - Specyfikacje w `.kiro/specs/<feature>/` — requirements, design, tasks
 
