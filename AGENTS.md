@@ -11,6 +11,8 @@ npm test           # Vitest unit + property tests
 npm run test:e2e   # Playwright E2E
 ```
 
+Baza testowa: lokalny stos (`npx supabase start`) — patrz `docs/agents/test-database.md`. Vitest nie łączy się z bazą: `tests/setup.ts` mockuje `@supabase/ssr` globalnie.
+
 ## Conventions
 
 - Zod waliduje dane wejściowe w server actions; schematy w `src/lib/validations/`, `src/schemas/`
