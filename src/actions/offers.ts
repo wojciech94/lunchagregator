@@ -122,7 +122,12 @@ export async function createOfferAction(
  */
 export async function createOffersBatchAction(
   items: unknown[]
-): Promise<ActionResult<{ created: LunchOffer[]; failed: { index: number; error: string }[] }>> {
+): Promise<
+  ActionResult<{
+    created: LunchOffer[];
+    failed: { index: number; error: string; fieldErrors?: Record<string, string> }[];
+  }>
+> {
   try {
     if (!Array.isArray(items) || items.length === 0) {
       return { success: false, error: 'Brak ofert do utworzenia.' };
@@ -135,22 +140,40 @@ export async function createOffersBatchAction(
     }
 
     const created: LunchOffer[] = [];
-    const failed: { index: number; error: string }[] = [];
+    const failed: {
+      index: number;
+      error: string;
+      fieldErrors?: Record<string, string>;
+    }[] = [];
 
     for (let i = 0; i < items.length; i++) {
       const result = await createOffer(items[i], user.id);
       if (result.success) {
         created.push(result.data);
       } else {
-        failed.push({ index: i, error: result.error });
+        failed.push({ index: i, error: result.error, fieldErrors: result.fieldErrors });
       }
     }
 
     // Treat as success if at least one offer was created
     if (created.length === 0) {
+      // Every item failed for the same reason in the common case -- one bad
+      // shared field, such as a missing restaurant name, fails all of them at
+      // once. Surfacing the field errors of the first failure is what turns a
+      // bare 'Validation failed' into something the User can act on.
+      const firstFailure = failed[0];
+      const fieldErrors = firstFailure?.fieldErrors;
+      const firstMessage = fieldErrors
+        ? Object.values(fieldErrors)[0]
+        : undefined;
+
       return {
         success: false,
-        error: failed[0]?.error ?? 'Nie udało się utworzyć żadnej oferty.',
+        error:
+          firstMessage ??
+          firstFailure?.error ??
+          'Nie udało się utworzyć żadnej oferty.',
+        ...(fieldErrors ? { fieldErrors } : {}),
       };
     }
 

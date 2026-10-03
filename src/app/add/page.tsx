@@ -241,21 +241,38 @@ export default function AddOfferPage() {
   }
 
   async function handleWeeklyConfirm(
-    selected: { dish: PrefilledDish; date: string }[]
+    selected: { dish: PrefilledDish; date: string }[],
+    restaurantName: string
   ) {
     if (!state.prefilledData) return;
+
+    const name = restaurantName.trim();
+    if (name.length === 0) {
+      setState((prev) => ({
+        ...prev,
+        error: "Nazwa restauracji jest wymagana do opublikowania menu.",
+      }));
+      return;
+    }
+
+    if (selected.length === 0) {
+      setState((prev) => ({
+        ...prev,
+        error: "Nie wybrano żadnej oferty do opublikowania.",
+      }));
+      return;
+    }
 
     setIsSubmitting(true);
     setState((prev) => ({ ...prev, error: null, fieldErrors: {} }));
 
-    const restaurantName = state.prefilledData.restaurantName ?? "";
     const restaurantAddress = state.prefilledData.address || undefined;
 
     // Build a CreateOfferInput payload per selected dish/day
     const payloads = selected.map(({ dish, date }) => ({
       dishName: dish.name as string,
       price: dish.price as number,
-      restaurantName,
+      restaurantName: name,
       availableDate: date,
       sourceType: state.sourceType,
       description: dish.description || undefined,
@@ -269,7 +286,11 @@ export default function AddOfferPage() {
       const result = await createOffersBatchAction(payloads);
 
       if (!result.success) {
-        setState((prev) => ({ ...prev, error: result.error }));
+        setState((prev) => ({
+          ...prev,
+          error: result.error,
+          fieldErrors: result.fieldErrors ?? {},
+        }));
         setIsSubmitting(false);
         return;
       }
