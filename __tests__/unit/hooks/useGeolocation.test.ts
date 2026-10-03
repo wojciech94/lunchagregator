@@ -29,11 +29,16 @@ beforeEach(() => {
   });
 
   mockPermissionsQuery.mockResolvedValue({ state: "prompt" });
+  // The hook persists the resolved location and rehydrates from it on mount,
+  // so without this a successful test leaks its coordinates into every test
+  // that follows and they fail on `coordinates` being non-null.
+  window.localStorage.clear();
 });
 
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  window.localStorage.clear();
 });
 
 describe("useGeolocation", () => {
@@ -193,5 +198,84 @@ describe("useGeolocation", () => {
         timeout: 10000,
       })
     );
+  });
+
+  it("should set error on an unrecognised geolocation code", async () => {
+    mockGetCurrentPosition.mockImplementation((_success, error) => {
+      error({ code: 99, message: "Something else entirely" });
+    });
+
+    const { result } = renderHook(() => useGeolocation());
+
+    await act(async () => {
+      result.current.requestLocation();
+      await Promise.resolve();
+    });
+
+    expect(result.current.error).toContain("nieznany błąd");
+  });
+
+  it("should persist a resolved location and rehydrate it on mount", async () => {
+    mockGetCurrentPosition.mockImplementation((success) => {
+      success({ coords: { latitude: 52.2297, longitude: 21.0122 } });
+    });
+
+    const first = renderHook(() => useGeolocation());
+
+    await act(async () => {
+      first.result.current.requestLocation();
+      await Promise.resolve();
+    });
+
+    // A fresh mount must start from the stored value without asking again.
+    const second = renderHook(() => useGeolocation());
+
+    expect(second.result.current.coordinates).toEqual({
+      latitude: 52.2297,
+      longitude: 21.0122,
+    });
+    expect(mockGetCurrentPosition).toHaveBeenCalledTimes(1);
+  });
+
+  it("should forget the location on clearLocation", async () => {
+    mockGetCurrentPosition.mockImplementation((success) => {
+      success({ coords: { latitude: 52.2297, longitude: 21.0122 } });
+    });
+
+    const { result } = renderHook(() => useGeolocation());
+
+    await act(async () => {
+      result.current.requestLocation();
+      await Promise.resolve();
+    });
+
+    expect(result.current.coordinates).not.toBeNull();
+
+    await act(async () => {
+      result.current.clearLocation();
+    });
+
+    expect(result.current.coordinates).toBeNull();
+
+    const remounted = renderHook(() => useGeolocation());
+    expect(remounted.result.current.coordinates).toBeNull();
+  });
+
+  it("should accept coordinates typed by hand", async () => {
+    const { result } = renderHook(() => useGeolocation());
+
+    await act(async () => {
+      result.current.setManualCoordinates(
+        { latitude: 50.0614, longitude: 19.9366 },
+        "Rynek"
+      );
+    });
+
+    expect(result.current.coordinates).toEqual({
+      latitude: 50.0614,
+      longitude: 19.9366,
+    });
+    expect(result.current.label).toBe("Rynek");
+    expect(mockGetCurrentPosition).not.toHaveBeenCalled();
   });
 });
