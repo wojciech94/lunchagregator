@@ -3,7 +3,11 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
-import { buildEmailRedirectTo, sanitizeRedirectTo } from '@/lib/auth';
+import {
+  buildEmailRedirectTo,
+  isConnectivityError,
+  sanitizeRedirectTo,
+} from '@/lib/auth';
 import {
   MIGRATION_WARNING_MESSAGE,
 } from '@/lib/migration-warning';
@@ -74,6 +78,80 @@ function withTimeout<T>(
         }
       );
   });
+}
+
+const REGISTRATION_FAILED =
+  'Wystąpił błąd podczas rejestracji. Spróbuj ponownie.';
+
+/**
+ * Told apart from a provider rejection on purpose. When the backend cannot be
+ * reached, "spróbuj ponownie" invites a retry that may not help, and the User
+ * has no way to learn from the UI that the deployment itself is pointing at a
+ * backend that is not answering.
+ */
+const AUTH_UNREACHABLE =
+  'Nie udało się połączyć z usługą uwierzytelniania. Spróbuj ponownie za chwilę.';
+
+/**
+ * Single place that turns a registration failure into a message.
+ *
+ * The five call sites this replaces each returned the same string, which is
+ * what made an unreachable backend indistinguishable from a rejected password.
+ */
+function registrationFailure(error: unknown): AuthFailure {
+  return {
+    success: false,
+    error: isConnectivityError(error) ? AUTH_UNREACHABLE : REGISTRATION_FAILED,
+  };
+}
+
+/**
+ * Provider rejections that mean something specific to the person registering.
+ * Returns null for anything unrecognised, so the caller keeps the generic
+ * message and never passes provider text through to the User.
+ */
+function mapRegistrationError(error: {
+  code?: string | null;
+  status?: number;
+  message?: string | null;
+}): AuthFailure | null {
+  if (error.code === 'user_already_exists') {
+    return { success: false, error: 'Konto z tym adresem e-mail już istnieje' };
+  }
+
+  // A project with "hide signups" disabled reports an existing address as 422
+  // with prose rather than a code, so both shapes are checked.
+  if (
+    error.status === 422 &&
+    typeof error.message === 'string' &&
+    /already (been )?registered/i.test(error.message)
+  ) {
+    return { success: false, error: 'Konto z tym adresem e-mail już istnieje' };
+  }
+
+  if (error.code === 'over_email_send_rate_limit') {
+    return {
+      success: false,
+      error:
+        'Zbyt wiele wiadomości z prośbą o potwierdzenie. Spróbuj ponownie za kilka minut.',
+    };
+  }
+
+  if (error.code === 'over_request_rate_limit') {
+    return {
+      success: false,
+      error: 'Zbyt wiele prób rejestracji. Spróbuj ponownie za kilka minut.',
+    };
+  }
+
+  if (error.code === 'weak_password') {
+    return {
+      success: false,
+      error: 'Hasło jest zbyt słabe. Użyj dłuższego hasła.',
+    };
+  }
+
+  return null;
 }
 
 function withRemainingAuthTime<T>(
@@ -184,24 +262,16 @@ export async function registerAction(
     if (!(error instanceof AuthOperationTimeoutError)) {
       console.error('[auth] signUp threw:', error);
     }
-    return {
-      success: false,
-      error: 'Wystąpił błąd podczas rejestracji. Spróbuj ponownie.',
-    };
+    return registrationFailure(error);
   }
 
   if (registration.error) {
-    if (registration.error.code === 'user_already_exists') {
-      return {
-        success: false,
-        error: 'Konto z tym adresem e-mail już istnieje',
-      };
+    const mapped = mapRegistrationError(registration.error);
+    if (mapped) {
+      return mapped;
     }
     console.error('[auth] signUp error:', registration.error);
-    return {
-      success: false,
-      error: 'Wystąpił błąd podczas rejestracji. Spróbuj ponownie.',
-    };
+    return registrationFailure(registration.error);
   }
 
   let authenticatedData = registration.data;
@@ -223,10 +293,7 @@ export async function registerAction(
         if (signIn.error) {
           console.error('[auth] post-registration sign-in error:', signIn.error);
         }
-        return {
-          success: false,
-          error: 'Wystąpił błąd podczas rejestracji. Spróbuj ponownie.',
-        };
+        return registrationFailure(signIn.error);
       }
 
       authenticatedData = signIn.data;
@@ -234,20 +301,14 @@ export async function registerAction(
       if (!(error instanceof AuthOperationTimeoutError)) {
         console.error('[auth] post-registration sign-in threw:', error);
       }
-      return {
-        success: false,
-        error: 'Wystąpił błąd podczas rejestracji. Spróbuj ponownie.',
-      };
+      return registrationFailure(error);
     }
   }
 
   const authenticatedUser = authenticatedData.user;
   if (!authenticatedUser || !authenticatedData.session) {
     console.error('[auth] registration completed without an authenticated session');
-    return {
-      success: false,
-      error: 'Wystąpił błąd podczas rejestracji. Spróbuj ponownie.',
-    };
+    return registrationFailure(undefined);
   }
 
   const destination = sanitizeRedirectTo(redirectToParam);
