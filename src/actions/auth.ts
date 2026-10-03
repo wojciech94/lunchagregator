@@ -3,6 +3,10 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import type { AuthResponse } from '@supabase/supabase-js';
+
+/** The `{ user, session }` shape every auth call returns. */
+type AuthResponseData = AuthResponse['data'];
 import {
   buildEmailRedirectTo,
   isConnectivityError,
@@ -115,17 +119,7 @@ function mapRegistrationError(error: {
   status?: number;
   message?: string | null;
 }): AuthFailure | null {
-  if (error.code === 'user_already_exists') {
-    return { success: false, error: 'Konto z tym adresem e-mail już istnieje' };
-  }
-
-  // A project with "hide signups" disabled reports an existing address as 422
-  // with prose rather than a code, so both shapes are checked.
-  if (
-    error.status === 422 &&
-    typeof error.message === 'string' &&
-    /already (been )?registered/i.test(error.message)
-  ) {
+  if (isAddressTaken(error)) {
     return { success: false, error: 'Konto z tym adresem e-mail już istnieje' };
   }
 
@@ -152,6 +146,92 @@ function mapRegistrationError(error: {
   }
 
   return null;
+}
+
+/**
+ * True when the provider says the address is already registered.
+ *
+ * A project without duplicate detection reports this as 422 with prose rather
+ * than a code, so both shapes are checked.
+ *
+ * These errors must never be followed by a sign-in attempt. The address
+ * belongs to whoever registered it first, so a successful probe would sign
+ * that account in -- and someone who typos their email into the registration
+ * form would land in another person's account.
+ */
+function isAddressTaken(error: {
+  code?: string | null;
+  status?: number;
+  message?: string | null;
+}): boolean {
+  if (error.code === 'user_already_exists') {
+    return true;
+  }
+  return (
+    error.status === 422 &&
+    typeof error.message === 'string' &&
+    /already (been )?registered/i.test(error.message)
+  );
+}
+
+/**
+ * True when sign-in is refused only because the address is unconfirmed.
+ *
+ * That is not a failure of the attempt: the account exists, and the User has a
+ * link to click.
+ */
+function isPendingEmailConfirmation(error: {
+  code?: string | null;
+} | null | undefined): boolean {
+  return error?.code === 'email_not_confirmed';
+}
+
+type PostSignUpProbe =
+  | { kind: 'pending' }
+  | { kind: 'authenticated'; data: AuthResponseData }
+  | { kind: 'failed'; error: unknown };
+
+/**
+ * Signs in after a registration that did not return a session, to find out what
+ * actually happened.
+ *
+ * Supabase creates the account before sending the confirmation email. With
+ * Confirm email on and SMTP unconfigured, `signUp` therefore returns an *error*
+ * while the row exists and awaits confirmation -- a state that looks exactly
+ * like a failed registration from the outside.
+ *
+ * Three outcomes, and all three are real:
+ *   - the account is waiting on a link
+ *   - the account is already usable, and registration genuinely succeeded
+ *   - registration really did fail
+ *
+ * Only ever called when the address was not reported as taken.
+ */
+async function probeAfterSignUp(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  email: string,
+  password: string,
+  deadline: number
+): Promise<PostSignUpProbe> {
+  try {
+    const signIn = await withRemainingAuthTime(
+      () => supabase.auth.signInWithPassword({ email, password }),
+      deadline
+    );
+
+    if (isPendingEmailConfirmation(signIn.error)) {
+      return { kind: 'pending' };
+    }
+    if (signIn.error || !signIn.data.user || !signIn.data.session) {
+      return { kind: 'failed', error: signIn.error };
+    }
+    return { kind: 'authenticated', data: signIn.data };
+  } catch (error) {
+    if (!(error instanceof AuthOperationTimeoutError)) {
+      console.error('[auth] post-registration sign-in threw:', error);
+    }
+    return { kind: 'failed', error };
+  }
 }
 
 function withRemainingAuthTime<T>(
@@ -265,44 +345,61 @@ export async function registerAction(
     return registrationFailure(error);
   }
 
+  let authenticatedData = registration.data;
+  // A session straight from signUp counts: this is the path with Confirm email
+  // off, and it needs no probe.
+  let signedIn = Boolean(authenticatedData.user && authenticatedData.session);
+  let pendingConfirmation = false;
+  let probeFailure: unknown;
+
+  const applyProbe = async (): Promise<void> => {
+    const probe = await probeAfterSignUp(supabase, email, password, deadline);
+    if (probe.kind === 'pending') {
+      pendingConfirmation = true;
+      return;
+    }
+    if (probe.kind === 'authenticated') {
+      authenticatedData = probe.data;
+      signedIn = true;
+      return;
+    }
+    probeFailure = probe.error;
+  };
+
   if (registration.error) {
+    if (isPendingEmailConfirmation(registration.error)) {
+      // Already told: the account exists and is waiting. No probe needed.
+      pendingConfirmation = true;
+    } else if (!isAddressTaken(registration.error)) {
+      // Never probe after an address-taken error: the account belongs to
+      // whoever registered it first, and a successful probe would sign them in.
+      await applyProbe();
+    }
+  } else if (!signedIn) {
+    // signUp succeeded but returned no session, which is what Confirm email on
+    // looks like from here.
+    await applyProbe();
+  }
+
+  if (pendingConfirmation) {
+    return { success: true, pendingEmailConfirmation: true };
+  }
+
+  if (!signedIn && registration.error) {
+    // The provider's own wording wins where it has one: a rate limit is more
+    // useful to the User than anything the probe can add.
     const mapped = mapRegistrationError(registration.error);
     if (mapped) {
       return mapped;
     }
     console.error('[auth] signUp error:', registration.error);
-    return registrationFailure(registration.error);
+    return registrationFailure(probeFailure ?? registration.error);
   }
 
-  let authenticatedData = registration.data;
-  if (!authenticatedData.user || !authenticatedData.session) {
-    try {
-      const signIn = await withRemainingAuthTime(
-        () => supabase.auth.signInWithPassword({ email, password }),
-        deadline
-      );
-
-      if (signIn.error || !signIn.data.user || !signIn.data.session) {
-        if (signIn.error?.code === 'email_not_confirmed') {
-          // The account exists and is waiting on the emailed link. Signing in
-          // cannot succeed until the address is confirmed, and no amount of
-          // retrying changes that, so this is a success with a next step
-          // rather than a failure.
-          return { success: true, pendingEmailConfirmation: true };
-        }
-        if (signIn.error) {
-          console.error('[auth] post-registration sign-in error:', signIn.error);
-        }
-        return registrationFailure(signIn.error);
-      }
-
-      authenticatedData = signIn.data;
-    } catch (error) {
-      if (!(error instanceof AuthOperationTimeoutError)) {
-        console.error('[auth] post-registration sign-in threw:', error);
-      }
-      return registrationFailure(error);
-    }
+  if (!signedIn) {
+    // signUp and the probe both fell short. The probe's error is the more
+    // specific one, so it decides whether this is a connectivity problem.
+    return registrationFailure(probeFailure);
   }
 
   const authenticatedUser = authenticatedData.user;

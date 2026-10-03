@@ -229,6 +229,96 @@ describe('auth Server Actions', () => {
     });
   });
 
+  it('reports pending confirmation when signUp errors because the email could not be sent', async () => {
+    // The production case: Supabase creates the account before sending, so with
+    // Confirm email on and SMTP unconfigured signUp returns an error while the
+    // row exists and is awaiting confirmation.
+    mockSupabaseAuth.signUp.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { message: 'Error sending confirmation email', status: 500 },
+    });
+    mockSupabaseAuth.signInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { code: 'email_not_confirmed', message: 'Email not confirmed' },
+    });
+
+    await expect(registerAction(credentials())).resolves.toEqual({
+      success: true,
+      pendingEmailConfirmation: true,
+    });
+  });
+
+  it('treats signUp reporting email_not_confirmed as pending, not failure', async () => {
+    mockSupabaseAuth.signUp.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { code: 'email_not_confirmed', message: 'Email not confirmed' },
+    });
+
+    await expect(registerAction(credentials())).resolves.toEqual({
+      success: true,
+      pendingEmailConfirmation: true,
+    });
+  });
+
+  it('does not offer an inbox that will stay empty on a rate limit', async () => {
+    // The probe must not turn "no email will be sent" into "check your inbox".
+    mockSupabaseAuth.signUp.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { code: 'over_request_rate_limit', message: 'Too many requests' },
+    });
+    mockSupabaseAuth.signInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { code: 'over_request_rate_limit', message: 'Too many requests' },
+    });
+
+    await expect(registerAction(credentials())).resolves.toEqual({
+      success: false,
+      error: 'Zbyt wiele prób rejestracji. Spróbuj ponownie za kilka minut.',
+    });
+  });
+
+  it('recovers the session when signUp errors but the account is usable', async () => {
+    mockSupabaseAuth.signUp.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { message: 'Error sending confirmation email', status: 500 },
+    });
+    mockSupabaseAuth.signInWithPassword.mockResolvedValue({
+      data: authenticatedData,
+      error: null,
+    });
+
+    await expect(registerAction(credentials())).resolves.toEqual({
+      success: true,
+      redirectTo: '/',
+    });
+  });
+
+  it('never signs in after an address-taken error', async () => {
+    // Signing in here would authenticate whoever owns the address. A typo in
+    // the registration form must not land the User in another account.
+    for (const error of [
+      { code: 'user_already_exists', message: 'User already registered' },
+      { code: undefined, status: 422, message: 'User already registered' },
+    ]) {
+      vi.clearAllMocks();
+      mockSupabaseAuth.signUp.mockResolvedValue({
+        data: { user: null, session: null },
+        error,
+      });
+      mockSupabaseAuth.signInWithPassword.mockResolvedValue({
+        data: authenticatedData,
+        error: null,
+      });
+
+      await expect(registerAction(credentials())).resolves.toEqual({
+        success: false,
+        error: 'Konto z tym adresem e-mail już istnieje',
+      });
+
+      expect(mockSupabaseAuth.signInWithPassword).not.toHaveBeenCalled();
+    }
+  });
+
   it('maps duplicate email registration responses to the documented message', async () => {
     mockSupabaseAuth.signUp.mockResolvedValue({
       data: { user: null, session: null },
