@@ -4,11 +4,74 @@ import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { sanitizeRedirectTo } from '@/lib/auth';
+import {
+  MIGRATION_WARNING_MESSAGE,
+} from '@/lib/migration-warning';
 import { loginSchema, registerSchema } from '@/schemas/auth.schema';
 
+const AUTH_TIMEOUT_MS = 5_000;
+const LOGOUT_TIMEOUT_MS = 3_000;
+
 export type AuthActionResult =
-  | { success: true; migrationWarning?: string }
+  | { success: true; migrationWarning?: string; redirectTo: string }
   | { success: false; error: string; fieldErrors?: Record<string, string> };
+
+class AuthOperationTimeoutError extends Error {
+  constructor() {
+    super('Authentication operation timed out');
+    this.name = 'AuthOperationTimeoutError';
+  }
+}
+
+function withTimeout<T>(
+  operation: () => Promise<T>,
+  timeoutMs: number
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(
+      () => reject(new AuthOperationTimeoutError()),
+      timeoutMs
+    );
+
+    Promise.resolve()
+      .then(operation)
+      .then(
+        (result) => {
+          clearTimeout(timeout);
+          resolve(result);
+        },
+        (error: unknown) => {
+          clearTimeout(timeout);
+          reject(error);
+        }
+      );
+  });
+}
+
+function withRemainingAuthTime<T>(
+  operation: () => Promise<T>,
+  deadline: number
+): Promise<T> {
+  const remainingMs = deadline - Date.now();
+  if (remainingMs <= 0) {
+    return Promise.reject(new AuthOperationTimeoutError());
+  }
+
+  return withTimeout(operation, remainingMs);
+}
+
+function fieldErrorsFrom(
+  issues: { path: PropertyKey[]; message: string }[]
+): Record<string, string> {
+  const fieldErrors: Record<string, string> = {};
+  for (const issue of issues) {
+    const field = issue.path[0];
+    if (typeof field === 'string') {
+      fieldErrors[field] = issue.message;
+    }
+  }
+  return fieldErrors;
+}
 
 /**
  * Attempts to migrate anonymous session data to the authenticated user's account.
@@ -32,23 +95,19 @@ async function attemptMigration(userId: string): Promise<string | null> {
 
     if (error) {
       console.error('[auth] Migration RPC failed:', error);
-      return 'Nie udało się przypisać wcześniejszych danych do konta. Skontaktuj się z pomocą techniczną.';
+      return MIGRATION_WARNING_MESSAGE;
     }
 
-    // Delete the session token cookie on successful migration
     cookieStore.delete('lunch_session_token');
     return null;
   } catch (err) {
     console.error('[auth] Migration unexpected error:', err);
-    return 'Nie udało się przypisać wcześniejszych danych do konta. Skontaktuj się z pomocą techniczną.';
+    return MIGRATION_WARNING_MESSAGE;
   }
 }
 
 /**
- * Registers a new user account.
- * Validates input with registerSchema, calls supabase.auth.signUp(),
- * attempts session data migration if lunch_session_token cookie exists,
- * and redirects to `/` on success.
+ * Registers a new user and establishes an authenticated session before redirecting.
  */
 export async function registerAction(
   formData: FormData
@@ -57,65 +116,102 @@ export async function registerAction(
     email: formData.get('email'),
     password: formData.get('password'),
   };
-
   const redirectToParam = formData.get('redirectTo') as string | null;
 
   const parsed = registerSchema.safeParse(raw);
   if (!parsed.success) {
-    const fieldErrors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) {
-      const field = issue.path[0] as string;
-      fieldErrors[field] = issue.message;
-    }
     return {
       success: false,
       error: 'Nieprawidłowe dane formularza',
-      fieldErrors,
+      fieldErrors: fieldErrorsFrom(parsed.error.issues),
     };
   }
 
   const { email, password } = parsed.data;
   const supabase = await createClient();
+  const deadline = Date.now() + AUTH_TIMEOUT_MS;
 
-  const { data, error } = await supabase.auth.signUp({ email, password });
-
-  if (error) {
-    if (error.code === 'user_already_exists') {
-      return {
-        success: false,
-        error: 'Konto z tym adresem e-mail już istnieje',
-      };
+  let registration;
+  try {
+    registration = await withRemainingAuthTime(
+      () => supabase.auth.signUp({ email, password }),
+      deadline
+    );
+  } catch (error) {
+    if (!(error instanceof AuthOperationTimeoutError)) {
+      console.error('[auth] signUp threw:', error);
     }
-    // Treat network/timeout errors and all other Supabase errors generically
-    console.error('[auth] signUp error:', error);
     return {
       success: false,
       error: 'Wystąpił błąd podczas rejestracji. Spróbuj ponownie.',
     };
   }
 
-  // Attempt migration — non-blocking
-  let migrationWarning: string | undefined;
-  if (data.user) {
-    const warning = await attemptMigration(data.user.id);
-    if (warning) migrationWarning = warning;
+  if (registration.error) {
+    if (registration.error.code === 'user_already_exists') {
+      return {
+        success: false,
+        error: 'Konto z tym adresem e-mail już istnieje',
+      };
+    }
+    console.error('[auth] signUp error:', registration.error);
+    return {
+      success: false,
+      error: 'Wystąpił błąd podczas rejestracji. Spróbuj ponownie.',
+    };
   }
 
-  if (migrationWarning) {
-    // Return warning to the client so it can be displayed; the form will redirect
-    return { success: true, migrationWarning };
+  let authenticatedData = registration.data;
+  if (!authenticatedData.user || !authenticatedData.session) {
+    try {
+      const signIn = await withRemainingAuthTime(
+        () => supabase.auth.signInWithPassword({ email, password }),
+        deadline
+      );
+
+      if (signIn.error || !signIn.data.user || !signIn.data.session) {
+        if (signIn.error) {
+          console.error('[auth] post-registration sign-in error:', signIn.error);
+        }
+        return {
+          success: false,
+          error: 'Wystąpił błąd podczas rejestracji. Spróbuj ponownie.',
+        };
+      }
+
+      authenticatedData = signIn.data;
+    } catch (error) {
+      if (!(error instanceof AuthOperationTimeoutError)) {
+        console.error('[auth] post-registration sign-in threw:', error);
+      }
+      return {
+        success: false,
+        error: 'Wystąpił błąd podczas rejestracji. Spróbuj ponownie.',
+      };
+    }
+  }
+
+  const authenticatedUser = authenticatedData.user;
+  if (!authenticatedUser || !authenticatedData.session) {
+    console.error('[auth] registration completed without an authenticated session');
+    return {
+      success: false,
+      error: 'Wystąpił błąd podczas rejestracji. Spróbuj ponownie.',
+    };
   }
 
   const destination = sanitizeRedirectTo(redirectToParam);
-  redirect(destination);
+  const warning = await attemptMigration(authenticatedUser.id);
+
+  return {
+    success: true,
+    redirectTo: destination,
+    ...(warning ? { migrationWarning: warning } : {}),
+  };
 }
 
 /**
- * Logs in an existing user.
- * Validates input with loginSchema, calls supabase.auth.signInWithPassword(),
- * handles credential errors, rate limiting, and timeouts per the design error table.
- * Attempts session data migration if lunch_session_token cookie exists.
- * Redirects to sanitized redirectTo (or `/`) on success.
+ * Logs in an existing user within the five-second authentication budget.
  */
 export async function loginAction(
   formData: FormData,
@@ -125,101 +221,110 @@ export async function loginAction(
     email: formData.get('email'),
     password: formData.get('password'),
   };
-
-  // Allow redirectTo to come from formData if not passed as a parameter
   const redirectToParam =
     redirectTo ?? (formData.get('redirectTo') as string | null);
 
   const parsed = loginSchema.safeParse(raw);
   if (!parsed.success) {
-    const fieldErrors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) {
-      const field = issue.path[0] as string;
-      fieldErrors[field] = issue.message;
-    }
     return {
       success: false,
       error: 'Nieprawidłowe dane formularza',
-      fieldErrors,
+      fieldErrors: fieldErrorsFrom(parsed.error.issues),
     };
   }
 
   const { email, password } = parsed.data;
   const supabase = await createClient();
 
-  let data: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['data'];
-  let error: Awaited<ReturnType<typeof supabase.auth.signInWithPassword>>['error'];
-
+  let login;
   try {
-    const result = await supabase.auth.signInWithPassword({ email, password });
-    data = result.data;
-    error = result.error;
-  } catch (err) {
-    // Network-level timeout or unexpected error
-    console.error('[auth] signInWithPassword threw:', err);
-    return {
-      success: false,
-      error: 'Przekroczono limit czasu. Spróbuj ponownie.',
-    };
-  }
-
-  if (error) {
-    if (error.code === 'invalid_credentials') {
-      return {
-        success: false,
-        error: 'Nieprawidłowy adres e-mail lub hasło',
-      };
-    }
-    if (error.code === 'over_request_rate_limit') {
-      return {
-        success: false,
-        error: 'Zbyt wiele nieudanych prób. Spróbuj ponownie za 15 minut.',
-      };
-    }
-    // Check for timeout-like errors by message
-    if (
-      error.message?.toLowerCase().includes('timeout') ||
-      error.message?.toLowerCase().includes('timed out')
-    ) {
+    login = await withTimeout(
+      () => supabase.auth.signInWithPassword({ email, password }),
+      AUTH_TIMEOUT_MS
+    );
+  } catch (error) {
+    if (error instanceof AuthOperationTimeoutError) {
       return {
         success: false,
         error: 'Przekroczono limit czasu. Spróbuj ponownie.',
       };
     }
-    console.error('[auth] signInWithPassword error:', error);
+    console.error('[auth] signInWithPassword threw:', error);
     return {
       success: false,
       error: 'Wystąpił błąd podczas logowania. Spróbuj ponownie.',
     };
   }
 
-  // Attempt migration — non-blocking
-  let migrationWarning: string | undefined;
-  if (data?.user) {
-    const warning = await attemptMigration(data.user.id);
-    if (warning) migrationWarning = warning;
+  if (login.error) {
+    if (login.error.code === 'invalid_credentials') {
+      return {
+        success: false,
+        error: 'Nieprawidłowy adres e-mail lub hasło',
+      };
+    }
+    if (login.error.code === 'over_request_rate_limit') {
+      return {
+        success: false,
+        error: 'Zbyt wiele nieudanych prób. Spróbuj ponownie za 15 minut.',
+      };
+    }
+    if (
+      login.error.message?.toLowerCase().includes('timeout') ||
+      login.error.message?.toLowerCase().includes('timed out')
+    ) {
+      return {
+        success: false,
+        error: 'Przekroczono limit czasu. Spróbuj ponownie.',
+      };
+    }
+    console.error('[auth] signInWithPassword error:', login.error);
+    return {
+      success: false,
+      error: 'Wystąpił błąd podczas logowania. Spróbuj ponownie.',
+    };
   }
 
-  if (migrationWarning) {
-    // Return warning to the client so it can be displayed; the form will redirect
-    return { success: true, migrationWarning };
+  if (!login.data.user || !login.data.session) {
+    console.error('[auth] signInWithPassword returned without a session');
+    return {
+      success: false,
+      error: 'Wystąpił błąd podczas logowania. Spróbuj ponownie.',
+    };
   }
 
   const destination = sanitizeRedirectTo(redirectToParam);
-  redirect(destination);
+  const warning = await attemptMigration(login.data.user.id);
+
+  return {
+    success: true,
+    redirectTo: destination,
+    ...(warning ? { migrationWarning: warning } : {}),
+  };
 }
 
 /**
- * Logs out the current user.
- * Calls supabase.auth.signOut() and redirects to `/` on success.
- * Returns an error result if sign-out fails (does not redirect).
+ * Invalidates the active session within three seconds and redirects on success.
  */
 export async function logoutAction(): Promise<AuthActionResult> {
-  const supabase = await createClient();
-  const { error } = await supabase.auth.signOut();
+  try {
+    const supabase = await createClient();
+    const { error } = await withTimeout(
+      () => supabase.auth.signOut(),
+      LOGOUT_TIMEOUT_MS
+    );
 
-  if (error) {
-    console.error('[auth] signOut error:', error);
+    if (error) {
+      console.error('[auth] signOut error:', error);
+      return {
+        success: false,
+        error: 'Wystąpił błąd podczas wylogowania.',
+      };
+    }
+  } catch (error) {
+    if (!(error instanceof AuthOperationTimeoutError)) {
+      console.error('[auth] signOut threw:', error);
+    }
     return {
       success: false,
       error: 'Wystąpił błąd podczas wylogowania.',

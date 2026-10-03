@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { NavHeader } from "@/components/NavHeader";
+import { PostAuthMigrationWarning } from "@/components/auth/PostAuthMigrationWarning";
 
 const inter = Inter({
   subsets: ["latin", "latin-ext"],
@@ -30,6 +31,7 @@ export default function RootLayout({
         className={`${inter.variable} font-sans antialiased overflow-x-hidden`}
       >
         <NavHeader />
+        <PostAuthMigrationWarning />
         <main>
           {children}
         </main>

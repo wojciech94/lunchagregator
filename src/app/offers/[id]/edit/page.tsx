@@ -9,7 +9,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { getOfferById, updateOfferAction } from "@/actions/offers";
-import { ensureSessionToken } from "@/actions/session";
 import { updateOfferSchema } from "@/lib/validations/offer";
 import type { LunchOffer, CuisineType, DietaryTag, Allergen } from "@/types/offers";
 
@@ -80,20 +79,12 @@ export default function EditOfferPage({ params }: EditOfferPageProps) {
       if (cancelled) return;
       setOfferId(id);
 
-      const [offerResult, sessionToken] = await Promise.all([
-        getOfferById(id),
-        ensureSessionToken(),
-      ]);
+      const offerResult = await getOfferById(id);
 
       if (cancelled) return;
 
       if (!offerResult.success) {
         setState({ status: "not_found" });
-        return;
-      }
-
-      if (offerResult.data.sessionToken !== sessionToken) {
-        setState({ status: "forbidden" });
         return;
       }
 

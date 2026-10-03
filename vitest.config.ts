@@ -12,14 +12,16 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    setupFiles: ['./__tests__/setup.ts'],
-    include: [
-      '__tests__/unit/**/*.test.ts',
-      '__tests__/unit/**/*.test.tsx',
-      '__tests__/properties/**/*.test.ts',
-      '__tests__/properties/**/*.property.test.ts',
-      '__tests__/integration/**/*.test.ts',
+    environmentMatchGlobs: [['**/*.test.tsx', 'jsdom']],
+    setupFiles: ['./tests/setup.ts'],
+    include: ['**/*.{test,spec}.{ts,tsx}'],
+    exclude: [
+      'node_modules/**',
+      '.next/**',
+      'playwright-report/**',
+      '__tests__/e2e/**',
     ],
+    clearMocks: true,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

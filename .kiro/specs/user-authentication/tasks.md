@@ -2,207 +2,174 @@
 
 ## Overview
 
-Replace the anonymous `session_token` mechanism with full Supabase Auth-based user accounts. The implementation proceeds in layers: shared utilities and schemas first, then middleware and auth flows, then ownership enforcement in existing Server Actions, then UI updates (NavHeader, edit/delete visibility), and finally anonymous data migration.
+Checked items were reconciled with the existing TypeScript, SQL, and UI implementation. The remaining work closes auth-flow timing and migration-warning gaps, hardens the session/HTTPS boundary, and adds the property, unit, and integration coverage required by the design. Tasks build on the completed Supabase Auth foundation and finish with fully wired validation.
 
 ## Tasks
 
-- [x] 1. Create auth schemas and shared utility
+- [x] 1. Create auth schemas and shared utilities
   - [x] 1.1 Create Zod validation schemas for login and registration
-    - Create `src/schemas/auth.schema.ts` with `loginSchema`, `registerSchema`, and their inferred TypeScript types
-    - Email must match RFC 5322 format; password ≥ 8 chars for register, ≥ 1 char for login
-    - Export `LoginInput` and `RegisterInput` types
+    - `src/schemas/auth.schema.ts` exports login/register schemas and inferred types with the specified email and password rules.
     - _Requirements: 1.2, 1.3, 8.4_
-
-  - [ ]* 1.2 Write property test for Zod auth schemas (Property 1)
-    - **Property 1: Zod auth schemas accept valid credentials and reject invalid ones**
-    - Use `fast-check` to generate arbitrary email and password strings; assert `registerSchema.safeParse()` returns `success: true` iff email is valid RFC 5322 and password length ≥ 8, and `loginSchema.safeParse()` returns `success: true` iff email is valid and password length ≥ 1
+  - [x] 1.2 Write property test for Zod auth schemas (Property 1)
+    - Create `src/schemas/auth.schema.property.test.ts` with `fast-check` generators; require at least 100 runs.
+    - **Property 1: Zod auth schemas accept valid credentials and reject invalid ones.**
     - **Validates: Requirements 1.2, 1.3, 1.5, 8.4**
-
-  - [x] 1.3 Create `getUser()` utility and `redirectTo` sanitization helper
-    - Create `src/lib/auth.ts` with `getUser(): Promise<User | null>` wrapping `supabase.auth.getUser()`
-    - Add `sanitizeRedirectTo(value: string | null | undefined): string` that returns the value unchanged only when it starts with `/` and not `//`, otherwise returns `/`
+  - [x] 1.3 Create `getUser()` and `sanitizeRedirectTo()` utilities
+    - `src/lib/auth.ts` validates the server-side user and permits only internal, non-protocol-relative redirect paths.
     - _Requirements: 2.2, 4.5_
-
-  - [ ]* 1.4 Write property test for `redirectTo` sanitization (Property 2)
-    - **Property 2: redirectTo sanitization only accepts internal paths**
-    - Use `fast-check` to generate arbitrary strings (including URLs, protocol-relative paths, empty strings, internal paths); assert the function returns the input only when it starts with `/` and not `//`, and returns `/` for all other inputs
+  - [x] 1.4 Write property test for redirect sanitization (Property 2)
+    - Create `src/lib/auth.redirect.property.test.ts`; generate arbitrary strings and verify only values starting with `/` but not `//` are preserved.
+    - **Property 2: redirectTo sanitization only accepts internal paths.**
     - **Validates: Requirements 2.2**
+  - [x] 1.5 Configure the shared Vitest test environment and Supabase/Next mocks
+    - Add `vitest.config.ts` and `tests/setup.ts` so Server Actions, Server Components, middleware, and property tests have deterministic cookie/auth mocks.
+    - _Requirements: 1.1, 2.1, 3.1, 4.1_
 
-- [x] 2. Implement Next.js Middleware for route protection
-  - [x] 2.1 Create `src/middleware.ts` with protected route matcher and redirect logic
-    - Create the middleware file with the `config.matcher` array covering `/restaurants/new`, `/restaurants/:id/edit`, `/offers/:id/edit`, `/offers/:id/delete`, `/add`
-    - Use `@supabase/ssr` `createServerClient` with `NextRequest`/`NextResponse` cookie adapters
-    - Call `supabase.auth.getUser()`; if `null`, redirect to `/auth/login?redirectTo={pathname}`; otherwise call `NextResponse.next()`
+- [x] 2. Complete secure middleware and session handling
+  - [x] 2.1 Create route-protection middleware
+    - `src/middleware.ts` matches every specified Protected_Route, redirects Guests with `redirectTo`, passes authenticated users, and skips Public_Route session checks.
     - _Requirements: 3.5, 4.1, 4.2, 4.3, 4.4_
-
-  - [ ]* 2.2 Write property test for middleware — unauthenticated redirect (Property 3)
-    - **Property 3: Middleware redirects unauthenticated requests to protected routes**
-    - Use `fast-check` to generate arbitrary protected route paths; mock `getUser()` to return `null`; assert the middleware response is a redirect to `/auth/login?redirectTo={path}`
+  - [x] 2.2 Harden cookie, refresh, and HTTPS handling in the Supabase request adapters
+    - Update `src/middleware.ts` and `src/lib/supabase/server.ts` to preserve Supabase cookie mutations, enforce the production JWT cookie flags, refresh an expiring session through the Supabase SSR flow, and treat refresh failures as Guest state.
+    - Redirect insecure `/auth/*` credential requests to HTTPS without running protected-route authentication for Public_Routes or creating local-development redirect loops.
+    - _Requirements: 2.5, 2.6, 3.4, 4.4, 8.1, 8.5_
+  - [x] 2.3 Write property test for unauthenticated protected-route redirects (Property 3)
+    - Create `src/middleware.unauthenticated.property.test.ts`; generate each protected-route shape with a null user and assert a login redirect containing the original pathname.
+    - **Property 3: Middleware redirects unauthenticated requests to protected routes.**
     - **Validates: Requirements 3.5, 4.1**
-
-  - [ ]* 2.3 Write property test for middleware — authenticated pass-through (Property 4)
-    - **Property 4: Middleware passes authenticated requests to protected routes**
-    - Use `fast-check` to generate arbitrary protected route paths; mock `getUser()` to return a valid `User` object; assert the middleware response is not a redirect
+  - [x] 2.4 Write property test for authenticated protected-route pass-through (Property 4)
+    - Create `src/middleware.authenticated.property.test.ts`; generate protected-route paths with a valid user and assert no redirect.
+    - **Property 4: Middleware passes authenticated requests to protected routes.**
     - **Validates: Requirements 4.3**
+  - [x] 2.5 Write focused middleware/session security tests
+    - Verify HTTPS redirect behavior, cookie option propagation, silent refresh, and Guest handling when refresh fails.
+    - _Requirements: 2.5, 2.6, 3.4, 4.4, 8.1, 8.5_
 
-- [x] 3. Implement auth Server Actions
-  - [x] 3.1 Create `src/actions/auth.ts` with `registerAction`, `loginAction`, and `logoutAction`
-    - `registerAction(formData)`: validate with `registerSchema`, call `supabase.auth.signUp()`, handle `user_already_exists` and other errors per the error table in the design, redirect to `/` on success
-    - `loginAction(formData)`: validate with `loginSchema`, call `supabase.auth.signInWithPassword()`, handle `invalid_credentials`, `over_request_rate_limit`, timeout, and other errors per the design error table; call migration RPC if `lunch_session_token` cookie exists; redirect to sanitized `redirectTo` on success
-    - `logoutAction()`: call `supabase.auth.signOut()`, redirect to `/` on success; return error result on failure
-    - Export `AuthActionResult` type
-    - _Requirements: 1.1, 1.4, 1.6, 1.8, 2.1, 2.2, 2.3, 3.1, 3.2_
+- [x] 3. Complete auth Server Action behavior and end-to-end flows
+  - [x] 3.1 Implement the core registration, login, logout, and migration invocation actions
+    - `src/actions/auth.ts` validates credentials before Supabase calls, maps documented error messages, sanitizes redirects, invokes migration after successful authentication, and signs out through Supabase.
+    - _Requirements: 1.2, 1.3, 1.4, 1.5, 1.8, 2.2, 2.3, 3.2, 6.1, 6.2, 6.3_
+  - [x] 3.2 Enforce auth operation time budgets and successful transition semantics
+    - Update `src/actions/auth.ts`, `LoginForm.tsx`, and `RegisterForm.tsx` to time out registration/login at 5 seconds and logout at 3 seconds, map timeout and logout failures to the required messages, and guarantee a successful registration has an authenticated session before redirecting.
+    - Keep redirects internal, preserve the valid `redirectTo` behavior, and replace direct browser reloads with the Next.js navigation/refresh path needed to update NavHeader promptly.
+    - _Requirements: 1.1, 1.6, 2.1, 2.2, 3.1, 3.2, 3.3, 7.3_
+  - [x] 3.3 Write unit tests for auth action success and error mapping
+    - Test validation-before-provider calls, duplicate email, invalid credentials, rate-limit mapping, generic errors, timeouts, failed logout, and safe redirects using mocked Supabase responses.
+    - _Requirements: 1.1, 1.4, 1.5, 1.8, 2.1, 2.3, 3.1, 8.3, 8.4_
+  - [x] 3.4 Write Playwright coverage for registration, login, logout, and protected-route return
+    - Use a Supabase test environment to verify session-cookie behavior, redirects, guest/authenticated NavHeader state, and the rate-limit message returned by the Auth service.
+    - _Requirements: 1.1, 1.6, 2.1, 2.2, 2.3, 3.1, 3.2, 3.3, 3.5, 7.1, 7.2, 8.3_
 
-  - [ ]* 3.2 Write property test for Server Actions rejecting unauthenticated calls (Property 5)
-    - **Property 5: Server Actions reject unauthenticated mutation calls**
-    - For each mutating Server Action (create/edit/delete restaurant and offer), mock `getUser()` to return `null`; assert the action returns `{ success: false }` and no DB call is made
-    - **Validates: Requirements 4.5**
-
-- [x] 4. Create auth UI pages and form components
-  - [x] 4.1 Create `src/components/auth/LoginForm.tsx` Client Component
-    - Use `react-hook-form` with `loginSchema` for client-side validation
-    - Display field-level errors for email and password
-    - Call `loginAction` on submit; display server-returned error messages
-    - Show loading state while the action is pending
+- [x] 4. Create auth pages and form components
+  - [x] 4.1 Create `LoginForm` with client validation, pending state, and server error presentation.
     - _Requirements: 2.3, 2.4_
-
-  - [x] 4.2 Create `src/components/auth/RegisterForm.tsx` Client Component
-    - Use `react-hook-form` with `registerSchema` for client-side validation
-    - Display field-level errors for email and password
-    - Call `registerAction` on submit; display server-returned error messages (including duplicate email)
-    - Show loading state while the action is pending
+  - [x] 4.2 Create `RegisterForm` with client validation, field errors, duplicate-email presentation, and pending state.
     - _Requirements: 1.2, 1.3, 1.4, 1.5, 1.8_
-
-  - [x] 4.3 Create `src/app/auth/login/page.tsx` and `src/app/auth/register/page.tsx` Server Component shells
-    - Login page renders `LoginForm` and a link to `/auth/register`
-    - Register page renders `RegisterForm` and a link to `/auth/login`
-    - Both pages pass the `redirectTo` search param to their respective forms
+  - [x] 4.3 Create `/auth/login` and `/auth/register` Server Component page shells and pass `redirectTo` to the forms.
     - _Requirements: 1.7, 2.4_
 
 - [x] 5. Checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [x] 6. Update Server Actions to use `user_id` ownership
-  - [x] 6.1 Extract and implement a pure `checkOwnership(requestingUserId, recordUserId)` function
-    - Create `src/lib/ownership.ts` with `checkOwnership(requestingUserId: string | null, recordUserId: string | null): boolean`
-    - Returns `true` only when both values are non-null and strictly equal
+- [x] 6. Enforce `user_id` ownership in resource mutations
+  - [x] 6.1 Implement the pure `checkOwnership(requestingUserId, recordUserId)` helper.
+    - It permits only equal, non-null IDs and rejects un-migrated records.
     - _Requirements: 5.3, 5.4, 5.5_
-
-  - [ ]* 6.2 Write property test for ownership check (Property 6)
-    - **Property 6: Ownership check correctness**
-    - Use `fast-check` to generate arbitrary pairs of UUID strings (including null values); assert `checkOwnership` returns `true` only when both are non-null and strictly equal
+  - [x] 6.2 Write property test for ownership checking (Property 6)
+    - Create `src/lib/ownership.property.test.ts`; generate UUID/null pairs and assert true only for equal non-null IDs.
+    - **Property 6: Ownership check correctness.**
     - **Validates: Requirements 5.3, 5.4, 5.5**
-
-  - [x] 6.3 Update `src/actions/restaurants.ts` to use `user_id` from `getUser()`
-    - Replace `session_token` ownership checks with `getUser()` + `checkOwnership()`
-    - On create: set `user_id` from `getUser()` on the inserted record
-    - On edit/delete: call `getUser()`, call `checkOwnership()`, reject with `'Brak uprawnień do tej operacji'` if false
-    - If `getUser()` returns `null`, return `{ success: false, error: 'Brak autoryzacji' }` without any DB write
+  - [x] 6.3 Update restaurant actions to authenticate, set `user_id`, and reject non-owner or Guest mutations.
+    - `src/actions/restaurants.ts` obtains the current user server-side before every create, update, or delete database write.
     - _Requirements: 4.5, 5.1, 5.3, 5.4, 5.5_
-
-  - [ ]* 6.4 Write property test for `user_id` stored on restaurant creation (Property 7)
-    - **Property 7: user_id is stored on resource creation**
-    - Generate arbitrary user IDs and restaurant input data; mock the DB insert; assert the inserted row's `user_id` equals the authenticated user's `id`
-    - **Validates: Requirements 5.1**
-
-  - [x] 6.5 Update `src/actions/offers.ts` to use `user_id` from `getUser()`
-    - Same pattern as `restaurants.ts`: replace `session_token` with `getUser()` + `checkOwnership()`
-    - On create: set `user_id` from `getUser()` on the inserted record
-    - On edit/delete: call `getUser()`, call `checkOwnership()`, reject with `'Brak uprawnień do tej operacji'` if false
+  - [x] 6.4 Update offer actions to authenticate, set `user_id`, and reject non-owner or Guest mutations.
+    - `src/actions/offers.ts` and `src/services/offers.ts` use the authenticated ID for inserts and ownership checks for update/delete.
     - _Requirements: 4.5, 5.2, 5.3, 5.4, 5.5_
+  - [x] 6.5 Write property test for unauthenticated mutation rejection (Property 5)
+    - Create `src/actions/resource-auth.property.test.ts`; mock `getUser()` as null for every restaurant and offer mutation and assert no database write occurs.
+    - **Property 5: Server Actions reject unauthenticated mutation calls.**
+    - **Validates: Requirements 4.5**
+  - [x] 6.6 Write property test for authenticated `user_id` inserts (Property 7)
+    - Create `src/actions/resource-creation.property.test.ts`; generate user IDs and valid resource data, then verify restaurant and offer inserts use exactly the authenticated ID.
+    - **Property 7: user_id is stored on resource creation.**
+    - **Validates: Requirements 5.1, 5.2**
+  - [x] 6.7 Write focused mutation authorization unit tests
+    - Cover owner success, another user's denial, NULL `user_id` denial, and fetch/system failures that must leave data unchanged.
+    - _Requirements: 4.5, 5.3, 5.4, 5.5_
 
-  - [ ]* 6.6 Write property test for `user_id` stored on offer creation (Property 7)
-    - **Property 7: user_id is stored on resource creation**
-    - Generate arbitrary user IDs and offer input data; mock the DB insert; assert the inserted row's `user_id` equals the authenticated user's `id`
-    - **Validates: Requirements 5.2**
-
-- [x] 7. Update UI to show edit/delete controls only to resource owners
-  - [x] 7.1 Update restaurant and offer components to conditionally render edit/delete controls
-    - Pass the current viewer's `user_id` (from `getUser()` in the parent Server Component) down to restaurant and offer card/detail components
-    - Render edit and delete buttons only when `resource.user_id === viewer.userId` (both non-null)
-    - Hide all edit/delete controls for Guest viewers
+- [x] 7. Restrict resource-management controls to owners
+  - [x] 7.1 Render restaurant and offer edit/delete controls only when the Server Component-provided viewer ID matches the resource `user_id`.
+    - Guest viewers and non-owners receive no edit/delete controls.
     - _Requirements: 5.6_
-
-  - [ ]* 7.2 Write property test for edit/delete UI visibility (Property 8)
-    - **Property 8: Edit/delete UI controls are only shown to the resource owner**
-    - Use `fast-check` to generate arbitrary resource objects and viewer user IDs; render the resource component; assert edit/delete controls appear only when `resource.user_id === viewer.id` and both are non-null
+  - [x] 7.2 Write property test for resource-control visibility (Property 8)
+    - Create `src/components/resource-controls.property.test.tsx`; generate resource/viewer combinations and assert controls appear if and only if IDs are equal and non-null.
+    - **Property 8: Edit/delete UI controls are only shown to the resource owner.**
     - **Validates: Requirements 5.6**
 
-- [x] 8. Update NavHeader to reflect auth state
-  - [x] 8.1 Convert `NavHeader` to an async Server Component
-    - Import and call `getUser()` inside `NavHeader`
-    - If authenticated: render user email and a `<form action={logoutAction}>` with a "Wyloguj się" submit button
-    - If guest: render "Zaloguj się" link to `/auth/login` and "Zarejestruj się" link to `/auth/register`
+- [x] 8. Render NavHeader from verified server auth state
+  - [x] 8.1 Convert `NavHeader` to an async Server Component with authenticated email/logout and Guest login/register variants.
     - _Requirements: 7.1, 7.2, 7.4, 7.5_
-
-  - [ ]* 8.2 Write property test for NavHeader authenticated rendering (Property 11)
-    - **Property 11: NavHeader renders the authenticated user's email and logout button**
-    - Use `fast-check` to generate arbitrary user objects with non-empty email; render `NavHeader` with mocked `getUser()`; assert email and logout button are present and login/register links are absent
+  - [x] 8.2 Write property test for authenticated NavHeader rendering (Property 11)
+    - Create `src/components/NavHeader.auth.property.test.tsx`; generate authenticated users with non-empty email and verify email/logout are present while Guest links are absent.
+    - **Property 11: NavHeader renders the authenticated user's email and logout button.**
     - **Validates: Requirements 7.1**
-
-  - [ ]* 8.3 Write property test for NavHeader SSR/hydration consistency (Property 12)
-    - **Property 12: NavHeader SSR and client render produce identical output**
-    - For any auth state (authenticated user or null), compare server-rendered and client-rendered `NavHeader` output; assert they are identical and produce no hydration mismatch warnings
+  - [x] 8.3 Write property test for NavHeader SSR/hydration consistency (Property 12)
+    - Create `src/components/NavHeader.hydration.property.test.tsx`; compare server and client output for authenticated and Guest states and assert no hydration warnings.
+    - **Property 12: NavHeader SSR and client render produce identical output.**
     - **Validates: Requirements 7.4**
+  - [x] 8.4 Write auth-state transition UI tests
+    - Assert the pending state renders Guest controls, and login/logout changes NavHeader within one second without a full browser reload.
+    - _Requirements: 3.3, 7.2, 7.3, 7.5_
 
-- [x] 9. Checkpoint — Ensure all tests pass
+- [ ] 9. Checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [x] 10. Implement anonymous data migration
-  - [x] 10.1 Create the `migrate_session_data` Postgres function via Supabase migration
-    - Write a SQL migration file in `supabase/migrations/` that creates the `migrate_session_data(p_session_token TEXT, p_user_id UUID)` RPC function as defined in the design
-    - The function updates `restaurants` and `lunch_offers` in a single transaction, setting `user_id = p_user_id` only where `session_token = p_session_token AND user_id IS NULL`
-    - Returns a JSONB object with `restaurants_migrated` and `offers_migrated` counts
+- [x] 10. Complete anonymous-data migration failure handling and validation
+  - [x] 10.1 Create the atomic `migrate_session_data` SQL RPC and nullable `session_token` transition migration.
+    - The RPC updates only matching NULL-`user_id` restaurant/offer rows and returns migrated counts.
     - _Requirements: 6.2, 6.4, 6.5, 6.6_
-
-  - [ ]* 10.2 Write property test for migration selectivity and field preservation (Property 9)
-    - **Property 9: Migration updates only user_id on matching NULL records and leaves all other fields unchanged**
-    - Generate arbitrary sets of records with mixed `user_id` (NULL and non-NULL) and `session_token` values; call the migration logic; assert only NULL-`user_id` records with the matching token have `user_id` updated, and all other columns are unchanged
+  - [x] 10.2 Write property test for migration selectivity and field preservation (Property 9)
+    - Create `supabase/tests/migrate-session-data.selectivity.property.test.ts`; generate mixed records and verify only `user_id` changes on matching unowned rows.
+    - **Property 9: Migration updates only user_id on matching NULL records and leaves all other fields unchanged.**
     - **Validates: Requirements 6.2, 6.5, 6.6**
-
-  - [ ]* 10.3 Write property test for migration atomicity (Property 10)
-    - **Property 10: Migration is atomic — any database error rolls back all changes**
-    - Simulate a DB error mid-migration; assert all records remain in their pre-call state
+  - [x] 10.3 Write property test for migration atomicity (Property 10)
+    - Create `supabase/tests/migrate-session-data.atomicity.property.test.ts`; inject a mid-operation database failure and assert the pre-call state is retained.
+    - **Property 10: Migration is atomic — any database error rolls back all changes.**
     - **Validates: Requirements 6.4**
-
-  - [x] 10.4 Wire migration call into `loginAction` and `registerAction`
-    - After a successful `signInWithPassword` or `signUp`, read the `lunch_session_token` cookie
-    - If present and non-empty, call `supabase.rpc('migrate_session_data', { p_session_token, p_user_id })`
-    - On success: delete the `lunch_session_token` cookie
-    - On failure: log the error server-side and surface the non-blocking message `'Nie udało się przypisać wcześniejszych danych do konta. Skontaktuj się z pomocą techniczną.'` to the UI; do not interrupt the login/registration flow
+  - [x] 10.4 Invoke the migration RPC after successful registration or login and delete `lunch_session_token` only after a successful migration.
+    - Failures are logged server-side without invalidating the authenticated Supabase session.
     - _Requirements: 6.1, 6.2, 6.3, 6.4_
+  - [x] 10.5 Finish migration-warning delivery without breaking successful auth redirects
+    - Replace the current action-result/`window.location.href` branch in `src/actions/auth.ts`, `LoginForm.tsx`, and `RegisterForm.tsx` with a non-blocking, post-redirect warning mechanism that preserves the required destination and SPA NavHeader update.
+    - Keep migration failures non-fatal and show exactly the required support message.
+    - _Requirements: 1.6, 2.2, 6.4, 7.3_
+  - [x] 10.6 Write Playwright coverage for post-auth migration
+    - Seed matching and non-matching legacy rows, set `lunch_session_token`, authenticate, then verify ownership assignment, cookie deletion, unchanged non-matching rows, and the non-fatal failure message.
+    - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6_
 
-- [x] 11. Add database schema migrations for `user_id` columns
-  - [x] 11.1 Create SQL migration adding `user_id` to `restaurants` and `lunch_offers`
-    - Write a Supabase migration that adds `user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL` (nullable) to both tables
-    - Add indexes `idx_restaurants_user_id` and `idx_lunch_offers_user_id`
-    - Add RLS policies: `public read` (SELECT for all) and `owners can modify` (ALL for `auth.uid() = user_id`) for both tables
+- [x] 11. Add database ownership schema and RLS migrations
+  - [x] 11.1 Add nullable `user_id` foreign keys, ownership indexes, public-read policies, and owner-only mutation policies for restaurants and offers.
     - _Requirements: 5.1, 5.2_
 
-- [x] 12. Final checkpoint — Ensure all tests pass
+- [ ] 12. Final checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes
 
-- Tasks marked with `*` are optional and can be skipped for faster MVP
-- Each task references specific requirements for traceability
-- Checkpoints ensure incremental validation
-- Property tests validate universal correctness properties defined in the design document
-- Unit tests validate specific examples and edge cases
-- The `session_token` columns and `src/lib/session.ts` / `src/actions/session.ts` files are kept during the migration period and should be removed in a follow-up cleanup task after all data has been migrated
+- Tasks marked with `*` are optional test tasks and can be skipped for a faster MVP; all non-optional tasks are required to close implementation gaps.
+- The Supabase Auth project must retain the design-specified 7-day inactivity expiry and 5-failures/15-minute rate-limit configuration. These are provider settings, not coding-agent tasks; the integration tests verify the application’s observable handling of those service outcomes.
+- `session_token` compatibility files and columns remain only for the migration period. Removing them is intentionally outside this feature plan until production migration completion is confirmed.
+- Every incomplete leaf task appears exactly once in the dependency graph. Test tasks use distinct files so tasks in the same wave can run in parallel.
 
 ## Task Dependency Graph
 
 ```json
 {
   "waves": [
-    { "id": 0, "tasks": ["1.1", "6.1", "11.1"] },
-    { "id": 1, "tasks": ["1.2", "1.3", "6.2"] },
-    { "id": 2, "tasks": ["1.4", "2.1", "6.3", "6.5"] },
-    { "id": 3, "tasks": ["2.2", "2.3", "3.1", "6.4", "6.6", "7.1"] },
-    { "id": 4, "tasks": ["3.2", "4.1", "4.2", "7.2", "10.1"] },
-    { "id": 5, "tasks": ["4.3", "8.1", "10.2", "10.3"] },
-    { "id": 6, "tasks": ["8.2", "8.3", "10.4"] }
+    { "id": 0, "tasks": ["1.5", "2.2", "3.2"] },
+    { "id": 1, "tasks": ["1.2", "1.4", "2.3", "2.4", "2.5", "3.3", "6.2", "6.5", "6.6", "6.7", "7.2", "8.2", "8.3", "8.4", "10.2", "10.3"] },
+    { "id": 2, "tasks": ["3.4", "10.5"] },
+    { "id": 3, "tasks": ["10.6"] }
   ]
 }
 ```

@@ -1,30 +1,26 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { loginAction } from '@/actions/auth';
+import {
+  MIGRATION_WARNING_STORAGE_KEY,
+} from '@/lib/migration-warning';
 import { loginSchema, type LoginInput } from '@/schemas/auth.schema';
-
-// ============================================================================
-// Types
-// ============================================================================
 
 export interface LoginFormProps {
   redirectTo?: string;
 }
 
-// ============================================================================
-// Component
-// ============================================================================
-
 export function LoginForm({ redirectTo }: LoginFormProps) {
+  const router = useRouter();
   const [isPending, startTransition] = React.useTransition();
   const [serverError, setServerError] = React.useState<string | null>(null);
-  const [migrationWarning, setMigrationWarning] = React.useState<string | null>(null);
 
   const {
     register,
@@ -36,7 +32,6 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
 
   function onSubmit(data: LoginInput) {
     setServerError(null);
-    setMigrationWarning(null);
 
     startTransition(async () => {
       const formData = new FormData();
@@ -45,18 +40,20 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
 
       const result = await loginAction(formData, redirectTo ?? null);
 
-      // loginAction redirects on success (no migration warning), so we only
-      // reach here on failure or when there is a non-blocking migration warning.
       if (!result.success) {
         setServerError(result.error);
-      } else if (result.success && result.migrationWarning) {
-        // Migration failed but auth succeeded — show warning then redirect
-        setMigrationWarning(result.migrationWarning);
-        const destination = redirectTo ?? '/';
-        setTimeout(() => {
-          window.location.href = destination;
-        }, 3000);
+        return;
       }
+
+      if (result.migrationWarning) {
+        window.sessionStorage.setItem(
+          MIGRATION_WARNING_STORAGE_KEY,
+          result.migrationWarning
+        );
+      }
+
+      router.replace(result.redirectTo);
+      router.refresh();
     });
   }
 
@@ -66,7 +63,6 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
       className="flex flex-col gap-5"
       noValidate
     >
-      {/* Email field */}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="email">
           Adres e-mail
@@ -93,7 +89,6 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
         )}
       </div>
 
-      {/* Password field */}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="password">
           Hasło
@@ -120,7 +115,6 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
         )}
       </div>
 
-      {/* Server-returned error */}
       {serverError && (
         <p
           className="text-sm text-destructive rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2"
@@ -131,18 +125,6 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
         </p>
       )}
 
-      {/* Non-blocking migration warning */}
-      {migrationWarning && (
-        <p
-          className="text-sm text-amber-600 rounded-md border border-amber-300 bg-amber-50 px-3 py-2"
-          role="alert"
-          aria-live="polite"
-        >
-          {migrationWarning}
-        </p>
-      )}
-
-      {/* Submit */}
       <Button type="submit" disabled={isPending} className="w-full">
         {isPending ? 'Logowanie…' : 'Zaloguj się'}
       </Button>

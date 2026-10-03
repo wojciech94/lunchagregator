@@ -258,7 +258,7 @@ export async function analyzeUrl(url: string): Promise<ExtractedOffers> {
   return withAIFallback(
     async () => {
       const { object } = await generateObject({
-        model: google('gemini-2.5-flash'),
+        model: google('gemini-2.5-flash-preview-04-17'),
         schema: extractionResultSchema,
         system: EXTRACTION_SYSTEM_PROMPT,
         prompt: `Extract lunch offer information from the following URL. Analyze the content at this URL and extract all lunch offers you can find:\n\nURL: ${url}`,

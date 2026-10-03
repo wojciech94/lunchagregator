@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getOfferById, deleteOfferAction } from "@/actions/offers";
-import { ensureSessionToken } from "@/actions/session";
 import type { LunchOffer } from "@/types/offers";
 
 interface DeleteOfferPageProps {
@@ -33,20 +32,12 @@ export default function DeleteOfferPage({ params }: DeleteOfferPageProps) {
       if (cancelled) return;
       setOfferId(id);
 
-      const [offerResult, sessionToken] = await Promise.all([
-        getOfferById(id),
-        ensureSessionToken(),
-      ]);
+      const offerResult = await getOfferById(id);
 
       if (cancelled) return;
 
       if (!offerResult.success) {
         setState({ status: "not_found" });
-        return;
-      }
-
-      if (offerResult.data.sessionToken !== sessionToken) {
-        setState({ status: "forbidden" });
         return;
       }
 
