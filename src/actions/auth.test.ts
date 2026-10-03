@@ -277,6 +277,32 @@ describe('auth Server Actions', () => {
     });
   });
 
+  it('does not offer an inbox that will stay empty on an email-send rate limit', async () => {
+    // The provider refused to send the confirmation mail, so the account may
+    // exist and be awaiting confirmation -- and the probe would then report
+    // `pending`, putting the User on an inbox screen for a message that is not
+    // coming. The rate-limit message is already specific, so it wins.
+    //
+    // The test above covers `over_request_rate_limit`, which is a different
+    // code: it limits sign-up attempts generally, not mail delivery.
+    mockSupabaseAuth.signUp.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { code: 'over_email_send_rate_limit', message: 'Email rate limit exceeded' },
+    });
+    mockSupabaseAuth.signInWithPassword.mockResolvedValue({
+      data: { user: null, session: null },
+      error: { code: 'email_not_confirmed', message: 'Email not confirmed' },
+    });
+
+    await expect(registerAction(credentials())).resolves.toEqual({
+      success: false,
+      error: 'Zbyt wiele wiadomości z prośbą o potwierdzenie. Spróbuj ponownie za kilka minut.',
+    });
+
+    // And the probe is not reached at all.
+    expect(mockSupabaseAuth.signInWithPassword).not.toHaveBeenCalled();
+  });
+
   it('recovers the session when signUp errors but the account is usable', async () => {
     mockSupabaseAuth.signUp.mockResolvedValue({
       data: { user: null, session: null },

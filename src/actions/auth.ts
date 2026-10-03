@@ -149,6 +149,32 @@ function mapRegistrationError(error: {
 }
 
 /**
+ * Provider rejections that a probe must never try to reinterpret.
+ *
+ * `mapRegistrationError` already turns each of these into the right message, so
+ * probing after one only risks overriding a specific answer with a generic one.
+ *
+ * `over_email_send_rate_limit` is the case that matters most: the provider has
+ * just refused to send the confirmation email, so the account may well exist
+ * and await confirmation -- and the probe would then return `pending` and put
+ * the User on an inbox screen for a message that was never sent. #47 added the
+ * probe and this guard with it; the existing rate-limit test used
+ * `over_request_rate_limit` on both calls, so it never saw this combination.
+ */
+function blocksProbe(error: {
+  code?: string | null;
+  status?: number;
+  message?: string | null;
+}): boolean {
+  if (isAddressTaken(error)) return true;
+
+  // No email is coming, so there is nothing for a sign-in to discover.
+  if (error.code === 'over_email_send_rate_limit') return true;
+
+  return false;
+}
+
+/**
  * True when the provider says the address is already registered.
  *
  * A project without duplicate detection reports this as 422 with prose rather
@@ -370,9 +396,11 @@ export async function registerAction(
     if (isPendingEmailConfirmation(registration.error)) {
       // Already told: the account exists and is waiting. No probe needed.
       pendingConfirmation = true;
-    } else if (!isAddressTaken(registration.error)) {
+    } else if (!blocksProbe(registration.error)) {
       // Never probe after an address-taken error: the account belongs to
       // whoever registered it first, and a successful probe would sign them in.
+      // Nor after an email-send rate limit, which promises an inbox with
+      // nothing in it.
       await applyProbe();
     }
   } else if (!signedIn) {
