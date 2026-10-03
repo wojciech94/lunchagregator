@@ -35,19 +35,19 @@ function createMockOffer(
 }
 
 describe("OfferList", () => {
-  it("displays empty state message when no offers", () => {
-    render(
+  // The empty state is not this component's to render. OffersPage owns it
+  // because the message is context-aware: it distinguishes "nothing today"
+  // from "nothing matches these filters", and it only mounts this list when
+  // there is at least one offer. So an empty list here renders nothing.
+  it("renders nothing when there are no offers", () => {
+    const { container } = render(
       <OfferList
         offers={[]}
         pagination={{ total: 0, page: 1, limit: 20, hasMore: false }}
       />
     );
 
-    expect(
-      screen.getByText(
-        "Brak ofert lunchowych na dziś. Sprawdź później lub dodaj własną ofertę!"
-      )
-    ).toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
   });
 
   it("renders offer cards when offers are provided", () => {
