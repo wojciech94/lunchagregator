@@ -11,6 +11,7 @@ import {
   updateOffer,
   deleteOffer,
   type ActionResult,
+  type ActionResultWithLocationWarning,
 } from '@/services/offers';
 import type { LunchOffer, PaginatedOffers, Coordinates } from '@/types/offers';
 import type { OfferFilters } from '@/types/filters';
@@ -94,11 +95,17 @@ export async function getOffersByRestaurantAction(
 /**
  * Server action to create a new offer.
  * Requires an authenticated user; sets user_id from getUser() on the inserted record.
- * Requirements: 4.5, 5.2
+ *
+ * `locationWarning` is passed through so the caller can tell the User that
+ * distance sorting will not include the offer, per Requirement 6.5. It is set
+ * when an address was supplied and could not be geocoded, and the offer was
+ * still saved.
+ *
+ * Requirements: 4.5, 5.2, 6.5
  */
 export async function createOfferAction(
   data: unknown
-): Promise<ActionResult<LunchOffer>> {
+): Promise<ActionResultWithLocationWarning<LunchOffer>> {
   try {
     const user = await getUser();
 
@@ -126,6 +133,12 @@ export async function createOffersBatchAction(
   ActionResult<{
     created: LunchOffer[];
     failed: { index: number; error: string; fieldErrors?: Record<string, string> }[];
+    /**
+     * How many of the created offers have no coordinates, per Requirement 6.5.
+     * A weekly menu shares one address, so this is usually every offer or none
+     * -- which is why it is a count rather than a per-offer flag.
+     */
+    missingCoordinates: number;
   }>
 > {
   try {
@@ -155,6 +168,13 @@ export async function createOffersBatchAction(
       }
     }
 
+    // Counted from the saved rows rather than the create results: a geocoding
+    // failure is silent by design, and the stored row is what distance queries
+    // will filter on.
+    const missingCoordinates = created.filter(
+      (offer) => !offer.restaurantLocation,
+    ).length;
+
     // Treat as success if at least one offer was created
     if (created.length === 0) {
       // Every item failed for the same reason in the common case -- one bad
@@ -177,7 +197,7 @@ export async function createOffersBatchAction(
       };
     }
 
-    return { success: true, data: { created, failed } };
+    return { success: true, data: { created, failed, missingCoordinates } };
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Failed to create offers';

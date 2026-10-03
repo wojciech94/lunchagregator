@@ -20,6 +20,25 @@ export type ActionResult<T> =
   | { success: true; data: T }
   | { success: false; error: string; fieldErrors?: Record<string, string> };
 
+/**
+ * A create result that can also report a successful-but-incomplete save.
+ *
+ * Requirement 6.5: when an address is supplied and cannot be geocoded, the
+ * offer is stored without coordinates *and* the User is told that distance
+ * sorting will not include it. That is not a failure, so it cannot ride on
+ * `success: false` -- and without a field of its own it would be indistinguishable
+ * from a save that lost nothing.
+ */
+export type ActionResultWithLocationWarning<T> =
+  | ({ success: true; data: T } & {
+      /**
+       * True when an address was given but no coordinates could be resolved,
+       * so the offer was saved without them. Absent or false otherwise.
+       */
+      locationWarning?: true;
+    })
+  | { success: false; error: string; fieldErrors?: Record<string, string> };
+
 // Database row type (snake_case)
 interface DbLunchOffer {
   id: string;
@@ -145,8 +164,12 @@ function mapUpdateToDbRow(data: UpdateOfferInput): Record<string, unknown> {
   if (data.allergens !== undefined) row.allergens = data.allergens;
   if (data.restaurantAddress !== undefined)
     row.restaurant_address = data.restaurantAddress;
-  if (data.restaurantId !== undefined)
-    row.restaurant_id = data.restaurantId;
+
+  // restaurant_id is deliberately absent. It is not part of UpdateOfferInput,
+  // so an update cannot touch the link: an offer does not detach from a
+  // restaurant. The field used to be here, guarded by `!== undefined`, which
+  // made a `null` from the client a silent no-op. RestaurantForm sets it only
+  // on create, and restaurant-management owns that relationship.
 
   row.updated_at = new Date().toISOString();
 
@@ -216,11 +239,16 @@ export async function getOffersByRestaurant(
  *   1. the linked restaurant's own location, which is already verified
  *   2. geocoding the address
  *   3. nothing, per Requirement 6.5 -- the offer is still saved
+ *
+ * When (3) happens and an address was supplied, `locationWarning` is returned so
+ * the caller can tell the User that distance sorting will not include this
+ * offer. Requirement 6.5 asks for exactly that message, and the server is the
+ * only layer that knows which branch was taken.
  */
 export async function createOffer(
   data: unknown,
   userId: string
-): Promise<ActionResult<LunchOffer>> {
+): Promise<ActionResultWithLocationWarning<LunchOffer>> {
   // Validate input with Zod
   const parsed = createOfferSchema.safeParse(data);
 
@@ -244,6 +272,13 @@ export async function createOffer(
   const supabase = await createClient();
   const dbRow = mapOfferToDbRow(parsed.data, userId);
 
+  // Whether an address was asked to be resolved. Tracked separately from
+  // `restaurant_location` so the warning below can distinguish "no address, so
+  // none was expected" from "an address was given and we could not place it".
+  const addressRequested =
+    typeof parsed.data.restaurantAddress === 'string' &&
+    parsed.data.restaurantAddress.trim().length > 0;
+
   // 1. The linked restaurant already has coordinates: reuse them rather than
   // paying Nominatim again for an address we have already resolved.
   if (parsed.data.restaurantId) {
@@ -260,9 +295,9 @@ export async function createOffer(
 
   // 2. Otherwise geocode, once, on the server, before the row exists. Only
   // when an address is present and we have no coordinates yet.
-  if (!dbRow.restaurant_location && parsed.data.restaurantAddress) {
+  if (!dbRow.restaurant_location && addressRequested) {
     try {
-      const coordinates = await geocodeAddress(parsed.data.restaurantAddress);
+      const coordinates = await geocodeAddress(parsed.data.restaurantAddress!);
       if (coordinates) {
         dbRow.restaurant_location = pointString(coordinates);
       }
@@ -284,7 +319,17 @@ export async function createOffer(
     return { success: false, error: `Failed to create offer: ${error.message}` };
   }
 
-  return { success: true, data: mapDbRowToOffer(inserted as DbLunchOffer) };
+  const offer = mapDbRowToOffer(inserted as DbLunchOffer);
+
+  // Requirement 6.5: an address was supplied and no coordinates came out, so
+  // tell the caller this offer will be absent from distance sorting. Reading
+  // the saved row rather than the local decision means the flag describes what
+  // is actually stored, not what this function hoped to store.
+  if (addressRequested && !offer.restaurantLocation) {
+    return { success: true, data: offer, locationWarning: true };
+  }
+
+  return { success: true, data: offer };
 }
 
 /**
