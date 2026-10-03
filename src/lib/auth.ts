@@ -31,30 +31,68 @@ export function sanitizeRedirectTo(
 }
 
 /**
- * The application's public origin, or null when it is not configured.
+ * Normalises one candidate value to a bare origin, or null.
  *
- * Supabase builds confirmation and recovery links from the project's Site URL
- * dashboard setting when the caller supplies nothing, which defaults to
- * localhost. That setting is invisible from this repository, so the origin has
- * to be configured here instead.
- *
- * Returned as a bare origin with any path, query or trailing slash stripped:
- * a value like `https://app.example.com/` and `https://app.example.com` must
- * not produce `https://app.example.com//offers`.
+ * Vercel's injected variables hold a bare host with no scheme
+ * (`lunchagregator.vercel.app`), which `new URL` rejects outright. A scheme is
+ * therefore supplied when one is missing — https, except for loopback hosts,
+ * which the local stack genuinely serves over http.
  */
-export function getSiteOrigin(): string | null {
-  const raw = process.env.NEXT_PUBLIC_SITE_URL;
-  if (typeof raw !== "string" || raw.trim() === "") {
+function toOrigin(value: string | undefined): string | null {
+  if (typeof value !== "string" || value.trim() === "") {
     return null;
   }
+  const trimmed = value.trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      return new URL(trimmed).origin;
+    } catch {
+      return null;
+    }
+  }
+  // Loopback is served over http by the local stack, and `vercel dev` too.
+  const isLoopback = /^(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(trimmed);
+  const withScheme = isLoopback ? `http://${trimmed}` : `https://${trimmed}`;
   try {
-    return new URL(raw.trim()).origin;
+    return new URL(withScheme).origin;
   } catch {
     // A malformed value is a configuration error, not a reason to hand an
     // attacker-controlled string to Supabase. Treated as unset; the caller
     // logs it.
     return null;
   }
+}
+
+/**
+ * The application's public origin, or null when it cannot be determined.
+ *
+ * Resolution order, most authoritative first:
+ *
+ *  1. `NEXT_PUBLIC_SITE_URL` — set this for a custom domain, or for any host
+ *     that is not Vercel.
+ *  2. `VERCEL_PROJECT_PRODUCTION_URL` — injected by Vercel, no configuration
+ *     needed on the platform this app is deployed to.
+ *  3. `VERCEL_URL` — the specific deployment, including preview builds.
+ *
+ * The production URL is preferred over the deployment URL so that a preview
+ * build sharing the production database still sends people to a host that
+ * exists, rather than at an ephemeral preview.
+ *
+ * Never derived from a request header. `Host` and `X-Forwarded-Host` are
+ * supplied by the client, and this value is interpolated into a link the User
+ * will click from an email; a poisoned header would redirect that link
+ * anywhere. Every source here is set by the platform, not the caller.
+ *
+ * Returned as a bare origin with any path, query or trailing slash stripped,
+ * so `https://app.example.com/` and `https://app.example.com` cannot produce
+ * `https://app.example.com//offers`.
+ */
+export function getSiteOrigin(): string | null {
+  return (
+    toOrigin(process.env.NEXT_PUBLIC_SITE_URL) ??
+    toOrigin(process.env.VERCEL_PROJECT_PRODUCTION_URL) ??
+    toOrigin(process.env.VERCEL_URL)
+  );
 }
 
 /**
