@@ -586,10 +586,10 @@ __tests__/
 ├── unit/
 │   ├── services/
 │   ├── components/
+│   ├── actions/            # server actions against a mocked Supabase client
 │   └── utils/
-├── integration/
-│   ├── api/
-│   └── services/
 └── e2e/
     └── flows/
 ```
+
+> **Uwaga o nazewnictwie.** `__tests__/integration/` nie istnieje i nie powstał. Testy, które dawniej tam leżały, to server actions uruchamiane na **mockowanym** kliencie Supabase — bez gniazda, bez zmiennych środowiskowych, bez seedów i bez teardownu. Nazwa katalogu sugerowała pokrycie relacji oferta–restauracja na prawdziwej bazie, a takiego pokrycia nie ma. Trafiły do `unit/actions/`. Testy integracyjne żyją w projekcie `db` (`npm run test:db`, `__tests__/db/`), który łączy się z lokalnym stosem Supabase.
