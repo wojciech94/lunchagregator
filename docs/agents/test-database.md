@@ -87,11 +87,36 @@ unreachable for the same reason: `checkOwnership` returns `false` for a null
 record user id. `migrate_session_data()` (`20250101000001`) is the only path
 that assigns `user_id` to anonymous-era rows.
 
-## Vitest cannot reach this yet
+## Vitest can reach this stack, in its own project
 
-`tests/setup.ts` mocks `@supabase/ssr` and `next/headers` for every Vitest file,
-so no test under `npm test` can open a socket to this stack. Adding a
-DB-backed Vitest project is tracked separately.
+`npm run test:db` runs the `db` project in `vitest.config.ts`. It loads
+`tests/setup.db.ts`, which mocks nothing, and points at the local stack through
+`TEST_SUPABASE_*` in `.env.local`:
+
+```
+TEST_SUPABASE_URL=http://127.0.0.1:54321
+TEST_SUPABASE_ANON_KEY=<ANON_KEY from npx supabase status -o env>
+TEST_SUPABASE_SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY from the same>
+```
+
+Only `TEST_SUPABASE_*` is forwarded, and only to that project. `npm test` never
+sees them and never touches the database, so the ordinary suite runs without
+Docker.
+
+`tests/setup.db.ts` throws rather than guessing if the variables are missing,
+and refuses to run against a non-local host unless `TEST_SUPABASE_ALLOW_REMOTE=true`.
+These tests insert and delete rows; a run pointed at a real project would remove
+whatever its token prefix matched.
+
+Suites live in `__tests__/db/`. They talk to PostgREST and to SQL functions with
+`@supabase/supabase-js` directly, not through `src/lib/supabase/server.ts`,
+because that module reads `next/headers` and there is no Next request context in
+a Vitest process. What the `db` project verifies is the database layer; the
+server layer is Playwright's job.
+
+`npm run test:coverage` measures the `unit` project. Note that Vitest writes no
+coverage report for a run that has failures, so coverage currently needs #12 to
+land before a full-suite number exists.
 
 ## Playwright
 

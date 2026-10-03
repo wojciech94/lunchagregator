@@ -11,7 +11,7 @@ npm test           # Vitest unit + property tests
 npm run test:e2e   # Playwright E2E
 ```
 
-Baza testowa: lokalny stos (`npx supabase start`) — patrz `docs/agents/test-database.md`. Vitest nie łączy się z bazą: `tests/setup.ts` mockuje `@supabase/ssr` globalnie.
+Baza testowa: lokalny stos (`npx supabase start`) — patrz `docs/agents/test-database.md`. `npm test` nie łączy się z bazą (projekt `unit`, `tests/setup.ts` mockuje `@supabase/ssr`); testy na prawdziwej bazie uruchamia `npm run test:db` (projekt `db`).
 
 ## Conventions
 
