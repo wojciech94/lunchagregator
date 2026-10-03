@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => {
     getUser: vi.fn(),
     signUp: vi.fn(),
     signInWithPassword: vi.fn(),
+    resend: vi.fn(),
     signOut: vi.fn(),
   };
   const client = { auth, from: vi.fn(), rpc: vi.fn() };
@@ -56,6 +57,7 @@ function configureDefaults() {
   mocks.auth.getUser.mockImplementation(async () => ({ data: { user: mocks.currentUser }, error: null }));
   mocks.auth.signUp.mockResolvedValue({ data: { user: null }, error: null });
   mocks.auth.signInWithPassword.mockResolvedValue({ data: { user: null }, error: null });
+  mocks.auth.resend.mockResolvedValue({ data: {}, error: null });
   mocks.auth.signOut.mockResolvedValue({ error: null });
   mocks.client.from.mockImplementation(() => mocks.query);
   mocks.client.rpc.mockResolvedValue({ data: null, error: null });
