@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { geocodeAddress } from '@/services/geocoding';
 import {
   createOfferSchema,
   updateOfferSchema,
@@ -105,6 +106,14 @@ function parseLocation(
   }
 
   return null;
+}
+
+/**
+ * Formats coordinates as the PostGIS text form PostgREST accepts for insert.
+ * Longitude first, matching `POINT(lon lat)` as written in restaurants.ts.
+ */
+function pointString(coordinates: Coordinates): string {
+  return `POINT(${coordinates.longitude} ${coordinates.latitude})`;
 }
 
 /**
@@ -217,8 +226,17 @@ export async function getOffersByRestaurant(
 /**
  * Create a new offer with Zod validation.
  * Sets user_id from the authenticated user on the inserted record.
- * When restaurantId is provided, fetches the restaurant's location
- * to store as a snapshot in the offer's restaurant_location field.
+ *
+ * Coordinates are resolved before the INSERT, not after. `get_offers_within_radius`
+ * filters `WHERE restaurant_location IS NOT NULL`, so an offer inserted without
+ * them is invisible to every distance query for the rest of its life -- the
+ * post-insert geocode that used to live in the client discarded its result,
+ * which left every AI-added offer permanently without coordinates.
+ *
+ * Precedence, most trustworthy first:
+ *   1. the linked restaurant's own location, which is already verified
+ *   2. geocoding the address
+ *   3. nothing, per Requirement 6.5 -- the offer is still saved
  */
 export async function createOffer(
   data: unknown,
@@ -247,7 +265,8 @@ export async function createOffer(
   const supabase = await createClient();
   const dbRow = mapOfferToDbRow(parsed.data, userId);
 
-  // If restaurantId is provided, fetch the restaurant's location for the snapshot
+  // 1. The linked restaurant already has coordinates: reuse them rather than
+  // paying Nominatim again for an address we have already resolved.
   if (parsed.data.restaurantId) {
     const { data: restaurant } = await supabase
       .from('restaurants')
@@ -257,6 +276,22 @@ export async function createOffer(
 
     if (restaurant?.location) {
       dbRow.restaurant_location = restaurant.location;
+    }
+  }
+
+  // 2. Otherwise geocode, once, on the server, before the row exists. Only
+  // when an address is present and we have no coordinates yet.
+  if (!dbRow.restaurant_location && parsed.data.restaurantAddress) {
+    try {
+      const coordinates = await geocodeAddress(parsed.data.restaurantAddress);
+      if (coordinates) {
+        dbRow.restaurant_location = pointString(coordinates);
+      }
+    } catch (error) {
+      // geocodeAddress returns null for network errors and timeouts, but a
+      // throw here would lose the whole offer over a geocoding outage.
+      // Requirement 6.5: the offer is saved either way.
+      console.error('Offer geocoding failed:', error);
     }
   }
 
