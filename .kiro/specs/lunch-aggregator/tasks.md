@@ -12,7 +12,7 @@ Implementacja aplikacji Lunch Agregator w Next.js (App Router) z TypeScript, Sup
     - Install and configure: `@supabase/supabase-js`, `ai` (Vercel AI SDK), `zod`, `react-hook-form`, `@hookform/resolvers`
     - Install dev dependencies: `vitest`, `fast-check`, `@playwright/test`, `axe-core`
     - Configure `tsconfig.json` with path aliases (`@/`)
-    - Create `.env.local.example` with required environment variables (SUPABASE_URL, SUPABASE_ANON_KEY, OPENAI_API_KEY)
+    - Create `.env.local.example` with required environment variables (SUPABASE_URL, SUPABASE_ANON_KEY, GOOGLE_GENERATIVE_AI_API_KEY)
     - _Requirements: 7.1, 7.2_
 
   - [x] 1.2 Set up Supabase client and project structure

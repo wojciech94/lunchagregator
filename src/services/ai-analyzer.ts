@@ -1,5 +1,6 @@
 import { generateObject } from 'ai';
 import { google } from '@ai-sdk/google';
+import { AI_MODEL_ID } from '@/lib/ai/models';
 import { z } from 'zod';
 import type { DietaryTag, Allergen } from '@/types/offers';
 
@@ -258,7 +259,7 @@ export async function analyzeUrl(url: string): Promise<ExtractedOffers> {
   return withAIFallback(
     async () => {
       const { object } = await generateObject({
-        model: google('gemini-2.5-flash-preview-04-17'),
+        model: google(AI_MODEL_ID),
         schema: extractionResultSchema,
         system: EXTRACTION_SYSTEM_PROMPT,
         prompt: `Extract lunch offer information from the following URL. Analyze the content at this URL and extract all lunch offers you can find:\n\nURL: ${url}`,
@@ -299,7 +300,7 @@ export async function analyzeText(text: string): Promise<ExtractedOffers> {
   return withAIFallback(
     async () => {
       const { object } = await generateObject({
-        model: google('gemini-2.5-flash'),
+        model: google(AI_MODEL_ID),
         schema: extractionResultSchema,
         system: EXTRACTION_SYSTEM_PROMPT,
         prompt: `Extract lunch offer information from the following text:\n\n${text}`,
@@ -326,7 +327,7 @@ export async function analyzeImage(imageUrl: string): Promise<ExtractedOffers> {
   return withAIFallback(
     async () => {
       const { object } = await generateObject({
-        model: google('gemini-2.5-flash'),
+        model: google(AI_MODEL_ID),
         schema: extractionResultSchema,
         system: EXTRACTION_SYSTEM_PROMPT,
         messages: [

@@ -1,5 +1,6 @@
 import { streamText, type CoreMessage } from 'ai';
 import { google } from '@ai-sdk/google';
+import { AI_MODEL_ID } from '@/lib/ai/models';
 import type { Coordinates, LunchOffer } from '@/types/offers';
 
 /**
@@ -64,7 +65,7 @@ ${locationContext}`;
 
 /**
  * Creates an AIRecommenderService instance.
- * Uses Vercel AI SDK streamText with OpenAI provider for streaming responses.
+ * Uses Vercel AI SDK streamText with the Google provider for streaming responses.
  */
 export function createAIRecommenderService(): AIRecommenderService {
   return {
@@ -82,7 +83,7 @@ export function createAIRecommenderService(): AIRecommenderService {
       }));
 
       return streamText({
-        model: google('gemini-1.5-flash'),
+        model: google(AI_MODEL_ID),
         system: systemPrompt,
         messages: coreMessages,
       });
