@@ -29,3 +29,46 @@ export function sanitizeRedirectTo(
   }
   return "/";
 }
+
+/**
+ * The application's public origin, or null when it is not configured.
+ *
+ * Supabase builds confirmation and recovery links from the project's Site URL
+ * dashboard setting when the caller supplies nothing, which defaults to
+ * localhost. That setting is invisible from this repository, so the origin has
+ * to be configured here instead.
+ *
+ * Returned as a bare origin with any path, query or trailing slash stripped:
+ * a value like `https://app.example.com/` and `https://app.example.com` must
+ * not produce `https://app.example.com//offers`.
+ */
+export function getSiteOrigin(): string | null {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL;
+  if (typeof raw !== "string" || raw.trim() === "") {
+    return null;
+  }
+  try {
+    return new URL(raw.trim()).origin;
+  } catch {
+    // A malformed value is a configuration error, not a reason to hand an
+    // attacker-controlled string to Supabase. Treated as unset; the caller
+    // logs it.
+    return null;
+  }
+}
+
+/**
+ * Absolute URL for an email link, or undefined when no origin is configured.
+ *
+ * The path still goes through sanitizeRedirectTo, so a `redirectTo` arriving
+ * from the form cannot move the confirmation link off this origin.
+ */
+export function buildEmailRedirectTo(
+  destination: string | null | undefined
+): string | undefined {
+  const origin = getSiteOrigin();
+  if (origin === null) {
+    return undefined;
+  }
+  return `${origin}${sanitizeRedirectTo(destination)}`;
+}

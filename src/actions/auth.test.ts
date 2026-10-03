@@ -21,6 +21,9 @@ function credentials(email = 'owner@example.com', password = 'password123') {
 
 afterEach(() => {
   vi.useRealTimers();
+  // These tests toggle the configured origin; leaving it set would change how
+  // later files in this worker build their redirect.
+  delete process.env.NEXT_PUBLIC_SITE_URL;
 });
 
 describe('auth Server Actions', () => {
@@ -58,6 +61,51 @@ describe('auth Server Actions', () => {
       password: 'password123',
     });
     expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
+  it('sends no emailRedirectTo when NEXT_PUBLIC_SITE_URL is unset', async () => {
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    mockSupabaseAuth.signUp.mockResolvedValue({ data: authenticatedData, error: null });
+
+    await registerAction(credentials());
+
+    // Supabase then falls back to the project Site URL setting, which defaults
+    // to localhost. Omitting is deliberate: guessing here is what produced the
+    // dead link in the first place.
+    expect(mockSupabaseAuth.signUp).toHaveBeenCalledWith({
+      email: 'owner@example.com',
+      password: 'password123',
+    });
+  });
+
+  it('sends an absolute emailRedirectTo built from the configured origin', async () => {
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://app.example.com/';
+    mockSupabaseAuth.signUp.mockResolvedValue({ data: authenticatedData, error: null });
+    const formData = credentials();
+    formData.set('redirectTo', '/restaurants/new');
+
+    await registerAction(formData);
+
+    expect(mockSupabaseAuth.signUp).toHaveBeenCalledWith({
+      email: 'owner@example.com',
+      password: 'password123',
+      options: { emailRedirectTo: 'https://app.example.com/restaurants/new' },
+    });
+  });
+
+  it('does not let a form-supplied redirectTo escape the configured origin', async () => {
+    process.env.NEXT_PUBLIC_SITE_URL = 'https://app.example.com';
+    mockSupabaseAuth.signUp.mockResolvedValue({ data: authenticatedData, error: null });
+    const formData = credentials();
+    formData.set('redirectTo', 'https://evil.example/steal');
+
+    await registerAction(formData);
+
+    expect(mockSupabaseAuth.signUp).toHaveBeenCalledWith({
+      email: 'owner@example.com',
+      password: 'password123',
+      options: { emailRedirectTo: 'https://app.example.com/' },
+    });
   });
 
   it('maps duplicate email registration responses to the documented message', async () => {

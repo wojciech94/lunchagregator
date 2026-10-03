@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
-import { sanitizeRedirectTo } from '@/lib/auth';
+import { buildEmailRedirectTo, sanitizeRedirectTo } from '@/lib/auth';
 import {
   MIGRATION_WARNING_MESSAGE,
 } from '@/lib/migration-warning';
@@ -132,9 +132,24 @@ export async function registerAction(
   const deadline = Date.now() + AUTH_TIMEOUT_MS;
 
   let registration;
+  // Supabase falls back to the project's Site URL dashboard setting when this
+  // is omitted, and that setting defaults to localhost, so a production user
+  // would receive a dead link. See NEXT_PUBLIC_SITE_URL in .env.local.example.
+  const emailRedirectTo = buildEmailRedirectTo(redirectToParam);
+  if (emailRedirectTo === undefined) {
+    console.warn(
+      '[auth] NEXT_PUBLIC_SITE_URL is unset or malformed; the confirmation email will point at the Supabase Site URL setting instead of this deployment.'
+    );
+  }
+
   try {
     registration = await withRemainingAuthTime(
-      () => supabase.auth.signUp({ email, password }),
+      () =>
+        supabase.auth.signUp({
+          email,
+          password,
+          ...(emailRedirectTo ? { options: { emailRedirectTo } } : {}),
+        }),
       deadline
     );
   } catch (error) {
