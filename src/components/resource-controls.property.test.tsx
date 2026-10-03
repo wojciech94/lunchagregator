@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment jsdom
+ */
 // Feature: user-authentication, Property 8: Edit/delete UI controls are only shown to the resource owner
 
 import { cleanup, render, screen } from '@testing-library/react';

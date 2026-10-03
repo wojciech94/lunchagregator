@@ -18,11 +18,12 @@ import { loadEnv } from 'vite';
  * `npm test` runs `unit` only, so the suite stays runnable without Docker.
  * `npm run test:db` runs `db` and needs `npx supabase start`.
  *
- * On environments: `environmentMatchGlobs` below maps `.tsx` files to jsdom and
- * is doing real work. An earlier belief that it had been removed in Vitest 3,
- * and was therefore inert, turned out to be false -- see the note on `common`.
- * An attempt to replace it with an explicit `.tsx`-per-extension split broke
- * nine suites, which is how it was found to matter at all.
+ * On environments: every `.tsx` suite declares `jsdom` in a
+ * `@vitest-environment` docblock, which is the mechanism Vitest documents and
+ * the one three suites already used. `environmentMatchGlobs` is gone: Vitest
+ * 3.2.7 lists it under `UnsupportedProperties` for project config, so it did
+ * not typecheck here, and moving it to the root level does not propagate into
+ * projects -- verified, five suites fail with "window is not defined".
  */
 const alias = { '@': path.resolve(__dirname, './src') };
 
@@ -37,13 +38,6 @@ const common = {
   globals: true,
   clearMocks: true,
   environment: 'node',
-  // Load-bearing, and verified so after an earlier claim that it was removed
-  // in Vitest 3 turned out to be wrong: installed Vitest is 3.2.7 and
-  // environmentMatchGlobs is still a recognised option there. Nine .tsx suites
-  // depend on it -- they touch `window` or `document` and carry no
-  // `@vitest-environment` docblock. Removing it turns them into
-  // "window is not defined". Do not "clean this up" without running the suite.
-  environmentMatchGlobs: [['**/*.test.tsx', 'jsdom']],
 };
 
 export default defineConfig(({ mode }) => {

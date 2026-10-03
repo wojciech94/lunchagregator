@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment jsdom
+ */
 // Feature: user-authentication, Property 11: NavHeader renders the authenticated user's email and logout button
 
 import { cleanup, render, screen } from '@testing-library/react';

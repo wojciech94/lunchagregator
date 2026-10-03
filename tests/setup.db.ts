@@ -47,8 +47,22 @@ if (missing.length > 0) {
  * These suites insert and delete rows. A run pointed at a real project would
  * remove whatever its token prefix matched, so a non-local host has to be
  * asked for explicitly.
+ *
+ * The guard above proves at runtime that all three variables are set, but it
+ * checks names while this code reads values, so the compiler cannot see the
+ * connection and still types the read as `string | undefined`. `requireEnv`
+ * is how the narrowing happens; its own throw is unreachable while the guard
+ * above is in place, and stays as the guarantee if the guard is ever removed.
  */
-const host = new URL(process.env.TEST_SUPABASE_URL).hostname;
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${name}.`);
+  }
+  return value;
+}
+
+const host = new URL(requireEnv('TEST_SUPABASE_URL')).hostname;
 const isLocal = host === '127.0.0.1' || host === 'localhost' || host === '::1';
 
 if (!isLocal && process.env.TEST_SUPABASE_ALLOW_REMOTE !== 'true') {
