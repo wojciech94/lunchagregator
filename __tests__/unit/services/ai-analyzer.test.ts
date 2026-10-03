@@ -1,16 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock the ai and @ai-sdk/openai modules before importing the service
+// Mock the ai module before importing the service. The Google provider is
+// left unmocked so the live model object can be asserted on modelId.
 vi.mock('ai', () => ({
   generateObject: vi.fn(),
 }));
 
-vi.mock('@ai-sdk/openai', () => ({
-  openai: vi.fn(() => 'mocked-model'),
-}));
-
 import { analyzeText, analyzeUrl, analyzeImage } from '@/services/ai-analyzer';
 import { generateObject } from 'ai';
+import { AI_MODEL_ID } from '@/lib/ai/models';
+import { RATE_LIMIT_MESSAGE } from '@/lib/ai/errors';
 
 const mockGenerateObject = vi.mocked(generateObject);
 
@@ -122,11 +121,63 @@ describe('AIAnalyzerService', () => {
     });
 
     it('should return fallback on AI timeout', async () => {
-      mockGenerateObject.mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            setTimeout(() => resolve({ object: { offers: [], confidence: 0 } } as never), 15000);
-          })
+      vi.useFakeTimers();
+      try {
+        mockGenerateObject.mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              setTimeout(
+                () => resolve({ object: { offers: [], confidence: 0 } } as never),
+                10000
+              );
+            })
+        );
+
+        let settled = false;
+        const pending = analyzeText('Some text').then((r) => {
+          settled = true;
+          return r;
+        });
+
+        // Requirement 4.2 budgets the response at 10 seconds, so the call
+        // must still be in flight one tick earlier.
+        await vi.advanceTimersByTimeAsync(9999);
+        expect(settled).toBe(false);
+
+        await vi.advanceTimersByTimeAsync(1);
+        const result = await pending;
+
+        expect(result).toEqual({
+          offers: [],
+          sourceType: 'text',
+          confidence: 0,
+          missingFields: ['restaurantName', 'dishName', 'price'],
+        });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('should clear the timeout once the AI call returns', async () => {
+      vi.useFakeTimers();
+      const clearSpy = vi.spyOn(globalThis, 'clearTimeout');
+      try {
+        mockGenerateObject.mockResolvedValueOnce({
+          object: { offers: [], confidence: 0 },
+        } as never);
+
+        await analyzeText('Some text');
+
+        expect(clearSpy).toHaveBeenCalled();
+      } finally {
+        clearSpy.mockRestore();
+        vi.useRealTimers();
+      }
+    });
+
+    it('should return the empty extraction with a rate-limit message on 429', async () => {
+      mockGenerateObject.mockRejectedValueOnce(
+        Object.assign(new Error('Too many requests'), { statusCode: 429 })
       );
 
       const result = await analyzeText('Some text');
@@ -136,8 +187,32 @@ describe('AIAnalyzerService', () => {
         sourceType: 'text',
         confidence: 0,
         missingFields: ['restaurantName', 'dishName', 'price'],
+        message: RATE_LIMIT_MESSAGE,
       });
-    }, 15000);
+    });
+
+    it('should not attach a message to an ordinary AI failure', async () => {
+      mockGenerateObject.mockRejectedValueOnce(new Error('API error'));
+
+      const result = await analyzeText('Some text');
+
+      expect(result.message).toBeUndefined();
+    });
+
+    it('should call the pinned Google model with thinking off', async () => {
+      mockGenerateObject.mockResolvedValueOnce({
+        object: { offers: [], confidence: 0 },
+      } as never);
+
+      await analyzeText('Some text');
+
+      const callArgs = mockGenerateObject.mock.calls[0][0];
+      expect(callArgs.model.modelId).toBe(AI_MODEL_ID);
+      expect(callArgs.model.provider).toBe('google.generative-ai');
+      expect(callArgs.providerOptions).toEqual({
+        google: { thinkingConfig: { thinkingBudget: 0 } },
+      });
+    });
 
     it('should return fallback on AI error', async () => {
       mockGenerateObject.mockRejectedValueOnce(new Error('API error'));
@@ -214,6 +289,29 @@ describe('AIAnalyzerService', () => {
       expect(result.confidence).toBe(0.7);
       expect(result.offers[0].dishes).toHaveLength(2);
       expect(result.missingFields).toEqual([]);
+
+      // Requirement 5.3: the photo itself must reach the model. Without this
+      // the test still passes if the image part stops being sent.
+      const callArgs = mockGenerateObject.mock.calls[0][0];
+      const parts = callArgs.messages[0].content;
+      expect(parts).toContainEqual({
+        type: 'image',
+        image: 'https://storage.example.com/menu.jpg',
+      });
+    });
+
+    it('should call the pinned Google model with thinking off', async () => {
+      mockGenerateObject.mockResolvedValueOnce({
+        object: { offers: [], confidence: 0 },
+      } as never);
+
+      await analyzeImage('https://storage.example.com/menu.jpg');
+
+      const callArgs = mockGenerateObject.mock.calls[0][0];
+      expect(callArgs.model.modelId).toBe(AI_MODEL_ID);
+      expect(callArgs.providerOptions).toEqual({
+        google: { thinkingConfig: { thinkingBudget: 0 } },
+      });
     });
 
     it('should return fallback on AI failure', async () => {
@@ -227,6 +325,17 @@ describe('AIAnalyzerService', () => {
         confidence: 0,
         missingFields: ['restaurantName', 'dishName', 'price'],
       });
+    });
+
+    it('should return the empty extraction with a rate-limit message on 429', async () => {
+      mockGenerateObject.mockRejectedValueOnce(
+        Object.assign(new Error('Resource exhausted'), { statusCode: 429 })
+      );
+
+      const result = await analyzeImage('https://storage.example.com/menu.jpg');
+
+      expect(result.message).toBe(RATE_LIMIT_MESSAGE);
+      expect(result.offers).toEqual([]);
     });
   });
 

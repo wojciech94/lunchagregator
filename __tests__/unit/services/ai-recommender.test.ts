@@ -1,17 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { LunchOffer, Coordinates } from '@/types/offers';
 
-// Mock the ai and @ai-sdk/openai modules
+// Mock the ai module. The Google provider is deliberately not mocked: the
+// live google() factory builds a real model object whose modelId can be
+// asserted directly, which is a sharper contract than asserting that a mock
+// was called with a string.
 vi.mock('ai', () => ({
   streamText: vi.fn(),
 }));
 
-vi.mock('@ai-sdk/openai', () => ({
-  openai: vi.fn(() => 'mocked-model'),
-}));
-
 import { streamText } from 'ai';
 import { createAIRecommenderService, type ChatMessage } from '@/services/ai-recommender';
+import { AI_MODEL_ID } from '@/lib/ai/models';
 
 const mockedStreamText = vi.mocked(streamText);
 
@@ -197,7 +197,7 @@ describe('AIRecommenderService', () => {
       expect(callArgs.system).toContain('dietetyczne');
     });
 
-    it('should use openai model', () => {
+    it('should use the pinned Google model', () => {
       const messages: ChatMessage[] = [
         { role: 'user', content: 'Polecisz coś?' },
       ];
@@ -206,7 +206,33 @@ describe('AIRecommenderService', () => {
       service.getRecommendations(messages, offers);
 
       const callArgs = mockedStreamText.mock.calls[0][0];
-      expect(callArgs.model).toBe('mocked-model');
+      expect(callArgs.model.modelId).toBe(AI_MODEL_ID);
+      expect(callArgs.model.provider).toBe('google.generative-ai');
+    });
+
+    it('turns thinking off', () => {
+      const messages: ChatMessage[] = [
+        { role: 'user', content: 'Polecisz coś?' },
+      ];
+
+      service.getRecommendations(messages, [createMockOffer()]);
+
+      const callArgs = mockedStreamText.mock.calls[0][0];
+      expect(callArgs.providerOptions).toEqual({
+        google: { thinkingConfig: { thinkingBudget: 0 } },
+      });
+    });
+
+    it('aborts the provider call after the 10 second budget', () => {
+      const messages: ChatMessage[] = [
+        { role: 'user', content: 'Polecisz coś?' },
+      ];
+
+      service.getRecommendations(messages, [createMockOffer()]);
+
+      const callArgs = mockedStreamText.mock.calls[0][0];
+      expect(callArgs.abortSignal).toBeInstanceOf(AbortSignal);
+      expect(callArgs.abortSignal.aborted).toBe(false);
     });
   });
 });
