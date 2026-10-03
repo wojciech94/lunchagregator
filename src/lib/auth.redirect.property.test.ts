@@ -1,6 +1,6 @@
 // Feature: user-authentication, Property 2: redirectTo sanitization only accepts internal paths
 
-import { describe, expect, it, afterEach } from "vitest";
+import { describe, expect, it, afterEach, beforeEach } from "vitest";
 import fc from "fast-check";
 import {
   buildEmailRedirectTo,
@@ -32,29 +32,71 @@ describe("Property 2: redirectTo sanitization only accepts internal paths", () =
 });
 
 describe("getSiteOrigin", () => {
-  const original = process.env.NEXT_PUBLIC_SITE_URL;
+  const ORIGIN_ENV = [
+    "NEXT_PUBLIC_SITE_URL",
+    "VERCEL_PROJECT_PRODUCTION_URL",
+    "VERCEL_URL",
+  ] as const;
+  const saved: Record<string, string | undefined> = {};
 
-  afterEach(() => {
-    if (original === undefined) {
-      delete process.env.NEXT_PUBLIC_SITE_URL;
-    } else {
-      process.env.NEXT_PUBLIC_SITE_URL = original;
+  beforeEach(() => {
+    for (const key of ORIGIN_ENV) {
+      saved[key] = process.env[key];
+      delete process.env[key];
     }
   });
 
-  it("is null when unset", () => {
-    delete process.env.NEXT_PUBLIC_SITE_URL;
+  afterEach(() => {
+    for (const key of ORIGIN_ENV) {
+      if (saved[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = saved[key];
+      }
+    }
+  });
+
+  it("is null when nothing is configured", () => {
     expect(getSiteOrigin()).toBeNull();
   });
 
-  it("is null when blank", () => {
+  it("is null for a blank value rather than falling through to a host", () => {
     process.env.NEXT_PUBLIC_SITE_URL = "   ";
-    expect(getSiteOrigin()).toBeNull();
+    process.env.VERCEL_URL = "lunchagregator.vercel.app";
+    expect(getSiteOrigin()).toBe("https://lunchagregator.vercel.app");
   });
 
-  it("is null for a malformed value rather than passing it through", () => {
+  it("ignores a malformed explicit value instead of passing it through", () => {
     process.env.NEXT_PUBLIC_SITE_URL = "not a url";
     expect(getSiteOrigin()).toBeNull();
+  });
+
+  it("uses the explicit variable when it is set", () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "https://lunch.example.com";
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = "lunchagregator.vercel.app";
+    process.env.VERCEL_URL = "lunchagregator-abc123.vercel.app";
+    expect(getSiteOrigin()).toBe("https://lunch.example.com");
+  });
+
+  it("falls back to the Vercel production URL with no configuration", () => {
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = "lunchagregator.vercel.app";
+    process.env.VERCEL_URL = "lunchagregator-abc123.vercel.app";
+    expect(getSiteOrigin()).toBe("https://lunchagregator.vercel.app");
+  });
+
+  it("falls back to the deployment URL when there is no production URL", () => {
+    process.env.VERCEL_URL = "lunchagregator-abc123.vercel.app";
+    expect(getSiteOrigin()).toBe("https://lunchagregator-abc123.vercel.app");
+  });
+
+  it("supplies https for a schemeless Vercel host", () => {
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = "lunchagregator.vercel.app";
+    expect(getSiteOrigin()).toBe("https://lunchagregator.vercel.app");
+  });
+
+  it("supplies http for a schemeless loopback host", () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "localhost:3000";
+    expect(getSiteOrigin()).toBe("http://localhost:3000");
   });
 
   it("strips a trailing slash so links do not double up", () => {
