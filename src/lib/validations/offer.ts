@@ -148,7 +148,16 @@ export const updateOfferSchema = z.object({
     .max(200, 'Restaurant address must be at most 200 characters')
     .nullable()
     .optional(),
-  restaurantId: z.string().uuid('Invalid restaurant ID').nullable().optional(),
+  // No restaurantId here, deliberately. This schema used to accept
+  // `restaurantId: uuid().nullable().optional()`, which promised something the
+  // service could not do: mapUpdateToDbRow assigned the column only when the
+  // value was `!== undefined`, so passing `null` -- the documented way to detach
+  // -- silently wrote nothing while the form reported success.
+  //
+  // An offer does not detach from a restaurant. Removing the field means a
+  // `null` arriving from the client is now rejected by validation instead of
+  // silently discarded, which is the outcome #18 asked for. It stays on
+  // createOfferSchema, where the RestaurantSelect dropdown really sets it.
 });
 
 export type CreateOfferInput = z.infer<typeof createOfferSchema>;

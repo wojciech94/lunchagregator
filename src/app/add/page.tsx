@@ -21,6 +21,20 @@ import type { InputType } from "@/components/add-offer/InputSelector";
 // Types
 // ============================================================================
 
+/**
+ * Requirement 6.5: an offer saved without coordinates is absent from
+ * `get_offers_within_radius`, which filters `restaurant_location IS NOT NULL`.
+ * The User is told this rather than left to wonder why distance sorting does
+ * not show their offer.
+ */
+const LOCATION_WARNING =
+  "Nie udało się ustalić lokalizacji z podanego adresu. Oferta została opublikowana, ale nie pojawi się w sortowaniu i wyszukiwaniu według odległości. Możesz ją edytować i poprawić adres.";
+
+/** The batch form, where one shared address decides the outcome for every day. */
+function locationWarningFor(count: number): string {
+  return `${LOCATION_WARNING} Dotyczy to ${count} ${count === 1 ? "oferty" : "ofert"} z tego menu.`;
+}
+
 type Step = "input" | "analyzing" | "preview" | "weekly" | "form" | "saving" | "success";
 
 interface PageState {
@@ -31,6 +45,12 @@ interface PageState {
   error: string | null;
   fieldErrors: Record<string, string>;
   successMessage: string | null;
+  /**
+   * Requirement 6.5. Set when the offer was saved but its address could not be
+   * geocoded, so the offer will not appear in distance sorting. Shown on the
+   * success screen, where the User can still act on it before leaving.
+   */
+  locationWarning: string | null;
 }
 
 // ============================================================================
@@ -48,19 +68,25 @@ export default function AddOfferPage() {
     error: null,
     fieldErrors: {},
     successMessage: null,
+    locationWarning: null,
   });
 
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
-  // Redirect to main page after success
+  // Redirect to main page after success -- unless there is something to read.
+  //
+  // Requirement 6.5 asks the System to tell the User that distance sorting will
+  // not include the offer. A 2-second redirect out from under that message
+  // would make it unreadable in practice, so the warning holds the page open and
+  // the User leaves by choice.
   React.useEffect(() => {
-    if (state.step === "success") {
+    if (state.step === "success" && !state.locationWarning) {
       const timer = setTimeout(() => {
         router.push("/");
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [state.step, router]);
+  }, [state.step, state.locationWarning, router]);
 
   // ============================================================================
   // Handlers
@@ -207,6 +233,9 @@ export default function AddOfferPage() {
         step: "success",
         error: null,
         fieldErrors: {},
+        locationWarning: createResult.locationWarning
+          ? LOCATION_WARNING
+          : null,
       }));
     } catch {
       setState((prev) => ({
@@ -227,6 +256,7 @@ export default function AddOfferPage() {
       error: null,
       fieldErrors: {},
       successMessage: null,
+      locationWarning: null,
     });
   }
 
@@ -285,7 +315,7 @@ export default function AddOfferPage() {
         return;
       }
 
-      const { created, failed } = result.data;
+      const { created, failed, missingCoordinates } = result.data;
       const message =
         failed.length > 0
           ? `Opublikowano ${created.length} ofert. ${failed.length} nie udało się zapisać.`
@@ -297,6 +327,8 @@ export default function AddOfferPage() {
         error: null,
         fieldErrors: {},
         successMessage: message,
+        locationWarning:
+          missingCoordinates > 0 ? locationWarningFor(missingCoordinates) : null,
       }));
     } catch {
       setState((prev) => ({
@@ -459,10 +491,30 @@ export default function AddOfferPage() {
               <p className="text-lg font-medium text-foreground">
                 {state.successMessage ?? "Oferta została opublikowana!"}
               </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Za chwilę zostaniesz przekierowany na stronę główną...
-              </p>
+              {state.locationWarning ? (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {/* The 2s auto-redirect is suspended while this is set, so the
+                      User is not taken away mid-sentence. */}
+                  Możesz przejść do ofert ręcznie poniżej.
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Za chwilę zostaniesz przekierowany na stronę główną...
+                </p>
+              )}
             </div>
+            {state.locationWarning && (
+              <div
+                className="flex items-start gap-3 rounded-lg border border-amber-500/50 bg-amber-500/5 p-4 text-left"
+                role="status"
+              >
+                <AlertTriangle
+                  className="mt-0.5 size-5 shrink-0 text-amber-500"
+                  aria-hidden="true"
+                />
+                <p className="text-sm text-foreground">{state.locationWarning}</p>
+              </div>
+            )}
             <Button
               variant="outline"
               onClick={() => router.push("/")}
