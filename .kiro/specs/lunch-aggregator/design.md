@@ -2,16 +2,40 @@
 
 ## Overview
 
-Lunch Agregator to aplikacja webowa zbudowana w Next.js (App Router) z TypeScript, wykorzystująca Supabase jako bazę danych (PostgreSQL + PostGIS) oraz Vercel AI SDK do analizy treści i rekomendacji. Aplikacja umożliwia anonimowe przeglądanie, filtrowanie i dodawanie ofert lunchowych, a także korzystanie z czatu AI do rekomendacji posiłków.
+Lunch Agregator to aplikacja webowa zbudowana w Next.js (App Router) z TypeScript, wykorzystująca Supabase jako bazę danych (PostgreSQL + PostGIS) oraz Vercel AI SDK do analizy treści i rekomendacji. Aplikacja umożliwia przeglądanie, filtrowanie i geolokalizację bez logowania, a także korzystanie z czatu AI do rekomendacji posiłków. Dodawanie i zarządzanie ofertami wymaga konta.
 
 ### Kluczowe decyzje architektoniczne
 
-- **Brak autentykacji** — anonimowy dostęp z identyfikacją sesji przez token (cookie/localStorage) do zarządzania własnymi ofertami
+- **Konto wymagane do zapisu** — przeglądanie, filtrowanie, geolokalizacja i czat AI są dostępne dla odwiedzającego bez konta; dodawanie i zarządzanie ofertami wymaga zalogowanego konta. Własność oferty ustala się po zalogowanym użytkowniku, nigdy po tokenie sesji (patrz `.kiro/specs/user-authentication/`)
 - **Server Components + Server Actions** — renderowanie listy ofert po stronie serwera, interakcje (filtrowanie, czat) po stronie klienta
 - **PostGIS** — obliczanie odległości i filtrowanie przestrzenne bezpośrednio w bazie danych
 - **Vercel AI SDK `generateObject`** — ekstrakcja strukturalnych danych z linków/tekstu/zdjęć
 - **Vercel AI SDK `useChat` + `streamText`** — czat rekomendacyjny ze streamingiem odpowiedzi
-- **Geocoding** — zewnętrzne API (np. Nominatim/OpenStreetMap) do konwersji adresów na współrzędne
+- **Geocoding** — Nominatim/OpenStreetMap do konwersji adresów na współrzędne
+
+## Ustalone decyzje
+
+### Dostawca AI
+
+Oba serwisy — `AIAnalyzerService` i `AIRecommenderService` — używają **jednego** dostawcy i **jednego** modelu: Google Gemini `gemini-3.8-flash`, przypiętego jako jedna stała `AI_MODEL_ID` w `src/lib/ai/models.ts` z opcjonalnym nadpisaniem przez `AI_MODEL`. Jedna stała, nie jedna na serwis — dwie stałe o tej samej wartości to martwa abstrakcja.
+
+- **Thinking wyłączony** (`thinkingBudget: 0`) na wszystkich czterech ścieżkach. Ekstrakcja strukturalna na schemacie Zod nie ma czego rozumować, a rekomendacja operuje na gotowej liście ofert. Thinking tylko wydłuża czas przy budżecie 10 sekund.
+- **Timeout 10 sekund**, zgodnie z Requirement 4.2. Jedna wartość w `src/lib/ai/constants.ts`, żeby oba serwisy nie rozjechały się.
+- **429 jest oczekiwanym stanem, nie wyjątkiem.** Limity darmowego tiera (RPM/TPM/RPD) nie są publikowane, liczone są per projekt, nie per klucz, i dzielone między deweloperów. Brak obsługi sprawiałby, że odrzucenie wygląda identycznie jak „model nic nie znalazł". Analyzer zwraca pustą ekstrakcję z komunikatem, który `/add` pokazuje zamiast swojego ogólnego tekstu; okno czatu pokazuje go zamiast ogólnego błędu.
+
+### Geokodowanie po stronie serwera, przed `INSERT`
+
+Geokodowanie ofertowy się w `createOffer` i `createOffersBatchAction`, **przed** wstawieniem wiersza, tylko gdy adres jest obecny i współrzędnych brak. Wcześniejsza implementacja geokodowała po `INSERT` i odrzucała wynik, przez co każda oferta dodana przez AI miała trwale `restaurant_location IS NULL` i była nieosiągalna dla Requirements 1.1 i 6.5 — dokładnie dla przepływu, który generuje większość ofert.
+
+Jeden kod ścieżki dla zapisu pojedynczego i wsadowego, brak stanu pośredniego do uzgadniania, a serwer zna wynik, więc Requirement 6.5 da się spełnić. Klient nie może zapisywać współrzędnych: `restaurantLocation` nie należy do schematu wejściowego.
+
+### Ryzyka i ograniczenia
+
+**Polityka użycia Nominatim.** Geocoding wymaga identyfikacji klienta, ogranicza się do ok. 1 zapytania na sekundę i nie gwarantuje dostępności (brak SLA). To przyjęte ograniczenie, nie do rozwiązania w tym zakresie. Łagodzenie na wypadek wzrostu wolumenu: cache po `restaurant_address`.
+
+**Darmowy tier AI.** Treści użytkowników, w tym zdjęcia menu z Requirement 5.3, są wykorzystywane do ulepszania produktów Google. Przyjęty koszt ograniczenia do darmowego tiera.
+
+**Poza zakresem: atomowość usuwania restauracji.** `deleteRestaurant` to cztery kolejne wywołania Supabase bez transakcji, więc awaria w połowie zostawia oferty z nową nazwą, starym adresem i wyzerowanym kluczem obcym. `RestaurantDetail` filtruje tylko po `restaurant_id`, więc raportuje „brak aktywnych ofert", mimo że oferty dopasowane po migawce istnieją. To należy do Requirements 3.3/3.4/6.5 specyfikacji `restaurant-management`, a nie do tego dokumentu.
 
 ## Architecture
 
@@ -39,7 +63,7 @@ graph TB
     end
 
     subgraph External["External Services"]
-        LLM[LLM Provider - OpenAI/Anthropic]
+        LLM[LLM Provider - Google Gemini]
         NOM[Geocoding API]
     end
 
@@ -205,6 +229,8 @@ erDiagram
         text[] dietary_tags
         text[] allergens
         text source_type
+        uuid user_id
+        uuid restaurant_id FK
         text session_token
         timestamp created_at
         timestamp updated_at
@@ -231,7 +257,14 @@ CREATE TABLE lunch_offers (
   dietary_tags TEXT[] DEFAULT '{}',
   allergens TEXT[] DEFAULT '{}',
   source_type TEXT NOT NULL CHECK (source_type IN ('link', 'text', 'photo')),
-  session_token TEXT NOT NULL,
+  -- Właściciel oferty. Źródło prawdy dla uprawnień do edycji i usunięcia.
+  user_id UUID REFERENCES auth.users(id),
+  -- Opcjonalne powiązanie z restaurants; semantyka należy do `restaurant-management`.
+  -- Nazwa na ofercie pozostaje autorytatywna dla wyświetlania (Requirement 6.2).
+  restaurant_id UUID REFERENCES restaurants(id),
+  -- Wycofany mechanizm własności. Przetrwał wyłącznie jako koncept migracji
+  -- danych z ery anonimowej; nie jest mechanizmem autoryzacji.
+  session_token TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -419,9 +452,9 @@ interface LunchOfferWithDistance extends LunchOffer {
 
 **Validates: Requirements 5.5, 5.8**
 
-### Property 13: Session-based ownership enforcement
+### Property 13: Account-based ownership enforcement
 
-*For any* lunch offer and any session token, the system SHALL allow edit and delete operations if and only if the provided session token matches the offer's stored `session_token`.
+*For any* lunch offer and any authenticated account, the system SHALL allow edit and delete operations if and only if the acting account's id matches the offer's stored `user_id`. Ownership is never established by a session token.
 
 **Validates: Requirements 6.7**
 
@@ -443,6 +476,7 @@ interface LunchOfferWithDistance extends LunchOffer {
 | Server | Geocoding failure | Zapis oferty bez współrzędnych + komunikat |
 | Server | AI Analyzer failure | Komunikat o brakujących polach + formularz manualny |
 | Server | AI Recommender unavailable | Komunikat "usługa tymczasowo niedostępna" |
+| Server | AI rate limit (429) | Komunikat "AI jest zajęty, spróbuj ponownie", nie pusta ekstrakcja |
 | Server | Supabase connection error | Generyczny komunikat błędu + retry |
 | Server | File upload too large (>10MB) | Odrzucenie z komunikatem o limicie |
 | Server | Invalid file type | Odrzucenie z listą dozwolonych formatów |
@@ -456,22 +490,29 @@ type ActionResult<T> =
   | { success: false; error: string; fieldErrors?: Record<string, string> };
 
 // AI service error handling
+// Uwaga: timer jest zawsze czyszczony — bez tego każde udane wywołanie
+// zostawiało wiszący timeout do momentu odpalenia. 429 jest odróżnione od
+// zwykłej awarii, bo użytkownik musi wiedzieć, że model jest zajęty, a nie
+// że nic nie znalazł.
 async function withAIFallback<T>(
   aiCall: () => Promise<T>,
-  fallback: () => T,
-  timeoutMs: number = 10000
+  fallback: (message?: string) => T,
+  timeoutMs: number = AI_TIMEOUT_MS
 ): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const result = await Promise.race([
       aiCall(),
-      new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('AI service timeout')), timeoutMs)
-      )
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('AI service timeout')), timeoutMs);
+      }),
     ]);
     return result;
   } catch (error) {
     console.error('AI service error:', error);
-    return fallback();
+    return isRateLimitError(error) ? fallback(RATE_LIMIT_MESSAGE) : fallback();
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
   }
 }
 ```
@@ -504,7 +545,7 @@ Testy property-based pokrywają:
 - Walidacja ekstrakcji (Property 12)
 - Obliczanie odległości (Property 9)
 - Truncation opisu (Property 10)
-- Ownership sesji (Property 13)
+- Ownership na koncie (Property 13)
 - Limit wiadomości czatu (Property 14)
 - Listing invariant (Property 1)
 
