@@ -5,7 +5,7 @@ import {
   mockSupabaseClient,
   setMockCookie,
 } from '../../tests/setup';
-import { loginAction, logoutAction, registerAction } from './auth';
+import { loginAction, logoutAction, registerAction, resendConfirmationAction } from './auth';
 
 const authenticatedData = {
   user: { id: 'user-123', email: 'owner@example.com' },
@@ -345,7 +345,112 @@ describe('auth Server Actions', () => {
     }
   });
 
-  it('maps duplicate email registration responses to the documented message', async () => {
+  describe('resendConfirmationAction', () => {
+  function emailForm(address = 'owner@example.com'): FormData {
+    const formData = new FormData();
+    formData.set('email', address);
+    return formData;
+  }
+
+  it('asks the provider to resend for the given address only', async () => {
+    await expect(resendConfirmationAction(emailForm())).resolves.toEqual({
+      success: true,
+    });
+    expect(mockSupabaseAuth.resend).toHaveBeenCalledWith({
+      type: 'signup',
+      email: 'owner@example.com',
+    });
+  });
+
+  it('rejects a malformed address without calling the provider', async () => {
+    await expect(resendConfirmationAction(emailForm('nope'))).resolves.toMatchObject({
+      success: false,
+      error: 'Nieprawidłowy adres e-mail',
+    });
+    expect(mockSupabaseAuth.resend).not.toHaveBeenCalled();
+  });
+
+  it('does not claim a message was sent when the provider refuses', async () => {
+    mockSupabaseAuth.resend.mockResolvedValue({
+      data: {},
+      error: { code: 'unexpected_error', message: 'provider detail' },
+    });
+
+    const result = await resendConfirmationAction(emailForm());
+
+    expect(result.success).toBe(false);
+    // Provider detail must not leak, and "spróbuj ponownie" must not appear
+    // where it would imply the mail went out.
+    expect(result).toEqual({
+      success: false,
+      error: 'Nie udało się wysłać ponownie. Spróbuj ponownie za chwilę.',
+    });
+  });
+
+  it('gives a rate limit its own wording, since it is the likely failure here', async () => {
+    mockSupabaseAuth.resend.mockResolvedValue({
+      data: {},
+      error: { code: 'over_email_send_rate_limit', message: 'Too many emails' },
+    });
+
+    await expect(resendConfirmationAction(emailForm())).resolves.toEqual({
+      success: false,
+      error:
+        'Zbyt wiele wiadomości z prośbą o potwierdzenie. Spróbuj ponownie za kilka minut.',
+    });
+  });
+
+  it('reports an unreachable backend rather than a send failure', async () => {
+    mockSupabaseAuth.resend.mockRejectedValue(
+      Object.assign(new Error('fetch failed'), {
+        status: 0,
+        cause: Object.assign(new Error('getaddrinfo ENOTFOUND app.invalid'), {
+          code: 'ENOTFOUND',
+        }),
+      })
+    );
+
+    await expect(resendConfirmationAction(emailForm())).resolves.toEqual({
+      success: false,
+      error: 'Nie udało się połączyć z usługą uwierzytelniania. Spróbuj ponownie za chwilę.',
+    });
+  });
+
+  it('never discloses whether an address is registered', async () => {
+    // Measured against the local stack: Supabase answers POST /auth/v1/resend
+    // with 200 {} for an unregistered address exactly as it does for a
+    // registered one, so the provider is not an existence oracle and this
+    // action must not become one either.
+    //
+    // What is under this action's control is the wording, so that is what is
+    // asserted: no failure message may name the address or talk about accounts.
+    const wording = [
+      { code: 'unexpected_error', message: 'User not found' },
+      { code: 'over_email_send_rate_limit', message: 'Too many emails' },
+    ];
+
+    for (const error of wording) {
+      mockSupabaseAuth.resend.mockResolvedValue({ data: {}, error });
+      const result = await resendConfirmationAction(emailForm('nobody@example.com'));
+
+      const text = result.success ? '' : result.error;
+      expect(text).not.toContain('nobody@example.com');
+      expect(text.toLowerCase()).not.toMatch(/istnieje|nie ma konta|zarejestrowan/);
+    }
+  });
+
+  it('reports success for an unregistered address exactly as the provider does', async () => {
+    // The provider answers 200 for unknown addresses, so claiming otherwise
+    // would mean inventing an answer the User cannot act on.
+    mockSupabaseAuth.resend.mockResolvedValue({ data: {}, error: null });
+
+    await expect(
+      resendConfirmationAction(emailForm('nobody-here@example.test'))
+    ).resolves.toEqual({ success: true });
+  });
+});
+
+it('maps duplicate email registration responses to the documented message', async () => {
     mockSupabaseAuth.signUp.mockResolvedValue({
       data: { user: null, session: null },
       error: { code: 'user_already_exists', message: 'Already exists' },

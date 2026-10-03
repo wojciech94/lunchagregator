@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { registerSchema, type RegisterInput } from '@/schemas/auth.schema';
-import { registerAction } from '@/actions/auth';
+import { registerAction, resendConfirmationAction } from '@/actions/auth';
 import {
   MIGRATION_WARNING_STORAGE_KEY,
 } from '@/lib/migration-warning';
@@ -24,6 +24,10 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
   const [awaitingConfirmation, setAwaitingConfirmation] = useState<string | null>(
     null
   );
+  const [resendState, setResendState] = useState<
+    { status: 'idle' } | { status: 'sent' } | { status: 'error'; error: string }
+  >({ status: 'idle' });
+  const [isResending, startResendTransition] = useTransition();
 
   const {
     register,
@@ -36,6 +40,7 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
   function onSubmit(data: RegisterInput) {
     setServerError(null);
     setAwaitingConfirmation(null);
+    setResendState({ status: 'idle' });
 
     startTransition(async () => {
       const formData = new FormData();
@@ -69,6 +74,20 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
     });
   }
 
+  function onResend() {
+    if (!awaitingConfirmation) return;
+
+    startResendTransition(async () => {
+      const formData = new FormData();
+      formData.set('email', awaitingConfirmation);
+
+      const result = await resendConfirmationAction(formData);
+      setResendState(
+        result.success ? { status: 'sent' } : { status: 'error', error: result.error }
+      );
+    });
+  }
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
       {awaitingConfirmation && (
@@ -82,6 +101,34 @@ export function RegisterForm({ redirectTo }: RegisterFormProps) {
             Wysłaliśmy link potwierdzający na adres {awaitingConfirmation}.
             Konto zostanie aktywne po kliknięciu w niego.
           </p>
+
+          <div className="mt-3">
+            {resendState.status === 'sent' ? (
+              <p className="text-muted-foreground" data-testid="resend-sent">
+                Wysłaliśmy link ponownie.
+              </p>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onResend}
+                  disabled={isResending}
+                >
+                  {isResending ? 'Wysyłanie…' : 'Wyślij link ponownie'}
+                </Button>
+                {resendState.status === 'error' && (
+                  <p
+                    className="mt-2 text-destructive"
+                    role="alert"
+                    data-testid="resend-error"
+                  >
+                    {resendState.error}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
         </div>
       )}
 

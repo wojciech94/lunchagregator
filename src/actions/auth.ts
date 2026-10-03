@@ -15,7 +15,7 @@ import {
 import {
   MIGRATION_WARNING_MESSAGE,
 } from '@/lib/migration-warning';
-import { loginSchema, registerSchema } from '@/schemas/auth.schema';
+import { loginSchema, registerSchema, emailOnlySchema } from '@/schemas/auth.schema';
 
 const AUTH_TIMEOUT_MS = 5_000;
 const LOGOUT_TIMEOUT_MS = 3_000;
@@ -95,6 +95,19 @@ const REGISTRATION_FAILED =
  */
 const AUTH_UNREACHABLE =
   'Nie udało się połączyć z usługą uwierzytelniania. Spróbuj ponownie za chwilę.';
+
+/**
+ * Same classification as registration, worded for a User who has already
+ * registered and is only waiting on a link.
+ */
+function resendFailure(error: unknown): ResendConfirmationResult {
+  return {
+    success: false,
+    error: isConnectivityError(error)
+      ? AUTH_UNREACHABLE
+      : 'Nie udało się wysłać ponownie. Spróbuj ponownie za chwilę.',
+  };
+}
 
 /**
  * Single place that turns a registration failure into a message.
@@ -446,8 +459,72 @@ export async function registerAction(
   };
 }
 
+export type ResendConfirmationResult =
+  | { success: true }
+  | { success: false; error: string };
+
 /**
- * Logs in an existing user within the five-second authentication budget.
+ * Sends the confirmation email again.
+ *
+ * Exists because the flow that asks the User to check their inbox had no second
+ * chance: a lost, filtered or mis-clicked email left the account locked with
+ * registration refusing to run again, and signing in reporting a wrong password
+ * for an address that is merely unconfirmed.
+ *
+ * Deliberately says nothing about whether the address exists. Measured against
+ * the local stack, Supabase answers POST /auth/v1/resend with 200 {} for an
+ * unregistered address exactly as it does for a registered one -- it does not
+ * disclose that, and neither does this. Inventing an answer would either turn
+ * the action into an account-existence oracle or send the User chasing an
+ * address that was never registered.
+ */
+export async function resendConfirmationAction(
+  formData: FormData
+): Promise<ResendConfirmationResult> {
+  const parsed = emailOnlySchema.safeParse({ email: formData.get('email') });
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: 'Nieprawidłowy adres e-mail',
+      ...fieldErrorsFrom(parsed.error.issues),
+    };
+  }
+
+  const { email } = parsed.data;
+  const supabase = await createClient();
+  const deadline = Date.now() + AUTH_TIMEOUT_MS;
+
+  let resend;
+  try {
+    resend = await withRemainingAuthTime(
+      () => supabase.auth.resend({ type: 'signup', email }),
+      deadline
+    );
+  } catch (error) {
+    if (!(error instanceof AuthOperationTimeoutError)) {
+      console.error('[auth] resend threw:', error);
+    }
+    return resendFailure(error);
+  }
+
+  if (resend.error) {
+    console.error('[auth] resend error:', resend.error);
+    // A rate limit is the failure a User hitting this button most likely
+    // produces, so it gets its own wording rather than the registration one.
+    if (resend.error.code === 'over_email_send_rate_limit') {
+      return {
+        success: false,
+        error:
+          'Zbyt wiele wiadomości z prośbą o potwierdzenie. Spróbuj ponownie za kilka minut.',
+      };
+    }
+    return resendFailure(resend.error);
+  }
+
+  return { success: true };
+}
+
+/** Logs in an existing user within the five-second authentication budget.
  */
 export async function loginAction(
   formData: FormData,
