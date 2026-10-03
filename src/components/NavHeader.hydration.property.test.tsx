@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment jsdom
+ */
 // Feature: user-authentication, Property 12: NavHeader SSR and client render produce identical output
 
 import { act } from "react";
