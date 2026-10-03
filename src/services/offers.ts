@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { parsePostGisPoint } from '@/lib/postgis';
 import { geocodeAddress } from '@/services/geocoding';
 import {
   createOfferSchema,
@@ -70,42 +71,20 @@ function mapDbRowToOffer(row: DbLunchOffer): LunchOffer {
 }
 
 /**
- * Parses PostGIS geography point to Coordinates or null.
- * PostGIS returns POINT(lng lat) as a string or GeoJSON object.
+ * Parses a PostGIS point into Coordinates or null.
+ *
+ * Delegates to parsePostGisPoint because the format depends on how the value
+ * was fetched: PostgREST returns WKB hex for a geography column, while a
+ * projected column or an RPC may return GeoJSON, and a raw value from a test
+ * fixture is often WKT. This used to handle only GeoJSON and WKT, so a
+ * coordinate stored by the database parsed as null.
  */
 function parseLocation(
-  location: string | null
+  location: unknown
 ): LunchOffer['restaurantLocation'] {
-  if (!location) return null;
-
-  // Handle GeoJSON format from Supabase
-  if (typeof location === 'object') {
-    const geo = location as unknown as {
-      type: string;
-      coordinates: [number, number];
-    };
-    if (geo.type === 'Point' && geo.coordinates) {
-      return {
-        latitude: geo.coordinates[1],
-        longitude: geo.coordinates[0],
-      };
-    }
-  }
-
-  // Handle WKT format: POINT(lng lat)
-  if (typeof location === 'string') {
-    const match = location.match(
-      /POINT\(([+-]?\d+\.?\d*)\s+([+-]?\d+\.?\d*)\)/
-    );
-    if (match) {
-      return {
-        latitude: parseFloat(match[2]),
-        longitude: parseFloat(match[1]),
-      };
-    }
-  }
-
-  return null;
+  const point = parsePostGisPoint(location);
+  if (!point) return null;
+  return { latitude: point.latitude, longitude: point.longitude };
 }
 
 /**
@@ -388,40 +367,11 @@ function mapDbRowToOfferWithDistance(
   row: Record<string, unknown>,
   distanceKm: number | null
 ): LunchOfferWithDistance {
-  let restaurantLocation: Coordinates | null = null;
-  if (row.restaurant_location) {
-    const loc = row.restaurant_location;
-    // Handle GeoJSON format from Supabase
-    if (typeof loc === 'object' && loc !== null) {
-      const geo = loc as { type?: string; coordinates?: [number, number] };
-      if (geo.type === 'Point' && geo.coordinates) {
-        restaurantLocation = {
-          latitude: geo.coordinates[1],
-          longitude: geo.coordinates[0],
-        };
-      }
-    } else if (typeof loc === 'string') {
-      // Try parsing as JSON
-      try {
-        const parsed = JSON.parse(loc);
-        if (parsed.coordinates) {
-          restaurantLocation = {
-            latitude: parsed.coordinates[1],
-            longitude: parsed.coordinates[0],
-          };
-        }
-      } catch {
-        // Try WKT format: POINT(lng lat)
-        const match = loc.match(/POINT\(([^ ]+) ([^ ]+)\)/);
-        if (match) {
-          restaurantLocation = {
-            latitude: parseFloat(match[2]),
-            longitude: parseFloat(match[1]),
-          };
-        }
-      }
-    }
-  }
+  // Same decoder as parseLocation. This branch previously tried JSON.parse on
+  // whatever string arrived, which for a WKB hex string threw, and then fell
+  // back to a WKT regex that could never match -- so it returned null for
+  // every real row.
+  const restaurantLocation = parseLocation(row.restaurant_location);
 
   return {
     id: row.id as string,
