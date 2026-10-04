@@ -121,7 +121,9 @@ export const config = {
     "/restaurants/new",
     "/restaurants/:id/edit",
     "/offers/:id/edit",
-    "/offers/:id/delete",
+    // `/offers/:id/delete` used to be here. It no longer exists: deletion happens
+    // in a dialog on the page you are already on, so there is no route to protect.
+    // The operation itself is still authenticated, by `deleteOfferAction`.
     "/add",
     "/auth/:path*",
   ],

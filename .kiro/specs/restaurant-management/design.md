@@ -60,7 +60,7 @@ Rozszerzenie ekstrakcji AI i przepływu dodawania ofert o obsługę menu na cał
 ### Znane luki / nie zaimplementowane (zob. backlog w tasks.md)
 
 - **Strona edycji restauracji** (`/restaurants/[id]/edit`) — `RestaurantDetail` linkuje do niej, ale route nie istnieje (akcja `updateRestaurant` gotowa).
-- **Strony edycji/usuwania oferty** (`/offers/[id]/edit`, `/offers/[id]/delete`) — linkowane z widoku oferty, brak route'ów.
+- **Strona edycji oferty** (`/offers/[id]/edit`) — linkowana z widoku oferty. Usuwanie oferty nie ma własnego route'u: `DeleteOfferButton` otwiera dialog na stronie, z której clicked, więc nie ma dokąd przekierowywać po usunięciu.
 - **Lista aktywnych ofert na stronie restauracji** (Req 6.5) — obecnie pokazywany jest tylko licznik `activeOffersCount`, nie sama lista ofert.
 - **Reverse geocoding** dla GPS — etykieta lokalizacji z GPS to „Bieżąca lokalizacja", nie czytelny adres.
 

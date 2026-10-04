@@ -117,7 +117,7 @@
 ## Task 17: Backlog — kolejne rzeczy do dodania
 
 - [x] 17.1 Strona edycji restauracji `src/app/restaurants/[id]/edit/page.tsx` — formularz pre-filled, wywołanie `updateRestaurant`. RestaurantForm rozszerzony o tryb edycji (`restaurantId` prop + UpdateRestaurantInput).
-- [x] 17.2 Strony edycji i usuwania oferty `src/app/offers/[id]/edit/page.tsx` oraz `/delete` — dedykowany formularz edycji (pre-filled, `updateOfferAction`) + ekran potwierdzenia usunięcia (`deleteOfferAction`)
+- [x] 17.2 Edycja oferty `src/app/offers/[id]/edit/page.tsx` — dedykowany formularz (pre-filled, `updateOfferAction`). Usuwanie oferty: `src/components/offers/DeleteOfferButton.tsx` — dialog potwierdzenia w miejscu (`deleteOfferAction`), zamiast osobnej strony `/delete`, która kosztowała dwie nawigacje i kończyła przekierowaniem na publiczną listę
 - [x] 17.3 Lista aktywnych ofert na stronie restauracji (Req 6.5) — `getOffersByRestaurant` + sekcja na stronie szczegółów z linkami do ofert
 - [ ] 17.4 Reverse geocoding dla lokalizacji GPS — zamienić „Bieżąca lokalizacja" na czytelny adres (np. dzielnica/miasto) w `LocationIndicator`
 - [ ] 17.5 Link „Dodaj ofertę" z pre-wybraną restauracją na stronie szczegółów restauracji — przekazać `restaurantId` jako query param do `/add?restaurantId=...` i auto-populate `RestaurantSelect` w formularzu

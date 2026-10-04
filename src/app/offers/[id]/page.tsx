@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Pencil, Trash2, MapPin, Calendar, Utensils, Tag } from 'lucide-react';
+import { ArrowLeft, Pencil, MapPin, Calendar, Utensils, Tag } from 'lucide-react';
 
 import { getOfferById } from '@/actions/offers';
 import { getUser } from '@/lib/auth';
 import { canModify } from '@/lib/ownership';
+import { DeleteOfferButton } from '@/components/offers/DeleteOfferButton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,12 +59,20 @@ export default async function OfferDetailsPage({ params }: OfferDetailsPageProps
                       Edytuj
                     </Link>
                   </Button>
-                  <Button variant="destructive" size="sm" asChild>
-                    <Link href={`/offers/${offer.id}/delete`}>
-                      <Trash2 className="size-4" />
-                      Usuń
-                    </Link>
-                  </Button>
+                  {/* `redirectTo` because this page is about the record: once the
+                      record is gone, re-rendering it would render a 404 the reader
+                      caused. The admin panel omits it and stays put. */}
+                  <DeleteOfferButton
+                    offer={{
+                      id: offer.id,
+                      dishName: offer.dishName,
+                      restaurantName: offer.restaurantName,
+                      price: offer.price,
+                      currency: offer.currency,
+                      hasOwner: offer.userId !== null,
+                    }}
+                    redirectTo="/"
+                  />
                 </div>
               )}
             </div>

@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { AlertTriangle, Calendar, MapPin, Pencil, Trash2, Utensils } from "lucide-react";
+import { AlertTriangle, Calendar, MapPin, Pencil, Utensils } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DeleteOfferButton } from "@/components/offers/DeleteOfferButton";
 import type { LunchOffer } from "@/types/offers";
 
 interface OrphanOfferRowProps {
@@ -87,12 +88,19 @@ export function OrphanOfferRow({ offer }: OrphanOfferRowProps) {
             Edytuj
           </Link>
         </Button>
-        <Button variant="destructive" size="sm" asChild>
-          <Link href={`/offers/${offer.id}/delete`}>
-            <Trash2 className="size-4" aria-hidden="true" />
-            Usuń
-          </Link>
-        </Button>
+        {/* No `redirectTo`: the operator stays on the panel and the row leaves it
+            once the dialog closes. Navigating away first would put them on the
+            public list, which is where the old flow used to dump them. */}
+        <DeleteOfferButton
+          offer={{
+            id: offer.id,
+            dishName: offer.dishName,
+            restaurantName: offer.restaurantName,
+            price: offer.price,
+            currency: offer.currency,
+            hasOwner: offer.userId !== null,
+          }}
+        />
       </div>
     </li>
   );

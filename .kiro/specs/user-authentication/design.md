@@ -131,7 +131,6 @@ export const config = {
     '/restaurants/new',
     '/restaurants/:id/edit',
     '/offers/:id/edit',
-    '/offers/:id/delete',
     '/add',
   ],
 };
@@ -304,7 +303,7 @@ The 7-day inactivity expiry (Requirement 8.2) is configured in the Supabase proj
 
 ### Property 3: Middleware redirects unauthenticated requests to protected routes
 
-*For any* request to a protected route path (`/restaurants/new`, `/restaurants/[id]/edit`, `/offers/[id]/edit`, `/offers/[id]/delete`, `/add`) where `getUser()` returns `null`, the Middleware SHALL redirect the request to `/auth/login?redirectTo={original_path}` and SHALL NOT allow the request to reach the page handler.
+*For any* request to a protected route path (`/restaurants/new`, `/restaurants/[id]/edit`, `/offers/[id]/edit`, `/add`) where `getUser()` returns `null`, the Middleware SHALL redirect the request to `/auth/login?redirectTo={original_path}` and SHALL NOT allow the request to reach the page handler.
 
 **Validates: Requirements 3.5, 4.1**
 
