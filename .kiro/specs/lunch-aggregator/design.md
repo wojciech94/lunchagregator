@@ -37,6 +37,26 @@ Jeden kod ścieżki dla zapisu pojedynczego i wsadowego, brak stanu pośredniego
 
 **Poza zakresem: atomowość usuwania restauracji.** `deleteRestaurant` to cztery kolejne wywołania Supabase bez transakcji, więc awaria w połowie zostawia oferty z nową nazwą, starym adresem i wyzerowanym kluczem obcym. `RestaurantDetail` filtruje tylko po `restaurant_id`, więc raportuje „brak aktywnych ofert", mimo że oferty dopasowane po migawce istnieją. To należy do Requirements 3.3/3.4/6.5 specyfikacji `restaurant-management`, a nie do tego dokumentu.
 
+### Stan filtrów w URL
+
+URL jest **jedynym** źródłem prawdy dla filtrów. Komponenty czytają z `useSearchParams`, zapisują przez router, a `app/page.tsx` przyjmuje `searchParams` i renderuje poprawnie na pierwszym renderze. Druga instancja prawdy wymagałaby synchronizacji w obie strony, a każdy wynikający z tego błąd to „URL i stan się rozjechały".
+
+**Współrzędne nie są częścią URL.** Trzymane są w ciasteczku `lunchagregator_location` (`httpOnly`, `secure` na produkcji, `sameSite=lax`, 30 dni — zgodnie z domyślną długością sesji Supabase). Serwer czyta je w `page.tsx` i przekazuje klientowi jako prop.
+
+Powód: query string trafia do historii przeglądarki, logów serwera, analityki i nagłówka `Referer` przy każdym wyjściu na stronę zewnętrzną — a link do restauracji w ofercie jest dokładnie takim wyjściem. `httpOnly` jest tu poprawą, a nie kosztem: dziś te dane leżą w `localStorage`, czytelnym przez każdy skrypt na stronie.
+
+**Przetwarzanie:** `offerFiltersSchema` z `src/lib/validations/filters.ts` jest punktem parsowania. Nie powstaje drugi schemat — gdyby istniały dwa, jeden z nich w końcu przestanie być aktualizowany.
+
+**Polityka historii różni się per kontrola, ale źródło prawdy jest jedno.** Chipy, sortowanie, dzień i strona używają `router.push`, żeby „wróć" cofnęło ostatnią zmianę. Pole wyszukiwania używa `router.replace` z debounce — inaczej każde naciśnięcie klawisza tworzyłoby wpis w historii.
+
+**Zmiana dowolnego filtra poza numerem strony resetuje stronę do 1.** Inaczej użytkownik ląduje na stronie 5, której nie ma.
+
+**Brak lokalizacji nie usuwa parametrów z URL.** `sort=distance` i `radius=5` zostają, a strona wyjaśnia, że filtrowanie po odległości wymaga lokalizacji, i proponuje geolokalizację albo wpisanie adresu — tak jak robi to dziś `LocationIndicator`. Usuwanie parametrów psułoby link przy ponownym udostępnieniu, a `permissionState` ma trzy wartości (`granted`, `denied`, `prompt`), których serwer nie widzi żadnej — usuwanie w trakcie pytania o zgodę zgubiłoby filtry, zanim użytkownik zdążyłby kliknąć „zezwól".
+
+**Filtry przeżywają logowanie.** Strony `/auth/*` już przenoszą `?redirectTo=`; dokłada się filtry, żeby zalogowany użytkownik wrócił do filtrowanej listy.
+
+**Poza zakresem: `/restaurants`.** `RestaurantsPage` ma własny zestaw filtrów i własną wersję tego samego problemu — `restaurants/page.tsx` wywołuje `listRestaurants({})`, ignorując wszystko. Mechanizm jest identyczny, więc przeniesienie jest kodem, a nie nową decyzją. Robienie obu naraz oznaczałoby każdą zmianę mechanizmu dwa razy.
+
 ## Architecture
 
 ### Diagram wysokopoziomowy

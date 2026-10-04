@@ -51,6 +51,16 @@ Anonimowe dodawanie ofert zostało **świadomie wycofane**. Pierwotna wersja teg
 6. WHEN a User selects a sort option, THE System SHALL order Lunch_Offers according to the selected criterion (price ascending, price descending, distance from User, newest by publication date)
 7. WHEN a User applies multiple filters simultaneously, THE System SHALL display only Lunch_Offers satisfying all active filter conditions (AND logic)
 8. IF no Lunch_Offers match the applied filters, THEN THE System SHALL display an empty-state message indicating that no offers match the current filter criteria and suggest adjusting the filters
+9. THE System SHALL represent the active filters, the selected day and the current page in the URL query string, so that a filtered listing is shareable, survives a reload, and is rendered correctly on the server's first paint
+   - The URL is the single source of truth for filter state. It is not a mirror of component state, and no filter lives only in memory.
+   - Covered: distance radius, price minimum and maximum, cuisine types, dietary tags, search query, sort order, date and page. `limit` is excluded — no User chooses it, and exposing it would only publish an internal constant.
+   - A User's coordinates SHALL NOT appear in the URL. They are held in a cookie and passed to the client by the server, because a query string reaches browser history, server logs, analytics and the `Referer` header on every outbound click.
+10. WHEN a User changes a filter, THEN THE System SHALL add a history entry so the browser Back control undoes that change
+    - Exception: the search box uses a debounced URL replacement rather than a push, so that typing does not produce one history entry per keystroke.
+11. WHEN a User changes any filter other than the page number, THEN THE System SHALL reset the page number to 1
+12. IF a URL requests distance sorting or a distance radius and the System has no location for the User, THEN THE System SHALL **keep the parameters in the URL** and display a message that distance filtering requires a location, offering geolocation or manual address entry
+    - The parameters must not be stripped. Stripping breaks the link for re-sharing, and `permissionState` has three values (`granted`, `denied`, `prompt`) of which the server is aware of none — stripping while the browser is still asking for permission would discard filters before the User can accept.
+13. WHEN a Visitor authenticates from a filtered listing, THE System SHALL return the User to the same filters after sign-in
 
 ### Requirement 3: Geolokalizacja
 
