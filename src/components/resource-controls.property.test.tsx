@@ -123,6 +123,53 @@ function expectOfferOwnerControls(visible: boolean) {
  *
  * **Validates: Requirements 5.6**
  */
+// The component renders capabilities and nothing else. Whether a given caller
+// has them is the server's answer, which is what these two cases pin down --
+// Property 8 above covers the owner path, and #54 added the admin one.
+describe('record actions follow the capabilities the server computed', () => {
+  it('shows actions to an admin on a record owned by somebody else', () => {
+    const stranger: VisibilityCase = {
+      resourceId: fc.sample(fc.uuid(), 1)[0]!,
+      resourceUserId: fc.sample(fc.uuid(), 1)[0]!,
+      viewerId: null,
+    };
+
+    render(
+      <RestaurantDetail
+        restaurant={createRestaurant(stranger)}
+        canEdit={true}
+        canDelete={true}
+      />
+    );
+
+    expect(screen.getByRole('link', { name: /Edytuj/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Usuń/ })).toBeInTheDocument();
+
+    cleanup();
+  });
+
+  it('shows nothing when the server said no, even on an owned record', () => {
+    const owned: VisibilityCase = {
+      resourceId: fc.sample(fc.uuid(), 1)[0]!,
+      resourceUserId: fc.sample(fc.uuid(), 1)[0]!,
+      viewerId: fc.sample(fc.uuid(), 1)[0]!,
+    };
+
+    render(
+      <RestaurantDetail
+        restaurant={createRestaurant(owned)}
+        canEdit={false}
+        canDelete={false}
+      />
+    );
+
+    expect(screen.queryByRole('link', { name: /Edytuj/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Usuń/ })).not.toBeInTheDocument();
+
+    cleanup();
+  });
+});
+
 describe('Property 8: Edit/delete UI controls are only shown to the resource owner', () => {
   it('renders restaurant controls if and only if the viewer and resource have the same non-null ID', () => {
     fc.assert(
@@ -131,7 +178,8 @@ describe('Property 8: Edit/delete UI controls are only shown to the resource own
           render(
             <RestaurantDetail
               restaurant={createRestaurant(visibilityCase)}
-              currentUserId={visibilityCase.viewerId}
+              canEdit={controlsShouldBeVisible(visibilityCase)}
+              canDelete={controlsShouldBeVisible(visibilityCase)}
             />
           );
 
