@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 
 import { getRestaurant } from '@/actions/restaurants';
 import { getOffersByRestaurant } from '@/services/offers';
-import { getUser } from '@/lib/auth';
+import { capabilitiesFor } from '@/lib/permissions';
 import { RestaurantDetail } from '@/components/restaurants/RestaurantDetail';
 
 interface RestaurantDetailPageProps {
@@ -17,8 +17,10 @@ export default async function RestaurantDetailPage({ params }: RestaurantDetailP
     notFound();
   }
 
-  const [user, offers] = await Promise.all([
-    getUser(),
+  // Capabilities are resolved once, here, from the server's own view of the
+  // caller. The component renders them; it does not derive them.
+  const [capabilities, offers] = await Promise.all([
+    capabilitiesFor(restaurant.userId ?? null),
     getOffersByRestaurant(id),
   ]);
 
@@ -26,7 +28,8 @@ export default async function RestaurantDetailPage({ params }: RestaurantDetailP
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
       <RestaurantDetail
         restaurant={restaurant}
-        currentUserId={user?.id ?? null}
+        canEdit={capabilities.canEdit}
+        canDelete={capabilities.canDelete}
         offers={offers}
       />
     </div>

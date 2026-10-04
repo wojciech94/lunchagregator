@@ -15,14 +15,21 @@ import {
   Plus,
 } from 'lucide-react';
 
-import { deleteRestaurant } from '@/actions/restaurants';
+import { DeleteRestaurantButton } from './DeleteRestaurantButton';
 import { formatLunchHours } from '@/utils/lunch-hours-formatter';
 import type { RestaurantWithDistance } from '@/types/restaurants';
 import type { LunchOffer } from '@/types/offers';
 
 interface RestaurantDetailProps {
   restaurant: RestaurantWithDistance;
-  currentUserId?: string | null;
+  /**
+   * Decided on the server by `capabilitiesFor`. Not a user id for the client to
+   * compare against: RLS filters a row out silently and returns no error, so a
+   * client that derives its own answer can disagree with the database and never
+   * find out.
+   */
+  canEdit: boolean;
+  canDelete: boolean;
   offers?: LunchOffer[];
 }
 
@@ -38,30 +45,9 @@ const priceLevelColors: Record<string, string> = {
   premium: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
 };
 
-export function RestaurantDetail({ restaurant, currentUserId, offers = [] }: RestaurantDetailProps) {
+export function RestaurantDetail({ restaurant, canEdit, canDelete, offers = [] }: RestaurantDetailProps) {
   const router = useRouter();
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  const isOwner = currentUserId != null && currentUserId === restaurant.userId;
-
-  async function handleDelete() {
-    const confirmed = window.confirm(
-      `Czy na pewno chcesz usunąć restaurację "${restaurant.name}"? Ta operacja jest nieodwracalna.`
-    );
-
-    if (!confirmed) return;
-
-    setIsDeleting(true);
-
-    const result = await deleteRestaurant(restaurant.id);
-
-    if (result.success) {
-      router.push('/restaurants');
-    } else {
-      setIsDeleting(false);
-      alert(result.error);
-    }
-  }
+  void router;
 
   return (
     <div className="space-y-6">
@@ -97,24 +83,30 @@ export function RestaurantDetail({ restaurant, currentUserId, offers = [] }: Res
             </div>
           </div>
 
-          {/* Owner actions */}
-          {isOwner && (
+          {/* Record actions — an owner, or an admin who may act on anything. */}
+          {(canEdit || canDelete) && (
             <div className="flex gap-2">
-              <Link
-                href={`/restaurants/${restaurant.id}/edit`}
-                className="inline-flex items-center gap-1.5 rounded-[4px] border border-muted-foreground/30 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <Pencil className="size-3.5" />
-                Edytuj
-              </Link>
-              <button
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="inline-flex items-center gap-1.5 rounded-[4px] bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive transition-colors hover:bg-destructive/20 disabled:opacity-50"
-              >
-                <Trash2 className="size-3.5" />
-                {isDeleting ? 'Usuwanie...' : 'Usuń'}
-              </button>
+              {canEdit && (
+                <Link
+                  href={`/restaurants/${restaurant.id}/edit`}
+                  className="inline-flex items-center gap-1.5 rounded-[4px] border border-muted-foreground/30 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <Pencil className="size-3.5" />
+                  Edytuj
+                </Link>
+              )}
+              {canDelete && (
+                <DeleteRestaurantButton
+                  redirectTo="/restaurants"
+                  restaurant={{
+                    id: restaurant.id,
+                    name: restaurant.name,
+                    address: restaurant.address ?? null,
+                    hasOwner: restaurant.userId !== null && restaurant.userId !== undefined,
+                    activeOffersCount: restaurant.activeOffersCount ?? 0,
+                  }}
+                />
+              )}
             </div>
           )}
         </div>
