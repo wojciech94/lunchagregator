@@ -8,7 +8,6 @@ type ProtectedRouteShape =
   | "restaurant-new"
   | "restaurant-edit"
   | "offer-edit"
-  | "offer-delete"
   | "add";
 
 const protectedRouteArbitrary = fc
@@ -17,7 +16,6 @@ const protectedRouteArbitrary = fc
       "restaurant-new",
       "restaurant-edit",
       "offer-edit",
-      "offer-delete",
       "add"
     ),
     fc.uuid()
@@ -30,8 +28,6 @@ const protectedRouteArbitrary = fc
         return `/restaurants/${id}/edit`;
       case "offer-edit":
         return `/offers/${id}/edit`;
-      case "offer-delete":
-        return `/offers/${id}/delete`;
       case "add":
         return "/add";
     }

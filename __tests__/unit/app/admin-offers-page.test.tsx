@@ -27,6 +27,10 @@ vi.mock('@/actions/offers', () => ({
 }));
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
+  // The delete dialog is a client component inside every row, and it asks for a
+  // router. The panel itself never navigates -- it refreshes in place -- so these
+  // are only here to satisfy the render.
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), back: vi.fn() }),
 }));
 
 import AdminOffersPage from '@/app/admin/offers/page';
@@ -109,16 +113,17 @@ describe('an admin', () => {
 
     render(await AdminOffersPage());
 
-    // The links are what make the panel usable, and their absence would leave a
+    // The controls are what make the panel usable, and their absence would leave a
     // list an operator can read and not act on -- the exact state #54 created.
     expect(screen.getByRole('link', { name: /edytuj/i })).toHaveAttribute(
       'href',
       `/offers/${id}/edit`
     );
-    expect(screen.getByRole('link', { name: /usuń/i })).toHaveAttribute(
-      'href',
-      `/offers/${id}/delete`
-    );
+    // Deleting is a dialog in place, so there is no delete link to point at. A
+    // navigation away here would be the regression: it is what put the operator
+    // on the public offer list after every deletion.
+    expect(screen.getByRole('button', { name: /^usuń$/i })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^usuń$/i })).not.toBeInTheDocument();
   });
 
   it('sees an offer with an address but no coordinates flagged', async () => {

@@ -15,7 +15,6 @@ const protectedRoutePathArb = fc.oneof(
   fc.constant('/restaurants/new'),
   fc.uuid().map((id) => `/restaurants/${id}/edit`),
   fc.uuid().map((id) => `/offers/${id}/edit`),
-  fc.uuid().map((id) => `/offers/${id}/delete`),
   fc.constant('/add')
 );
 

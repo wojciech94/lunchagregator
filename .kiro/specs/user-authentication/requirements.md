@@ -67,7 +67,7 @@ Funkcjonalność autentykacji użytkowników w aplikacji Lunch Agregator zastęp
 #### Acceptance Criteria
 
 1. WHEN Guest próbuje uzyskać dostęp do Protected_Route, THE Middleware SHALL przekierować go na `/auth/login` z parametrem `redirectTo` zawierającym oryginalną ścieżkę żądania (np. `redirectTo=/restaurants/new`)
-2. THE System SHALL traktować jako Protected_Route następujące trasy: `/restaurants/new`, `/restaurants/[id]/edit`, `/offers/[id]/edit`, `/offers/[id]/delete`, `/add`
+2. THE System SHALL traktować jako Protected_Route następujące trasy: `/restaurants/new`, `/restaurants/[id]/edit`, `/offers/[id]/edit`, `/add` — usuwanie oferty nie ma własnej trasy, bo odbywa się w dialogu na stronie już otwartej, a uwierzytelnienie tej operacji egzekwuje Server Action (kryterium 5 poniżej)
 3. WHEN zalogowany User uzyskuje dostęp do Protected_Route, THE Middleware SHALL przepuścić żądanie bez przekierowania
 4. THE System SHALL weryfikować Session po stronie serwera w Middleware wyłącznie dla żądań kierowanych do Protected_Route — żądania do Public_Route nie są weryfikowane przez Middleware
 5. IF Server Action modyfikująca dane (tworzenie, edycja, usuwanie restauracji lub oferty) zostanie wywołana bez aktywnej Session, THEN THE System SHALL odrzucić operację, zwrócić komunikat błędu wskazujący na brak autoryzacji i nie modyfikować żadnych danych w bazie

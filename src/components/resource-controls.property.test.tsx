@@ -107,12 +107,15 @@ function expectRestaurantOwnerControls(visible: boolean) {
 function expectOfferOwnerControls(visible: boolean) {
   if (visible) {
     expect(screen.getByRole('link', { name: 'Edytuj' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Usuń' })).toBeInTheDocument();
+    // A button, not a link to `/offers/[id]/delete`. Deletion is a dialog on the
+    // page you are already on, which is also how restaurants have always done it
+    // -- so this is the offer controls catching up, not a new inconsistency.
+    expect(screen.getByRole('button', { name: /usuń/i })).toBeInTheDocument();
     return;
   }
 
   expect(screen.queryByRole('link', { name: 'Edytuj' })).not.toBeInTheDocument();
-  expect(screen.queryByRole('link', { name: 'Usuń' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /usuń/i })).not.toBeInTheDocument();
 }
 
 /**
