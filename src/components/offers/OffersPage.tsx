@@ -71,31 +71,21 @@ export function OffersPage({ initialData }: OffersPageProps) {
         const result = await getOffers(filtersWithPage, coordinates ?? undefined);
 
         if (result.success) {
-          let sortedOffers = [...result.data.offers];
-
-          // Client-side sort: distance (default when location available) or alphabetical
-          if (coordinates && (!currentFilters.sortBy || currentFilters.sortBy === "distance")) {
-            sortedOffers = sortedOffers.sort((a, b) => {
-              const distA = a.distanceKm ?? Infinity;
-              const distB = b.distanceKm ?? Infinity;
-              return distA - distB;
-            });
-          } else if (!coordinates && !currentFilters.sortBy) {
-            // Fallback: alphabetical by restaurant name when no location
-            sortedOffers = sortedOffers.sort((a, b) =>
-              a.restaurantName.localeCompare(b.restaurantName, "pl")
-            );
-          }
-
-          // Hide distance field when location is unavailable
-          if (!coordinates) {
-            sortedOffers = sortedOffers.map((offer) => ({
-              ...offer,
-              distanceKm: null,
-            }));
-          }
-
-          setOffers(sortedOffers);
+          // No sorting and no rewriting here.
+          //
+          // Ordering is the server's job, and it is now the only place it
+          // happens: get_offers_filtered orders by distance when there is an
+          // origin, by restaurant_name when there is not (Requirement 1.2), or by
+          // whichever of price/newest was asked for. This component used to sort
+          // again in JS, which meant three competing sorts -- Postgres, the
+          // service, and this -- and the JS one ran over an already-sorted page,
+          // so it could only ever rearrange a subset of what the server sent.
+          //
+          // distanceKm likewise comes back as a value or null, and OfferCard
+          // already declines to render it when null. Absence of location is a
+          // presentation state, not missing data; overwriting it here threw away
+          // a real distance for an offer whose neighbour happened to have none.
+          setOffers(result.data.offers);
           setPagination({
             total: result.data.total,
             page: result.data.page,
@@ -140,13 +130,11 @@ export function OffersPage({ initialData }: OffersPageProps) {
     [setManualCoordinates]
   );
 
-  // Apply initial sort/distance hiding for SSR data when no location
-  const displayOffers = React.useMemo(() => {
-    if (!coordinates) {
-      return offers.map((offer) => ({ ...offer, distanceKm: null }));
-    }
-    return offers;
-  }, [offers, coordinates]);
+  // No derived copy of the list. `displayOffers` used to exist only to blank
+  // distanceKm when there was no location -- the same rewrite fetchOffers
+  // already did, which is how the duplication started and how a third copy
+  // would arrive. The server sends null for offers it could not place, and
+  // OfferCard renders nothing for those.
 
   // Show address input when geolocation is denied/errored and we have no coordinates
   const showAddressInput = !coordinates && (permissionState === "denied" || (!!geoError && !geoLoading));
@@ -209,9 +197,11 @@ export function OffersPage({ initialData }: OffersPageProps) {
       <OfferFilters
         onChange={handleFiltersChange}
         userLocation={coordinates}
-        initialFilters={
-          coordinates ? { sortBy: "distance" } : { sortBy: "newest" }
-        }
+        // Distance only once there is something to measure from. Without a
+        // location the control stays unset, which is what makes the list
+        // alphabetical by restaurant name -- Requirement 1.2 -- rather than the
+        // newest-first list this used to ask for.
+        initialFilters={coordinates ? { sortBy: "distance" } : {}}
       />
 
       {/* Loading indicator */}
@@ -222,7 +212,7 @@ export function OffersPage({ initialData }: OffersPageProps) {
       )}
 
       {/* Single empty state — context-aware */}
-      {!isLoading && displayOffers.length === 0 && (
+      {!isLoading && offers.length === 0 && (
         <div className="rounded-lg border border-border bg-muted/50 p-6 text-center">
           <p className="text-muted-foreground">
             {Object.keys(filters).length > 0
@@ -233,9 +223,9 @@ export function OffersPage({ initialData }: OffersPageProps) {
       )}
 
       {/* Offer list */}
-      {!isLoading && displayOffers.length > 0 && (
+      {!isLoading && offers.length > 0 && (
         <OfferList
-          offers={displayOffers}
+          offers={offers}
           pagination={pagination}
           onPageChange={handlePageChange}
         />
