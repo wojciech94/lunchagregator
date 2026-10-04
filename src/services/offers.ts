@@ -229,10 +229,10 @@ export async function getOffersByRestaurant(
  * Create a new offer with Zod validation.
  * Sets user_id from the authenticated user on the inserted record.
  *
- * Coordinates are resolved before the INSERT, not after. `get_offers_within_radius`
- * filters `WHERE restaurant_location IS NOT NULL`, so an offer inserted without
- * them is invisible to every distance query for the rest of its life -- the
- * post-insert geocode that used to live in the client discarded its result,
+ * Coordinates are resolved before the INSERT, not after. `get_offers_filtered`
+ * applies a radius only to rows that have them, so an offer inserted without
+ * coordinates is invisible to every distance query for the rest of its life --
+ * the post-insert geocode that used to live in the client discarded its result,
  * which left every AI-added offer permanently without coordinates.
  *
  * Precedence, most trustworthy first:
@@ -449,257 +449,148 @@ function getTodayDate(): string {
   return now.toISOString().split('T')[0];
 }
 
+/** The full row `get_offers_filtered` returns, plus the computed distance. */
+interface FilteredOfferRow extends DbLunchOffer {
+  distance_km: number | null;
+}
+
+/**
+ * Counts the rows the same filters would match, unpaged.
+ *
+ * The function slices in SQL, so `hasMore` cannot come from the returned page.
+ * This is one extra count rather than an unbounded fetch of every id: the old
+ * code got its total from the second query's `count: 'exact'` only because it
+ * was already fetching the rows, and it fetched all of them.
+ */
+async function countFilteredOffers(
+  filters: OfferFilters,
+  location: Coordinates | null,
+  date: string,
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<number> {
+  let query = supabase
+    .from('lunch_offers')
+    .select('*', { count: 'exact', head: true })
+    .eq('available_date', date);
+
+  if (location && filters.distance) {
+    // PostgREST cannot express ST_DWithin, so the radius count has to ask the
+    // function for a full page and count what comes back. The alternative is a
+    // second RPC that only counts, which is more code for the same answer.
+    const { data, error } = await supabase.rpc('get_offers_filtered', {
+      p_date: date,
+      p_price_min: filters.price?.min ?? null,
+      p_price_max: filters.price?.max ?? null,
+      p_cuisine_types: filters.cuisineTypes ?? null,
+      p_dietary_tags: filters.dietaryTags ?? null,
+      p_search_query: filters.searchQuery ?? null,
+      p_user_lat: location.latitude,
+      p_user_lng: location.longitude,
+      p_radius_km: filters.distance.radius,
+      p_sort_by: filters.sortBy ?? 'distance',
+      // The slider caps at 25 km, so 500 km reaches every offer on earth that
+      // has coordinates.
+      p_limit: 500,
+      p_offset: 0,
+    });
+    if (error) throw new Error(`Failed to count offers: ${error.message}`);
+    return (data ?? []).length;
+  }
+
+  if (filters.price) {
+    query = query.gte('price', filters.price.min).lte('price', filters.price.max);
+  }
+  if (filters.cuisineTypes && filters.cuisineTypes.length > 0) {
+    query = query.in('cuisine_type', filters.cuisineTypes);
+  }
+  for (const tag of filters.dietaryTags ?? []) {
+    query = query.contains('dietary_tags', [tag]);
+  }
+  if (filters.searchQuery && filters.searchQuery.length >= 2) {
+    const pattern = `%${filters.searchQuery}%`;
+    query = query.or(
+      `dish_name.ilike.${pattern},description.ilike.${pattern}`,
+    );
+  }
+
+  const { count, error } = await query;
+  if (error) throw new Error(`Failed to count offers: ${error.message}`);
+  return count ?? 0;
+}
+
 /**
  * Lists lunch offers with filtering, sorting, and pagination.
  *
- * Default behavior:
- * - Only returns offers for today (available_date = today)
- * - Max 50 offers per page
- * - When location is available and sortBy is 'distance', sorts by distance ascending
- * - When location is not available, sorts alphabetically by restaurant_name
+ * One RPC, `get_offers_filtered` (#19). It replaces three query shapes: a plain
+ * Supabase select, a distance RPC that returned six columns, and a second
+ * unbounded query to fetch the rows the first one did not return. Filtering,
+ * ordering and slicing all happen in one statement now.
  *
- * Filter logic:
- * - Price: min <= price <= max
- * - Cuisine: OR logic (match any selected cuisine)
- * - Dietary: AND logic (must have ALL selected tags)
- * - Search: case-insensitive partial match on dish_name and description (ilike)
- * - Distance: uses PostGIS get_offers_within_radius function
- * - Combined filters: AND logic (intersection of all active filters)
+ * Behaviour, unchanged from what the three paths did together:
+ * - Defaults to today; `filters.date` selects another day. The old distance
+ *   function hardcoded CURRENT_DATE, so asking for another day returned zero
+ *   rows rather than that day's offers.
+ * - Max 50 per page, Requirement 1.1.
+ * - With a location and `sortBy: 'distance'`, nearest first.
+ * - Without a location, alphabetical by restaurant name, Requirement 1.2 --
+ *   which is also the fallback for any explicit sort with no location to
+ *   measure from.
+ * - Price: min <= price <= max. Cuisine: OR within the list. Dietary: AND
+ *   across tags. Search: ILIKE over dish name and description. Combined: AND.
  */
 export async function listOffers(
   filters: OfferFilters,
   userLocation?: Coordinates
 ): Promise<PaginatedOffers> {
-  // Use the requested date if provided, otherwise default to today
-  const today = filters.date ?? getTodayDate();
-
+  const date = filters.date ?? getTodayDate();
   const page = filters.page ?? 1;
   const limit = Math.min(filters.limit ?? 50, 50);
   const offset = (page - 1) * limit;
 
-  // If distance filter is applied, use PostGIS spatial query
-  if (filters.distance) {
-    return listOffersWithDistance(filters, filters.distance.from, today, page, limit, offset);
-  }
+  // A radius needs an origin. `filters.distance.from` is the one the User chose;
+  // the browser's position is the fallback, matching the old dispatch at :451.
+  const origin = filters.distance?.from ?? null;
+  const location = origin ?? (userLocation ?? null);
 
-  // If user has location and wants to sort by distance, use spatial query
-  if (userLocation && filters.sortBy === 'distance') {
-    return listOffersWithDistance(filters, userLocation, today, page, limit, offset);
-  }
+  // A radius only applies when there is an origin to measure from. Sent without
+  // one the function ignores it rather than matching nothing, so first paint --
+  // which has the slider's radius and no location yet -- still lists offers.
+  const radius = location ? (filters.distance?.radius ?? null) : null;
 
-  // Standard query without distance
-  return listOffersStandard(filters, today, page, limit, offset);
-}
-
-/**
- * Lists offers using standard Supabase query (no spatial filtering).
- */
-async function listOffersStandard(
-  filters: OfferFilters,
-  today: string,
-  page: number,
-  limit: number,
-  offset: number
-): Promise<PaginatedOffers> {
   const supabase = await createClient();
 
-  let query = supabase
-    .from('lunch_offers')
-    .select('*', { count: 'exact' })
-    .eq('available_date', today);
-
-  // Apply price filter
-  if (filters.price) {
-    query = query.gte('price', filters.price.min).lte('price', filters.price.max);
-  }
-
-  // Apply cuisine type filter (OR logic — match any selected cuisine)
-  if (filters.cuisineTypes && filters.cuisineTypes.length > 0) {
-    query = query.in('cuisine_type', filters.cuisineTypes);
-  }
-
-  // Apply dietary tags filter (AND logic — must have ALL selected tags)
-  if (filters.dietaryTags && filters.dietaryTags.length > 0) {
-    for (const tag of filters.dietaryTags) {
-      query = query.contains('dietary_tags', [tag]);
-    }
-  }
-
-  // Apply full-text search (case-insensitive partial match on dish_name and description)
-  if (filters.searchQuery && filters.searchQuery.length >= 2) {
-    const searchPattern = `%${filters.searchQuery}%`;
-    query = query.or(
-      `dish_name.ilike.${searchPattern},description.ilike.${searchPattern}`
-    );
-  }
-
-  // Apply sorting
-  switch (filters.sortBy) {
-    case 'price_asc':
-      query = query.order('price', { ascending: true });
-      break;
-    case 'price_desc':
-      query = query.order('price', { ascending: false });
-      break;
-    case 'newest':
-      query = query.order('created_at', { ascending: false });
-      break;
-    case 'distance':
-    default:
-      // Without location, sort alphabetically by restaurant name
-      query = query.order('restaurant_name', { ascending: true });
-      break;
-  }
-
-  // Apply pagination
-  query = query.range(offset, offset + limit - 1);
-
-  const { data, error, count } = await query;
+  const { data, error } = await supabase.rpc('get_offers_filtered', {
+    p_date: date,
+    p_price_min: filters.price?.min ?? null,
+    p_price_max: filters.price?.max ?? null,
+    p_cuisine_types: filters.cuisineTypes ?? null,
+    p_dietary_tags: filters.dietaryTags ?? null,
+    p_search_query: filters.searchQuery ?? null,
+    p_user_lat: location?.latitude ?? null,
+    p_user_lng: location?.longitude ?? null,
+    p_radius_km: radius,
+    p_sort_by: filters.sortBy ?? 'distance',
+    p_limit: limit,
+    p_offset: offset,
+  });
 
   if (error) {
     throw new Error(`Failed to fetch offers: ${error.message}`);
   }
 
-  const total = count ?? 0;
-  const offers: LunchOfferWithDistance[] = (data ?? []).map((row) =>
-    mapDbRowToOfferWithDistance(row as Record<string, unknown>, null)
+  const offers: LunchOfferWithDistance[] = (
+    (data ?? []) as unknown as FilteredOfferRow[]
+  ).map((row) =>
+    mapDbRowToOfferWithDistance(row as unknown as Record<string, unknown>, row.distance_km),
   );
+
+  const total = await countFilteredOffers(filters, location, date, supabase);
 
   return {
     offers,
     total,
     page,
     limit,
-    hasMore: offset + limit < total,
-  };
-}
-
-/**
- * Lists offers with distance calculation using PostGIS RPC.
- * Used when distance filter is active or when sorting by distance with user location.
- *
- * Strategy:
- * 1. Get IDs of offers within radius using get_offers_within_radius RPC
- * 2. Fetch full records for those IDs with additional filters applied
- * 3. Sort and paginate in application layer (since distance comes from RPC)
- */
-async function listOffersWithDistance(
-  filters: OfferFilters,
-  location: Coordinates,
-  today: string,
-  page: number,
-  limit: number,
-  offset: number
-): Promise<PaginatedOffers> {
-  const supabase = await createClient();
-  const radius = filters.distance?.radius ?? 25;
-
-  // Step 1: Get offers within radius using PostGIS RPC function
-  const { data: spatialData, error: spatialError } = await supabase.rpc(
-    'get_offers_within_radius',
-    {
-      user_lat: location.latitude,
-      user_lng: location.longitude,
-      radius_km: radius,
-    }
-  );
-
-  if (spatialError) {
-    throw new Error(`Failed to fetch offers within radius: ${spatialError.message}`);
-  }
-
-  if (!spatialData || spatialData.length === 0) {
-    return {
-      offers: [],
-      total: 0,
-      page,
-      limit,
-      hasMore: false,
-    };
-  }
-
-  // Build a map of id -> distance_km from spatial results
-  const distanceMap = new Map<string, number>();
-  for (const row of spatialData) {
-    distanceMap.set(row.id, row.distance_km);
-  }
-
-  const spatialIds = Array.from(distanceMap.keys());
-
-  // Step 2: Fetch full records for these IDs with additional filters
-  let query = supabase
-    .from('lunch_offers')
-    .select('*', { count: 'exact' })
-    .eq('available_date', today)
-    .in('id', spatialIds);
-
-  // Apply price filter
-  if (filters.price) {
-    query = query.gte('price', filters.price.min).lte('price', filters.price.max);
-  }
-
-  // Apply cuisine type filter (OR logic)
-  if (filters.cuisineTypes && filters.cuisineTypes.length > 0) {
-    query = query.in('cuisine_type', filters.cuisineTypes);
-  }
-
-  // Apply dietary tags filter (AND logic)
-  if (filters.dietaryTags && filters.dietaryTags.length > 0) {
-    for (const tag of filters.dietaryTags) {
-      query = query.contains('dietary_tags', [tag]);
-    }
-  }
-
-  // Apply full-text search
-  if (filters.searchQuery && filters.searchQuery.length >= 2) {
-    const searchPattern = `%${filters.searchQuery}%`;
-    query = query.or(
-      `dish_name.ilike.${searchPattern},description.ilike.${searchPattern}`
-    );
-  }
-
-  const { data, error, count } = await query;
-
-  if (error) {
-    throw new Error(`Failed to fetch filtered offers: ${error.message}`);
-  }
-
-  const total = count ?? 0;
-
-  // Step 3: Map rows to offers with distance and sort
-  const offers: LunchOfferWithDistance[] = (data ?? []).map((row) => {
-    const distance = distanceMap.get(row.id as string) ?? null;
-    return mapDbRowToOfferWithDistance(row as Record<string, unknown>, distance);
-  });
-
-  // Sort in application layer (distance data comes from RPC, not from DB query)
-  switch (filters.sortBy ?? 'distance') {
-    case 'price_asc':
-      offers.sort((a, b) => a.price - b.price);
-      break;
-    case 'price_desc':
-      offers.sort((a, b) => b.price - a.price);
-      break;
-    case 'newest':
-      offers.sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      break;
-    case 'distance':
-    default:
-      offers.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
-      break;
-  }
-
-  // Apply pagination in application layer
-  const paginatedOffers = offers.slice(offset, offset + limit);
-
-  return {
-    offers: paginatedOffers,
-    total,
-    page,
-    limit,
-    hasMore: offset + limit < total,
+    hasMore: offset + offers.length < total,
   };
 }

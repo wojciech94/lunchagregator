@@ -120,10 +120,11 @@ describe('#17: a POINT(lon lat) string is accepted for restaurant_location', () 
     // Queried from the offer's own point with a radius that reaches it but
     // nothing else, so the assertion does not depend on what other suites
     // have in the table.
-    const { data, error } = await admin.rpc('get_offers_within_radius', {
-      user_lat: FAR.lat,
-      user_lng: FAR.lon,
-      radius_km: 5,
+    const { data, error } = await admin.rpc('get_offers_filtered', {
+      p_date: today,
+      p_user_lat: FAR.lat,
+      p_user_lng: FAR.lon,
+      p_radius_km: 5,
     });
     expect(error).toBeNull();
 
@@ -159,10 +160,11 @@ describe('#17: an offer with no address saves without coordinates', () => {
     expect(error).toBeNull();
     expect(data!.restaurant_location).toBeNull();
 
-    const { data: found } = await admin.rpc('get_offers_within_radius', {
-      user_lat: WARSAW.lat,
-      user_lng: WARSAW.lon,
-      radius_km: 5,
+    const { data: found } = await admin.rpc('get_offers_filtered', {
+      p_date: today,
+      p_user_lat: FAR.lat,
+      p_user_lng: FAR.lon,
+      p_radius_km: 5,
     });
     expect((found as { id: string }[]).map((r) => r.id)).not.toContain(data!.id);
 
