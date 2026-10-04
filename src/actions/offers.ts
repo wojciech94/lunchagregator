@@ -1,7 +1,7 @@
 'use server';
 
 import { getUser } from '@/lib/auth';
-import { checkOwnership } from '@/lib/ownership';
+import { canDelete, canModify } from '@/lib/ownership';
 import { offerFiltersSchema } from '@/lib/validations/filters';
 import {
   listOffers,
@@ -233,7 +233,9 @@ export async function updateOfferAction(
 
     const recordUserId = existing.data.userId ?? null;
 
-    if (!checkOwnership(user.id, recordUserId)) {
+    // The user object, not just its id: an admin is recognised by app_metadata,
+    // and passing `user.id` here would reduce every caller to owner-or-nobody.
+    if (!canModify(user, recordUserId)) {
       return { success: false, error: 'Brak uprawnień do tej operacji' };
     }
 
@@ -272,7 +274,7 @@ export async function deleteOfferAction(
 
     const recordUserId = existing.data.userId ?? null;
 
-    if (!checkOwnership(user.id, recordUserId)) {
+    if (!canDelete(user, recordUserId)) {
       return { success: false, error: 'Brak uprawnień do tej operacji' };
     }
 

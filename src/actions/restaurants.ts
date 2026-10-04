@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { getUser } from '@/lib/auth';
-import { checkOwnership } from '@/lib/ownership';
+import { canDelete, canModify } from '@/lib/ownership';
 import { createRestaurantSchema, updateRestaurantSchema } from '@/schemas/restaurant.schema';
 import { geocodeAddress } from '@/services/geocoding';
 import type {
@@ -234,8 +234,8 @@ export async function deleteRestaurant(
 
   const existingRow = existing as DbRestaurant;
 
-  // 2. Verify ownership via user_id
-  if (!checkOwnership(user.id, existingRow.user_id)) {
+  // 2. Verify ownership via user_id, or the admin role
+  if (!canDelete(user, existingRow.user_id)) {
     return {
       success: false,
       error: 'Brak uprawnień do tej operacji',
@@ -331,8 +331,8 @@ export async function updateRestaurant(
 
   const existingRow = existing as DbRestaurant;
 
-  // 2. Verify ownership via user_id
-  if (!checkOwnership(user.id, existingRow.user_id)) {
+  // 2. Verify ownership via user_id, or the admin role
+  if (!canModify(user, existingRow.user_id)) {
     return {
       success: false,
       error: 'Brak uprawnień do tej operacji',
