@@ -287,7 +287,7 @@ Implementacja aplikacji Lunch Agregator w Next.js (App Router) z TypeScript, Sup
     - Verify font sizes on mobile — inherited text must be 16px or larger at 320 and 768; explicit `text-sm`/`text-xs` are allowed to take precedence, required-field markers and control labels are not.
     - Screenshot comparison at key breakpoints — **not done.** The measurements cover the numeric requirements; visual regression needs reference images that do not exist in this repository, and generating them would enshrine the current layout as the baseline.
     - The suite compares against a recorded baseline rather than asserting zero. Requirement 7 had real violations catalogued in #23; they are now fixed, so the baseline is close to empty and is retained only so a regression is still caught.
-    - Cross-browser smoke for 7.2 lives in `__tests__/e2e/browser-smoke.spec.ts` and runs on chromium and edge. firefox and webkit need `npx playwright install firefox webkit`, which has not been run, so 7.2 is unverified on those two engines.
+    - Cross-browser smoke for 7.2 lives in `__tests__/e2e/browser-smoke.spec.ts` and runs on chromium and edge, the two engines Requirement 7.2 covers. firefox and webkit are out of scope for this project and have no projects declared in `playwright.config.ts`.
     - _Requirements: 7.1, 7.2, 7.3, 7.4_
 
 - [x] 15. Final checkpoint

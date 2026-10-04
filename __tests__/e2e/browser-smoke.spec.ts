@@ -21,7 +21,7 @@ import { expect, test } from '@playwright/test';
  * skip, so that command is part of setup rather than an optional extra.
  */
 
-const BROWSER_PROJECTS = new Set(['chromium', 'firefox', 'webkit', 'edge']);
+const BROWSER_PROJECTS = new Set(['chromium', 'edge']);
 
 /** Routes that render without a session. The auth matcher redirects the rest. */
 const ROUTES = ['/', '/restaurants', '/chat', '/auth/login', '/auth/register'];

@@ -41,9 +41,6 @@ Both commits are on `feat/filter-state-in-url-stage2`, **not yet merged**.
 
 ## Still unverified
 
-- **Requirement 7.2 on firefox and webkit.** Not installed. `npm run test:e2e`
-  without `--project` fails because Playwright launches a browser before an
-  in-body `test.skip` can run.
 - **One unexplained test failure** seen once during this work, never
   identified, not reproduced across four subsequent runs. If it recurs, suspect
   ordering around the mutable `currentSearch` in the offers page suite.

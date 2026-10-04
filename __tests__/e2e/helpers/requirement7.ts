@@ -301,7 +301,27 @@ export async function measureFontSizes(
         const tag = el.tagName.toLowerCase();
         const cls = el.getAttribute('class');
         if (cls) return `${tag}.${cls.trim().split(/\s+/).slice(0, 2).join('.')}`;
-        return tag;
+
+        // A bare tag name is useless in a failure message, and this fired with
+        // exactly that: "span". Fall back to the text and the nearest
+        // identifiable ancestor so the finding says which span it means.
+        const own = Array.from(el.childNodes)
+          .filter((n) => n.nodeType === Node.TEXT_NODE)
+          .map((n) => (n.textContent ?? '').trim())
+          .join(' ')
+          .trim();
+        let ancestry = '';
+        let parent: Element | null = el.parentElement;
+        for (let depth = 0; parent && depth < 3; depth += 1) {
+          const ptag = parent.tagName.toLowerCase();
+          if (ptag === 'body') break;
+          const pcls = parent.getAttribute('class');
+          ancestry += pcls
+            ? ` < ${ptag}.${pcls.trim().split(/\s+/).slice(0, 2).join('.')}`
+            : ` < ${ptag}`;
+          parent = parent.parentElement;
+        }
+        return `${tag}${ancestry}${own ? ` "${own.slice(0, 20)}"` : ''}`;
       };
 
       for (const el of Array.from(document.querySelectorAll('body *'))) {
