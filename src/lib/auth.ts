@@ -1,5 +1,6 @@
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { isAdmin } from "@/lib/ownership";
 
 /**
  * Returns the authenticated user from the current request context,
@@ -13,6 +14,34 @@ export async function getUser(): Promise<User | null> {
     return null;
   }
   return data.user;
+}
+
+/**
+ * Returns the authenticated user if they are an admin, and null otherwise.
+ *
+ * Exists because a null return composes with both callers and a thrown error
+ * composes with neither: the admin panel page answers `notFound()` and its
+ * server action answers `{ success: false }`, and forcing one shape on both
+ * would leave one of them catching an exception to translate it back.
+ *
+ * Null rather than a distinct "not an admin" signal, deliberately. An anonymous
+ * caller and an ordinary User are the same case as far as this app is concerned --
+ * neither may see the panel -- and separating them would invite a caller to treat
+ * one as a bug worth reporting.
+ *
+ * The whole `User` is returned rather than a boolean, because the first thing a
+ * caller usually wants next is the id, and `getUser()` has already paid for the
+ * round trip that carries it. Passing only `user.id` down would also quietly
+ * reduce the caller's view of the caller to owner-or-nobody, which is the mistake
+ * `isAdmin` exists to avoid (`src/actions/offers.ts:238`).
+ *
+ * Not a substitute for the database. `get_orphan_offers` checks `is_admin()`
+ * itself (20250101000008), so a caller that skipped this would get an empty list
+ * rather than other people's records.
+ */
+export async function getAdmin(): Promise<User | null> {
+  const user = await getUser();
+  return isAdmin(user) ? user : null;
 }
 
 /**

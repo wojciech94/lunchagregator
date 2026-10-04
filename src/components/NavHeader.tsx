@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { UtensilsCrossed } from "lucide-react";
 import { getUser } from "@/lib/auth";
+import { isAdmin } from "@/lib/ownership";
 import { LocationIndicator } from "@/components/location/LocationIndicator";
 import { NavLinks } from "@/components/NavLinks";
 import { NavMobileMenu } from "@/components/NavMobileMenu";
@@ -9,6 +10,12 @@ import { AuthNavLinks } from "@/components/auth/AuthNavLinks";
 
 export async function NavHeader() {
   const user = await getUser();
+
+  // The role lives in `app_metadata`, which only the server sees without a
+  // round trip. Decided here, once, and handed to both nav renderers as a
+  // boolean: hiding the panel link is a courtesy, not the guard -- `/admin/offers`
+  // refuses a non-admin with `notFound()` on its own.
+  const viewerIsAdmin = isAdmin(user);
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-[#0f1011]">
@@ -24,7 +31,7 @@ export async function NavHeader() {
         </Link>
 
         {/* Desktop navigation */}
-        <NavLinks />
+        <NavLinks isAdmin={viewerIsAdmin} />
 
         {/* Right side: auth + location + mobile toggle */}
         <div className="flex items-center gap-2">
@@ -47,7 +54,7 @@ export async function NavHeader() {
           </div>
 
           {/* Mobile hamburger + dropdown */}
-          <NavMobileMenu />
+          <NavMobileMenu isAdmin={viewerIsAdmin} />
         </div>
       </div>
     </header>

@@ -5,16 +5,21 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { linksFor } from "@/lib/nav-links";
 import { LocationIndicator } from "@/components/location/LocationIndicator";
 
-const navLinks = [
-  { href: "/", label: "Oferty" },
-  { href: "/restaurants", label: "Restauracje" },
-  { href: "/add", label: "Dodaj ofertę" },
-  { href: "/chat", label: "Czat AI" },
-] as const;
+interface NavMobileMenuProps {
+  /**
+   * Whether the viewer is an admin, decided in `NavHeader`.
+   *
+   * The same flag `NavLinks` takes, and passed for the same reason: the desktop
+   * bar and this menu are two views of one list, and a link that appears in only
+   * one of them is a link that works at one screen width and 404s at the other.
+   */
+  isAdmin?: boolean;
+}
 
-export function NavMobileMenu() {
+export function NavMobileMenu({ isAdmin = false }: NavMobileMenuProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -36,7 +41,7 @@ export function NavMobileMenu() {
       {open && (
         <nav className="md:hidden border-t border-border bg-[#0f1011] px-4 py-3 absolute top-14 left-0 right-0 z-50">
           <div className="flex flex-col gap-2">
-            {navLinks.map((link) => (
+            {linksFor(isAdmin).map((link) => (
               <Link
                 key={link.href}
                 href={link.href}

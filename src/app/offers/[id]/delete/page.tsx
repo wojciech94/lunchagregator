@@ -4,7 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getOfferById, deleteOfferAction } from "@/actions/offers";
+import { getOfferWithAccessAction, deleteOfferAction } from "@/actions/offers";
 import type { LunchOffer } from "@/types/offers";
 
 interface DeleteOfferPageProps {
@@ -32,16 +32,30 @@ export default function DeleteOfferPage({ params }: DeleteOfferPageProps) {
       if (cancelled) return;
       setOfferId(id);
 
-      const offerResult = await getOfferById(id);
+      // The offer and the permission arrive together. This page is a client
+      // component, so it cannot call `getUser()` -- that reads `next/headers` and
+      // does not compile here -- and the answer has to come over a server action.
+      const result = await getOfferWithAccessAction(id);
 
       if (cancelled) return;
 
-      if (!offerResult.success) {
+      if (!result.success) {
         setState({ status: "not_found" });
         return;
       }
 
-      setState({ status: "ready", offer: offerResult.data });
+      // The `forbidden` branch below used to be unreachable: the state was
+      // declared and rendered but never set, so anyone who opened this URL got the
+      // confirmation form and only learned they could not use it after pressing
+      // the button. Authorisation still lives in `deleteOfferAction`, which is
+      // where it belongs -- this is the same check one step earlier, so the reader
+      // is told before they are asked to confirm something they cannot do.
+      if (!result.data.canDelete) {
+        setState({ status: "forbidden" });
+        return;
+      }
+
+      setState({ status: "ready", offer: result.data.offer });
     }
 
     load();
@@ -111,6 +125,21 @@ export default function DeleteOfferPage({ params }: DeleteOfferPageProps) {
                 <p className="text-sm text-foreground">
                   Czy na pewno chcesz usunąć tę ofertę? Tej operacji nie można cofnąć.
                 </p>
+
+                {/* Said plainly, because it changes what the button means. Without
+                    this the confirmation reads as "am I sure?"; with it, it reads
+                    as "I am deleting a record that belongs to nobody, on the
+                    strength of nobody having claimed it". Only an admin reaches
+                    here for such a record -- an owner always has a user_id -- so
+                    this line appears exactly when the reader is deleting somebody
+                    else's data. The audit log records who did it; this is the
+                    reader being told before they do. */}
+                {state.offer.userId === null && (
+                  <p className="rounded-[4px] border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                    Ta oferta nie ma właściciela. Usuwasz dane, których nikt nie może
+                    już poprawić, a wiersz zostanie w logu administracji.
+                  </p>
+                )}
 
                 <dl className="flex flex-col gap-2 text-sm">
                   <div className="flex flex-col gap-0.5">

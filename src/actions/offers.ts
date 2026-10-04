@@ -1,12 +1,13 @@
 'use server';
 
-import { getUser } from '@/lib/auth';
+import { getAdmin, getUser } from '@/lib/auth';
 import { canDelete, canModify, isAdmin } from '@/lib/ownership';
 import { recordAudit, shouldAudit } from '@/lib/audit';
 import { createClient } from '@/lib/supabase/server';
 import { offerFiltersSchema } from '@/lib/validations/filters';
 import {
   listOffers,
+  listOrphanOffers,
   getOffer,
   getOffersByRestaurant,
   createOffer,
@@ -56,12 +57,92 @@ export async function getOffers(
 }
 
 /**
+ * Server action returning an offer together with what the caller may do to it.
+ *
+ * Exists because the edit and delete pages are client components and cannot ask.
+ * `getUser()` lives in `@/lib/auth`, which imports `next/headers` and therefore
+ * refuses to compile outside a server component -- an earlier attempt to import it
+ * into those pages failed the production build. The permission has to arrive over
+ * a server action, which is the only channel a client component has to the
+ * session.
+ *
+ * One round trip rather than two: the pages need the offer to render and the
+ * answer to decide whether to render the form, and asking separately would fetch
+ * the same row twice.
+ *
+ * `false` rather than an error when the caller may not act. "This does not exist"
+ * and "you may not touch this" are different answers -- merging them would tell a
+ * prober that a given id is real -- and the pages already render the refusal.
+ *
+ * This does not replace the checks in `updateOfferAction` and `deleteOfferAction`.
+ * Those remain the only thing standing between a request and a mutation; this
+ * tells the reader what to expect, one step earlier.
+ */
+export async function getOfferWithAccessAction(
+  id: string
+): Promise<ActionResult<{ offer: LunchOffer; canModify: boolean; canDelete: boolean }>> {
+  try {
+    if (!id || typeof id !== 'string') {
+      return { success: false, error: 'Invalid offer ID' };
+    }
+
+    const existing = await getOffer(id);
+    if (!existing.success) {
+      return existing;
+    }
+
+    const user = await getUser();
+    const recordUserId = existing.data.userId ?? null;
+
+    return {
+      success: true,
+      data: {
+        offer: existing.data,
+        canModify: canModify(user, recordUserId),
+        canDelete: canDelete(user, recordUserId),
+      },
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Failed to fetch offer';
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Server action listing offers that have no owner, for the admin panel. #55.
+ *
+ * The admin check is here as well as in the database, because the two layers fail
+ * differently. `get_orphan_offers` returns zero rows to a non-admin rather than an
+ * error, so a caller that reached it without a role would render "nothing to
+ * reclaim" over a table full of orphans -- a page that is confidently wrong, which
+ * is worse than one that refuses.
+ *
+ * No filters. The panel's job is to show what needs attention, and every filter
+ * added here is a way for a stale record to look like somebody else's problem.
+ */
+export async function getOrphanOffersAction(): Promise<ActionResult<LunchOffer[]>> {
+  try {
+    const adminUser = await getAdmin();
+
+    if (!adminUser) {
+      return { success: false, error: 'Brak uprawnień' };
+    }
+
+    return { success: true, data: await listOrphanOffers() };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Failed to fetch orphan offers';
+    return { success: false, error: message };
+  }
+}
+
+/**
  * Server action to get a single offer by ID.
  */
 export async function getOfferById(
   id: string
-): Promise<ActionResult<LunchOffer>> {
-  try {
+): Promise<ActionResult<LunchOffer>> {  try {
     if (!id || typeof id !== 'string') {
       return { success: false, error: 'Invalid offer ID' };
     }

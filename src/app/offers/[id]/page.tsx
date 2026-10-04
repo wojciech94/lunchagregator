@@ -4,6 +4,7 @@ import { ArrowLeft, Pencil, Trash2, MapPin, Calendar, Utensils, Tag } from 'luci
 
 import { getOfferById } from '@/actions/offers';
 import { getUser } from '@/lib/auth';
+import { canModify } from '@/lib/ownership';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,7 +23,13 @@ export default async function OfferDetailsPage({ params }: OfferDetailsPageProps
 
   const offer = result.data;
   const user = await getUser();
-  const isOwner = user !== null && offer.userId !== null && user.id === offer.userId;
+
+  // `canModify`, not an inline `user.id === offer.userId`. The inline version was
+  // `checkOwnership` written out by hand, which is exactly the reduction #54 was
+  // about: it answers "is this the owner?" and so hides the admin branch, leaving
+  // an admin looking at a record nobody owns with no way to act on it. The admin
+  // panel links here, so this is where that dead end would have shown up.
+  const mayModify = canModify(user, offer.userId ?? null);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
@@ -42,8 +49,8 @@ export default async function OfferDetailsPage({ params }: OfferDetailsPageProps
                 </p>
               </div>
 
-              {/* Edit/Delete buttons - only visible to owner */}
-              {isOwner && (
+              {/* Edit/Delete buttons - visible to the owner and to an admin */}
+              {mayModify && (
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" asChild>
                     <Link href={`/offers/${offer.id}/edit`}>
