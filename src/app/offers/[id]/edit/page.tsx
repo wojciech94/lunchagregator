@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { getOfferById, updateOfferAction } from "@/actions/offers";
+import { getOfferWithAccessAction, updateOfferAction } from "@/actions/offers";
 import { updateOfferSchema } from "@/lib/validations/offer";
 import type { LunchOffer, CuisineType, DietaryTag, Allergen } from "@/types/offers";
 
@@ -79,16 +79,28 @@ export default function EditOfferPage({ params }: EditOfferPageProps) {
       if (cancelled) return;
       setOfferId(id);
 
-      const offerResult = await getOfferById(id);
+      // The offer and the permission arrive together. This page is a client
+      // component, so it cannot call `getUser()` -- that reads `next/headers` and
+      // does not compile here -- and the answer has to come over a server action.
+      const result = await getOfferWithAccessAction(id);
 
       if (cancelled) return;
 
-      if (!offerResult.success) {
+      if (!result.success) {
         setState({ status: "not_found" });
         return;
       }
 
-      setState({ status: "ready", offer: offerResult.data });
+      // The `forbidden` branch below used to be unreachable: declared and
+      // rendered, never set. Authorisation lives in `updateOfferAction` and stays
+      // there -- this is the same check one step earlier, so somebody who cannot
+      // save is told before they type anything, rather than after.
+      if (!result.data.canModify) {
+        setState({ status: "forbidden" });
+        return;
+      }
+
+      setState({ status: "ready", offer: result.data.offer });
     }
 
     load();

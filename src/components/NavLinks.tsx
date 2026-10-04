@@ -3,15 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { linksFor } from "@/lib/nav-links";
 
-const navLinks = [
-  { href: "/", label: "Oferty" },
-  { href: "/restaurants", label: "Restauracje" },
-  { href: "/add", label: "Dodaj ofertę" },
-  { href: "/chat", label: "Czat AI" },
-] as const;
+interface NavLinksProps {
+  /**
+   * Whether the viewer is an admin, decided in `NavHeader`.
+   *
+   * A boolean rather than the user, so this component never has an identity to
+   * hold and cannot accidentally render something from it.
+   */
+  isAdmin?: boolean;
+}
 
-export function NavLinks() {
+export function NavLinks({ isAdmin = false }: NavLinksProps) {
   const pathname = usePathname();
 
   const isActive = (href: string) =>
@@ -19,7 +23,7 @@ export function NavLinks() {
 
   return (
     <nav className="hidden lg:flex lg:items-center lg:gap-2">
-      {navLinks.map((link) => (
+      {linksFor(isAdmin).map((link) => (
         <Link
           key={link.href}
           href={link.href}

@@ -57,6 +57,59 @@ export async function getOffers(
 }
 
 /**
+ * Server action returning an offer together with what the caller may do to it.
+ *
+ * Exists because the edit and delete pages are client components and cannot ask.
+ * `getUser()` lives in `@/lib/auth`, which imports `next/headers` and therefore
+ * refuses to compile outside a server component -- an earlier attempt to import it
+ * into those pages failed the production build. The permission has to arrive over
+ * a server action, which is the only channel a client component has to the
+ * session.
+ *
+ * One round trip rather than two: the pages need the offer to render and the
+ * answer to decide whether to render the form, and asking separately would fetch
+ * the same row twice.
+ *
+ * `false` rather than an error when the caller may not act. "This does not exist"
+ * and "you may not touch this" are different answers -- merging them would tell a
+ * prober that a given id is real -- and the pages already render the refusal.
+ *
+ * This does not replace the checks in `updateOfferAction` and `deleteOfferAction`.
+ * Those remain the only thing standing between a request and a mutation; this
+ * tells the reader what to expect, one step earlier.
+ */
+export async function getOfferWithAccessAction(
+  id: string
+): Promise<ActionResult<{ offer: LunchOffer; canModify: boolean; canDelete: boolean }>> {
+  try {
+    if (!id || typeof id !== 'string') {
+      return { success: false, error: 'Invalid offer ID' };
+    }
+
+    const existing = await getOffer(id);
+    if (!existing.success) {
+      return existing;
+    }
+
+    const user = await getUser();
+    const recordUserId = existing.data.userId ?? null;
+
+    return {
+      success: true,
+      data: {
+        offer: existing.data,
+        canModify: canModify(user, recordUserId),
+        canDelete: canDelete(user, recordUserId),
+      },
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Failed to fetch offer';
+    return { success: false, error: message };
+  }
+}
+
+/**
  * Server action listing offers that have no owner, for the admin panel. #55.
  *
  * The admin check is here as well as in the database, because the two layers fail
