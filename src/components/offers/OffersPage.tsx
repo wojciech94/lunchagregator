@@ -1,14 +1,19 @@
 "use client";
 
 import * as React from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useGeolocation } from "@/hooks/useGeolocation";
-import { getOffers } from "@/actions/offers";
 import { AddressInput } from "@/components/location/AddressInput";
 import { MapPin } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { OfferFilters } from "./OfferFilters";
 import { OfferList } from "./OfferList";
 import { upcomingDays, todayISO } from "@/utils/day-of-week";
 import { cn } from "@/lib/utils";
+import {
+  filtersToSearchParams,
+  parseFiltersFromSearchParams,
+} from "@/lib/filter-url";
 import type { OfferFilters as OfferFiltersType } from "@/types/filters";
 import type { LunchOfferWithDistance, PaginatedOffers } from "@/types/offers";
 import type { Coordinates } from "@/types/offers";
@@ -19,125 +24,152 @@ interface OffersPageProps {
 
 /**
  * Client wrapper component that wires together OfferFilters and OfferList.
- * Manages filter state, geolocation, sorting, and re-fetching offers.
+ *
+ * The URL is the single source of truth for filters. Changing one navigates,
+ * the server re-renders from the new query string, and `initialData` arrives
+ * with the result -- so there is no filter state here and no client-side
+ * refetch to keep in step with it.
  */
 export function OffersPage({ initialData }: OffersPageProps) {
   const { coordinates, error: geoError, loading: geoLoading, permissionState, requestLocation, setManualCoordinates } =
     useGeolocation();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [isPending, startTransition] = React.useTransition();
 
-  const [offers, setOffers] = React.useState<LunchOfferWithDistance[]>(
-    initialData.offers
+  const { filters, radius } = React.useMemo(
+    () => parseFiltersFromSearchParams(new URLSearchParams(searchParams.toString())),
+    [searchParams]
   );
-  const [pagination, setPagination] = React.useState({
+  const selectedDate = filters.date ?? todayISO();
+
+  // Rendered by the server from these props rather than mirrored into state.
+  // Nothing to synchronise, and nothing that can disagree with the URL.
+  const offers = initialData.offers;
+  const pagination = {
     total: initialData.total,
     page: initialData.page,
     limit: initialData.limit,
     hasMore: initialData.hasMore,
-  });
-  const [filters, setFilters] = React.useState<OfferFiltersType>({});
-  const [selectedDate, setSelectedDate] = React.useState<string>(todayISO());
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [hasRequestedLocation, setHasRequestedLocation] = React.useState(false);
+  };
+  const isLoading = isPending;
 
   const days = React.useMemo(() => upcomingDays(7), []);
 
-  // Request geolocation on mount only if we don't already have a stored location
-  React.useEffect(() => {
-    if (hasRequestedLocation) return;
-    setHasRequestedLocation(true);
-    const t = setTimeout(() => {
-      if (!coordinates) {
-        requestLocation();
+  /**
+   * One write path. `mode` is the whole difference between a filter the User
+   * committed to and one they are still typing.
+   *
+   * `radius` is threaded separately because the URL carries it on its own --
+   * the origin it needs is in the cookie, not the query string.
+   */
+  const writeUrl = React.useCallback(
+    (next: OfferFiltersType, nextRadius: number | undefined, mode: "push" | "replace") => {
+      const params = filtersToSearchParams(next);
+      if (nextRadius !== undefined) {
+        params.set("radius", String(nextRadius));
       }
-    }, 0);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasRequestedLocation, requestLocation]);
+      const query = params.toString();
+      const url = query ? `${pathname}?${query}` : pathname;
 
-  // Re-fetch offers when location becomes available (initial load with distance sort)
-  React.useEffect(() => {
-    if (coordinates) {
-      fetchOffers({ ...filters, sortBy: filters.sortBy || "distance" });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coordinates]);
-
-  const fetchOffers = React.useCallback(
-    async (currentFilters: OfferFiltersType, page?: number, dateOverride?: string) => {
-      setIsLoading(true);
-      try {
-        const date = dateOverride ?? selectedDate;
-        const filtersWithPage = { ...currentFilters, date, page: page ?? 1 };
-        const result = await getOffers(filtersWithPage, coordinates ?? undefined);
-
-        if (result.success) {
-          // No sorting and no rewriting here.
-          //
-          // Ordering is the server's job, and it is now the only place it
-          // happens: get_offers_filtered orders by distance when there is an
-          // origin, by restaurant_name when there is not (Requirement 1.2), or by
-          // whichever of price/newest was asked for. This component used to sort
-          // again in JS, which meant three competing sorts -- Postgres, the
-          // service, and this -- and the JS one ran over an already-sorted page,
-          // so it could only ever rearrange a subset of what the server sent.
-          //
-          // distanceKm likewise comes back as a value or null, and OfferCard
-          // already declines to render it when null. Absence of location is a
-          // presentation state, not missing data; overwriting it here threw away
-          // a real distance for an offer whose neighbour happened to have none.
-          setOffers(result.data.offers);
-          setPagination({
-            total: result.data.total,
-            page: result.data.page,
-            limit: result.data.limit,
-            hasMore: result.data.hasMore,
-          });
+      startTransition(() => {
+        if (mode === "push") {
+          router.push(url);
+        } else {
+          router.replace(url);
         }
-      } finally {
-        setIsLoading(false);
-      }
+      });
     },
-    [coordinates, selectedDate]
+    [pathname, router]
+  );
+
+  /** Requirement 2.11: any filter other than page returns to page 1. */
+  const applyFilters = React.useCallback(
+    (next: OfferFiltersType, nextRadius: number | undefined, mode: "push" | "replace") => {
+      writeUrl({ ...next, page: 1 }, nextRadius, mode);
+    },
+    [writeUrl]
   );
 
   const handleFiltersChange = React.useCallback(
-    (newFilters: OfferFiltersType) => {
-      setFilters(newFilters);
-      fetchOffers(newFilters);
-    },
-    [fetchOffers]
+    (next: OfferFiltersType) =>
+      applyFilters(next, next.distance?.radius ?? radius, "push"),
+    [applyFilters, radius]
+  );
+
+  const handleSearchChange = React.useCallback(
+    (next: OfferFiltersType) => applyFilters(next, radius, "replace"),
+    [applyFilters, radius]
   );
 
   const handleDayChange = React.useCallback(
-    (date: string) => {
-      setSelectedDate(date);
-      fetchOffers(filters, 1, date);
-    },
-    [fetchOffers, filters]
+    (date: string) => applyFilters({ ...filters, date }, radius, "push"),
+    [applyFilters, filters, radius]
   );
 
   const handlePageChange = React.useCallback(
     (page: number) => {
-      fetchOffers(filters, page);
+      writeUrl({ ...filters, page }, radius, "push");
     },
-    [fetchOffers, filters]
+    [filters, radius, writeUrl]
   );
 
   const handleManualLocation = React.useCallback(
     (coords: Coordinates) => {
       setManualCoordinates(coords);
+      // The cookie changed, so the server needs to render again with it --
+      // that is what turns on distance filtering.
+      router.refresh();
     },
-    [setManualCoordinates]
+    [setManualCoordinates, router]
   );
 
-  // No derived copy of the list. `displayOffers` used to exist only to blank
-  // distanceKm when there was no location -- the same rewrite fetchOffers
-  // already did, which is how the duplication started and how a third copy
-  // would arrive. The server sends null for offers it could not place, and
-  // OfferCard renders nothing for those.
+  // The location arrived after the first paint (the User granted permission).
+  // The cookie was written server-side; refresh so the server can apply it.
+  const previousCoordinates = React.useRef(coordinates);
+  React.useEffect(() => {
+    const had = previousCoordinates.current;
+    previousCoordinates.current = coordinates;
+    if (!had && coordinates) {
+      router.refresh();
+    }
+  }, [coordinates, router]);
+
+  React.useEffect(() => {
+    if (permissionState === "denied" && !coordinates) {
+      router.refresh();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [permissionState]);
+
+  // No derived copy of the list, and no client-side refetch. Ordering and
+  // distanceKm are the server's: get_offers_filtered orders by distance when
+  // there is an origin, by restaurant_name when there is not (Requirement 1.2),
+  // or by whichever of price/newest was asked for, and it returns distanceKm
+  // as a value or null with OfferCard declining to render the null case. This
+  // component used to sort again in JS, which meant three competing sorts --
+  // Postgres, the service, and this -- and the JS one ran over an
+  // already-sorted page, so it could only rearrange a subset of what the
+  // server sent.
 
   // Show address input when geolocation is denied/errored and we have no coordinates
   const showAddressInput = !coordinates && (permissionState === "denied" || (!!geoError && !geoLoading));
+
+  /**
+   * The link asks for something that needs a location, and there is none.
+   *
+   * Requirement 2.12: the parameters stay in the URL and the page says so.
+   * Stripping them would break the link for anyone it is re-shared to, and
+   * `permissionState` has three values of which the server sees none -- so
+   * stripping while the browser is still asking would throw the filters away
+   * before the User could accept. This is the same shape as 7.1: saying
+   * nothing while the promise goes unmet is worse than saying it plainly.
+   */
+  const distanceRequestedWithoutLocation =
+    !coordinates &&
+    !geoLoading &&
+    (radius !== undefined || filters.sortBy === "distance");
 
   return (
     <div className="flex flex-col gap-6">
@@ -146,6 +178,29 @@ export function OffersPage({ initialData }: OffersPageProps) {
         <p className="text-sm text-muted-foreground animate-pulse">
           Określanie lokalizacji...
         </p>
+      )}
+
+      {distanceRequestedWithoutLocation && (
+        <div
+          className="rounded-md border border-border bg-card p-4 shadow-[0_1.2px_0_0_rgba(0,0,0,0.03)]"
+          role="status"
+          data-testid="distance-needs-location"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <MapPin className="size-4 text-primary" />
+            <p className="text-sm text-muted-foreground">
+              Ten link prosi o filtrowanie lub sortowanie według odległości, a nie
+              znamy Twojej lokalizacji. Parametry zostały w adresie — podaj
+              lokalizację, żeby zadziałały.
+            </p>
+          </div>
+          {permissionState === "prompt" || permissionState === null ? (
+            <Button variant="outline" onClick={requestLocation} disabled={geoLoading}>
+              Ustal lokalizację
+            </Button>
+          ) : null}
+          <AddressInput onLocationResolved={handleManualLocation} />
+        </div>
       )}
 
       {/* Manual address input fallback */}
@@ -196,12 +251,20 @@ export function OffersPage({ initialData }: OffersPageProps) {
       {/* Filters */}
       <OfferFilters
         onChange={handleFiltersChange}
+        onSearchChange={handleSearchChange}
         userLocation={coordinates}
-        // Distance only once there is something to measure from. Without a
-        // location the control stays unset, which is what makes the list
-        // alphabetical by restaurant name -- Requirement 1.2 -- rather than the
-        // newest-first list this used to ask for.
-        initialFilters={coordinates ? { sortBy: "distance" } : {}}
+        // From the URL, not from what this component thinks. Passing a
+        // sortBy derived from whether a location exists -- which is what this
+        // did -- left the form showing a different filter set than the list it
+        // was filtering, whenever the two disagreed, which a shared link
+        // guarantees they do.
+        initialFilters={{
+          ...filters,
+          ...(coordinates && !filters.sortBy ? { sortBy: "distance" as const } : {}),
+          ...(radius !== undefined && coordinates
+            ? { distance: { radius, from: coordinates } }
+            : {}),
+        }}
       />
 
       {/* Loading indicator */}
