@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { NavHeader } from "@/components/NavHeader";
 import { PostAuthMigrationWarning } from "@/components/auth/PostAuthMigrationWarning";
+import { LocationProvider } from "@/components/location/LocationProvider";
+import { readStoredLocationCookie } from "@/lib/location";
 
 const inter = Inter({
   subsets: ["latin", "latin-ext"],
@@ -20,21 +22,27 @@ export const viewport: Viewport = {
   maximumScale: 5,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Read once here: the cookie is httpOnly, so this is the only place the
+  // server can turn it into something a client component can use.
+  const initialLocation = await readStoredLocationCookie();
+
   return (
     <html lang="pl">
       <body
         className={`${inter.variable} font-sans antialiased`}
       >
-        <NavHeader />
-        <PostAuthMigrationWarning />
-        <main>
-          {children}
-        </main>
+        <LocationProvider initialLocation={initialLocation}>
+          <NavHeader />
+          <PostAuthMigrationWarning />
+          <main>
+            {children}
+          </main>
+        </LocationProvider>
       </body>
     </html>
   );
