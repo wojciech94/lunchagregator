@@ -594,3 +594,51 @@ export async function listOffers(
     hasMore: offset + offers.length < total,
   };
 }
+
+/**
+ * How many orphans one call returns at most.
+ *
+ * Named rather than repeated, because the SQL default, the SQL GREATEST fallback
+ * and this cap are three places that have to agree -- and the one that matters is
+ * the smallest of them.
+ */
+const ORPHAN_OFFER_LIMIT = 200;
+
+/**
+ * Lists offers that have no owner, for the admin panel. #55.
+ *
+ * One RPC, `get_orphan_offers` (20250101000008), which filters `user_id IS NULL`
+ * and ignores `available_date` -- the panel is a cleanup queue rather than a menu,
+ * and a record whose date has already passed is exactly what is worth finding.
+ *
+ * Not a variant of `listOffers` and deliberately not folded into it. That function
+ * answers "what can I eat, near me, on this day" and every one of its parameters
+ * is about answering that question well; this one answers a different question,
+ * has no filters to share with it, and returns a different shape -- a flat list
+ * with no page, because there is no cursor to advance.
+ *
+ * `distanceKm` is null on every row. There is no origin here, and the alternative
+ * -- a distance from the operator, or from nowhere -- would be a number on screen
+ * that means nothing. The panel shows the restaurant address instead.
+ *
+ * The cap is enforced here as well as in SQL. A caller passing 100000 gets 200,
+ * which is the same answer either way but for one reason rather than two.
+ */
+export async function listOrphanOffers(limit?: number): Promise<LunchOfferWithDistance[]> {
+  const capped = Math.min(limit ?? ORPHAN_OFFER_LIMIT, ORPHAN_OFFER_LIMIT);
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc('get_orphan_offers', { p_limit: capped });
+
+  if (error) {
+    throw new Error(`Failed to fetch orphan offers: ${error.message}`);
+  }
+
+  return ((data ?? []) as unknown as FilteredOfferRow[]).map((row) =>
+    // distance_km is absent from this function's return rather than null, and
+    // the mapper takes the distance as an argument precisely so the two list
+    // queries can share it.
+    mapDbRowToOfferWithDistance(row as unknown as Record<string, unknown>, null)
+  );
+}

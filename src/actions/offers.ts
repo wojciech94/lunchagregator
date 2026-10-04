@@ -1,12 +1,13 @@
 'use server';
 
-import { getUser } from '@/lib/auth';
+import { getAdmin, getUser } from '@/lib/auth';
 import { canDelete, canModify, isAdmin } from '@/lib/ownership';
 import { recordAudit, shouldAudit } from '@/lib/audit';
 import { createClient } from '@/lib/supabase/server';
 import { offerFiltersSchema } from '@/lib/validations/filters';
 import {
   listOffers,
+  listOrphanOffers,
   getOffer,
   getOffersByRestaurant,
   createOffer,
@@ -56,12 +57,39 @@ export async function getOffers(
 }
 
 /**
+ * Server action listing offers that have no owner, for the admin panel. #55.
+ *
+ * The admin check is here as well as in the database, because the two layers fail
+ * differently. `get_orphan_offers` returns zero rows to a non-admin rather than an
+ * error, so a caller that reached it without a role would render "nothing to
+ * reclaim" over a table full of orphans -- a page that is confidently wrong, which
+ * is worse than one that refuses.
+ *
+ * No filters. The panel's job is to show what needs attention, and every filter
+ * added here is a way for a stale record to look like somebody else's problem.
+ */
+export async function getOrphanOffersAction(): Promise<ActionResult<LunchOffer[]>> {
+  try {
+    const adminUser = await getAdmin();
+
+    if (!adminUser) {
+      return { success: false, error: 'Brak uprawnień' };
+    }
+
+    return { success: true, data: await listOrphanOffers() };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Failed to fetch orphan offers';
+    return { success: false, error: message };
+  }
+}
+
+/**
  * Server action to get a single offer by ID.
  */
 export async function getOfferById(
   id: string
-): Promise<ActionResult<LunchOffer>> {
-  try {
+): Promise<ActionResult<LunchOffer>> {  try {
     if (!id || typeof id !== 'string') {
       return { success: false, error: 'Invalid offer ID' };
     }
