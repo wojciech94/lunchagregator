@@ -15,9 +15,9 @@
  * seeded: a seeded user has a fixed id, and a fixed id in shared test data is how
  * one test's authorization assertion becomes another test's false pass.
  */
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { adminClient, runToken, todayUtc } from './helpers';
+import { afterAll, describe, expect, it } from 'vitest';
+import { type SupabaseClient } from '@supabase/supabase-js';
+import { adminClient, runToken, signInIdentity, todayUtc, ADMIN_CLAIM } from './helpers';
 
 const admin = adminClient();
 const token = runToken('db-admin-role');
@@ -30,49 +30,17 @@ interface Identity {
   email: string;
 }
 
-let seq = 0;
-
 /**
  * Creates a user and a client carrying their session.
  *
- * `app_metadata` is set through the admin API because that is the only way the
- * service-role key can write it -- which is the property that makes the role
- * unforgeable from the client, and the reason `isAdmin` reads that field.
+ * Delegates to the shared `signInIdentity`, which orphan-offers.test.ts uses too.
+ * This was a private copy here once. Two copies of a fixture whose whole job is
+ * getting the `app_metadata` nesting right is two places for that to go wrong.
  */
 async function identity(appMetadata: Record<string, unknown> | null): Promise<Identity> {
-  seq += 1;
-  const email = `${token}-${seq}@example.test`;
-  const password = 'Password123!';
-
-  // `app_metadata` is a top-level parameter of createUser, not something to nest
-  // under a key of the same name. Passing `{ app_metadata: { app_metadata: ... } }`
-  // is accepted without error and stores the nesting, so the role silently never
-  // reaches the JWT and `is_admin()` reads false. Caught here by logging what
-  // createUser returned rather than trusting the request shape.
-  const { data, error } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    ...(appMetadata ? { app_metadata: appMetadata } : {}),
-  });
-  if (error) throw new Error(`createUser: ${error.message}`);
-  createdUserIds.push(data.user.id);
-
-  const client = createClient(
-    process.env.TEST_SUPABASE_URL!,
-    process.env.TEST_SUPABASE_ANON_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } },
-  );
-  const { data: session, error: signInError } = await client.auth.signInWithPassword({
-    email,
-    password,
-  });
-  if (signInError) throw new Error(`signIn: ${signInError.message}`);
-  if (session.user!.id !== data.user.id) {
-    throw new Error('session identity does not match the created user');
-  }
-
-  return { client, id: data.user.id, email };
+  const created = await signInIdentity(token, appMetadata);
+  createdUserIds.push(created.id);
+  return created;
 }
 
 /**
@@ -81,7 +49,7 @@ async function identity(appMetadata: Record<string, unknown> | null): Promise<Id
  * parameter, so a value already carrying the key nests twice and the role never
  * reaches the JWT.
  */
-const ADMIN = { role: 'admin' } as const;
+const ADMIN = ADMIN_CLAIM;
 
 /** A row owned by `ownerId`, or ownerless when that is null. */
 async function seedOffer(ownerId: string | null, dishName: string): Promise<string> {
@@ -132,10 +100,8 @@ async function dishAfterUpdate(
   return readDish(id);
 }
 
-beforeAll(async () => {
-  // Identities are created in the tests that use them, so a failure names the
-  // layer it came from rather than a shared beforeAll that fails opaquely.
-});
+// Identities are created in the tests that use them, so a failure names the layer
+// it came from rather than a shared beforeAll that fails opaquely.
 
 afterAll(async () => {
   await admin.from('lunch_offers').delete().eq('session_token', token);

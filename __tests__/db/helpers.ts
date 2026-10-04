@@ -93,3 +93,61 @@ export async function deleteOffersWithToken(client: SupabaseClient, token: strin
 }
 
 export const WARSAW = { lon: 21.0122, lat: 52.2297 };
+
+/** The admin claim, unwrapped: `app_metadata` is a top-level createUser parameter. */
+export const ADMIN_CLAIM = { role: 'admin' } as const;
+
+let identitySeq = 0;
+
+/**
+ * Creates a user carrying `appMetadata` and a client signed in as them.
+ *
+ * Two properties make this the only way to build an authenticated fixture here.
+ *
+ * `app_metadata` is set through the admin API because that is the only thing the
+ * service-role key can write -- which is exactly what makes the admin role
+ * unforgeable from the client, and why `is_admin()` reads that field rather than
+ * `user_metadata`.
+ *
+ * `app_metadata` is a *top-level* parameter of `createUser`, not something to
+ * nest under a key of the same name. Passing `{ app_metadata: { app_metadata: … } }`
+ * is accepted without error and stores the nesting, so the role silently never
+ * reaches the JWT and `is_admin()` reads false. Hence the spread below, and hence
+ * `ADMIN_CLAIM` holding the *contents* rather than the wrapped claim.
+ *
+ * The caller owns teardown: the returned id goes in whatever array the suite
+ * already deletes from in `afterAll`.
+ */
+export async function signInIdentity(
+  token: string,
+  appMetadata: Record<string, unknown> | null = null
+): Promise<{ client: SupabaseClient; id: string; email: string }> {
+  identitySeq += 1;
+  const email = `${token}-${identitySeq}@example.test`;
+  const password = 'Password123!';
+
+  const { data, error } = await adminClient().auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    ...(appMetadata ? { app_metadata: appMetadata } : {}),
+  });
+  if (error) throw new Error(`createUser: ${error.message}`);
+
+  const client = createClient(
+    process.env.TEST_SUPABASE_URL!,
+    process.env.TEST_SUPABASE_ANON_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  );
+
+  const { data: session, error: signInError } = await client.auth.signInWithPassword({
+    email,
+    password,
+  });
+  if (signInError) throw new Error(`signIn: ${signInError.message}`);
+  if (session.user!.id !== data.user.id) {
+    throw new Error('session identity does not match the created user');
+  }
+
+  return { client, id: data.user.id, email };
+}
