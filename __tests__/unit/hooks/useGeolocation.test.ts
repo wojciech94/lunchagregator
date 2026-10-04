@@ -3,11 +3,39 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
+import { createElement, type ReactNode } from "react";
 import { useGeolocation } from "@/hooks/useGeolocation";
+import { LocationProvider } from "@/components/location/LocationProvider";
+import type { StoredLocation } from "@/lib/location";
+
+const { mockSaveLocation, mockClearLocation } = vi.hoisted(() => ({
+  mockSaveLocation: vi.fn(async () => ({ success: true })),
+  mockClearLocation: vi.fn(async () => ({ success: true })),
+}));
+
+vi.mock("@/actions/location", () => ({
+  saveUserLocationAction: mockSaveLocation,
+  clearUserLocationAction: mockClearLocation,
+}));
 
 // Mock navigator.geolocation
 const mockGetCurrentPosition = vi.fn();
 const mockPermissionsQuery = vi.fn();
+
+function wrapperWith(initialLocation: StoredLocation | null) {
+  // createElement rather than JSX: this file is .ts, and renaming it to .tsx
+  // for one wrapper is churn.
+  return ({ children }: { children: ReactNode }) =>
+    createElement(LocationProvider, { initialLocation }, children);
+}
+
+const storedLocation = (overrides: Partial<StoredLocation> = {}): StoredLocation => ({
+  coordinates: { latitude: 52.2297, longitude: 21.0122 },
+  label: "Bieżąca lokalizacja",
+  source: "geolocation",
+  savedAt: 1_700_000_000_000,
+  ...overrides,
+});
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -29,16 +57,12 @@ beforeEach(() => {
   });
 
   mockPermissionsQuery.mockResolvedValue({ state: "prompt" });
-  // The hook persists the resolved location and rehydrates from it on mount,
-  // so without this a successful test leaks its coordinates into every test
-  // that follows and they fail on `coordinates` being non-null.
-  window.localStorage.clear();
 });
 
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
-  window.localStorage.clear();
+  vi.clearAllMocks();
 });
 
 describe("useGeolocation", () => {
@@ -215,26 +239,48 @@ describe("useGeolocation", () => {
     expect(result.current.error).toContain("nieznany błąd");
   });
 
-  it("should persist a resolved location and rehydrate it on mount", async () => {
+  it("should hydrate from the location the server seeded", () => {
+    // The cookie is httpOnly, so a client cannot read it. Rehydration comes
+    // from the root layout through context, not from a client-readable store.
+    const { result } = renderHook(() => useGeolocation(), {
+      wrapper: wrapperWith(storedLocation()),
+    });
+
+    expect(result.current.coordinates).toEqual({
+      latitude: 52.2297,
+      longitude: 21.0122,
+    });
+    expect(result.current.source).toBe("geolocation");
+    expect(mockGetCurrentPosition).not.toHaveBeenCalled();
+  });
+
+  it("should hand a resolved location to the server rather than storing it locally", async () => {
     mockGetCurrentPosition.mockImplementation((success) => {
       success({ coords: { latitude: 52.2297, longitude: 21.0122 } });
     });
 
-    const first = renderHook(() => useGeolocation());
+    const { result } = renderHook(() => useGeolocation(), {
+      wrapper: wrapperWith(null),
+    });
 
     await act(async () => {
-      first.result.current.requestLocation();
+      result.current.requestLocation();
       await Promise.resolve();
     });
 
-    // A fresh mount must start from the stored value without asking again.
-    const second = renderHook(() => useGeolocation());
-
-    expect(second.result.current.coordinates).toEqual({
+    expect(result.current.coordinates).toEqual({
       latitude: 52.2297,
       longitude: 21.0122,
     });
-    expect(mockGetCurrentPosition).toHaveBeenCalledTimes(1);
+    // Persistence is the server's job now, and it is what lets the first paint
+    // apply distance filtering.
+    expect(mockSaveLocation).toHaveBeenCalledWith(
+      { latitude: 52.2297, longitude: 21.0122 },
+      "Bieżąca lokalizacja",
+      "geolocation"
+    );
+    // Nothing client-readable keeps it.
+    expect(window.localStorage.getItem("user_location")).toBeNull();
   });
 
   it("should forget the location on clearLocation", async () => {
@@ -242,7 +288,9 @@ describe("useGeolocation", () => {
       success({ coords: { latitude: 52.2297, longitude: 21.0122 } });
     });
 
-    const { result } = renderHook(() => useGeolocation());
+    const { result } = renderHook(() => useGeolocation(), {
+      wrapper: wrapperWith(null),
+    });
 
     await act(async () => {
       result.current.requestLocation();
@@ -256,8 +304,11 @@ describe("useGeolocation", () => {
     });
 
     expect(result.current.coordinates).toBeNull();
+    expect(mockClearLocation).toHaveBeenCalled();
 
-    const remounted = renderHook(() => useGeolocation());
+    const remounted = renderHook(() => useGeolocation(), {
+      wrapper: wrapperWith(null),
+    });
     expect(remounted.result.current.coordinates).toBeNull();
   });
 

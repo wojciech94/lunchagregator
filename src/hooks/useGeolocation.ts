@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { clearUserLocationAction, saveUserLocationAction } from "@/actions/location";
+import { useInitialLocation } from "@/components/location/LocationProvider";
 import type { Coordinates } from "@/types/offers";
 
 export type LocationSource = "geolocation" | "manual";
@@ -18,7 +20,6 @@ export interface UseGeolocationReturn {
 }
 
 const GEOLOCATION_TIMEOUT_MS = 10000;
-const STORAGE_KEY = "user_location";
 const LOCATION_EVENT = "user-location-changed";
 const DEFAULT_GEO_LABEL = "Bieżąca lokalizacja";
 
@@ -29,40 +30,10 @@ interface StoredLocation {
   savedAt: number;
 }
 
-/** Read persisted location from localStorage (client-only). */
-function readStoredLocation(): StoredLocation | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as StoredLocation;
-    if (
-      parsed?.coordinates &&
-      typeof parsed.coordinates.latitude === "number" &&
-      typeof parsed.coordinates.longitude === "number"
-    ) {
-      return parsed;
-    }
-  } catch {
-    // Ignore malformed storage
-  }
-  return null;
-}
-
-/** Persist location to localStorage and broadcast change to other hook instances. */
-function writeStoredLocation(stored: StoredLocation | null) {
+/** Notifies other hook instances in this tab. */
+function broadcastLocation(stored: StoredLocation | null) {
   if (typeof window === "undefined") return;
-  try {
-    if (stored === null) {
-      window.localStorage.removeItem(STORAGE_KEY);
-    } else {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
-    }
-    // Notify other instances in the same tab
-    window.dispatchEvent(new CustomEvent(LOCATION_EVENT, { detail: stored }));
-  } catch {
-    // Ignore quota / serialization errors
-  }
+  window.dispatchEvent(new CustomEvent(LOCATION_EVENT, { detail: stored }));
 }
 
 export function useGeolocation(): UseGeolocationReturn {
@@ -75,9 +46,13 @@ export function useGeolocation(): UseGeolocationReturn {
     "granted" | "denied" | "prompt" | null
   >(null);
 
+  // Seeded by the root layout from the httpOnly cookie. The cookie cannot be
+  // read here, which is the point: it is not reachable from any script.
+  const initialLocation = useInitialLocation();
+
   // Hydrate from localStorage on mount + subscribe to changes from other instances
   useEffect(() => {
-    const stored = readStoredLocation();
+    const stored = initialLocation;
     if (stored) {
       setCoordinates(stored.coordinates);
       setLabel(stored.label);
@@ -98,19 +73,15 @@ export function useGeolocation(): UseGeolocationReturn {
       }
     }
 
-    // Cross-instance (same tab) and cross-tab sync
+    // Cross-instance sync within one tab. The cross-tab `storage` listener is
+    // gone: the value now lives in an httpOnly cookie, which another tab
+    // cannot read, so the server will seed it on that tab's next navigation.
     window.addEventListener(LOCATION_EVENT, handleLocationEvent);
-    window.addEventListener("storage", (e) => {
-      if (e.key === STORAGE_KEY) {
-        const next = readStoredLocation();
-        handleLocationEvent(new CustomEvent(LOCATION_EVENT, { detail: next }));
-      }
-    });
 
     return () => {
       window.removeEventListener(LOCATION_EVENT, handleLocationEvent);
     };
-  }, []);
+  }, [initialLocation]);
 
   const setManualCoordinates = useCallback((coords: Coordinates, manualLabel?: string) => {
     const resolvedLabel = manualLabel?.trim() || "Własny adres";
@@ -118,7 +89,8 @@ export function useGeolocation(): UseGeolocationReturn {
     setLabel(resolvedLabel);
     setSource("manual");
     setError(null);
-    writeStoredLocation({
+    void saveUserLocationAction(coords, resolvedLabel, "manual");
+    broadcastLocation({
       coordinates: coords,
       label: resolvedLabel,
       source: "manual",
@@ -130,7 +102,8 @@ export function useGeolocation(): UseGeolocationReturn {
     setCoordinates(null);
     setLabel(null);
     setSource(null);
-    writeStoredLocation(null);
+    void clearUserLocationAction();
+    broadcastLocation(null);
   }, []);
 
   const requestLocation = useCallback(() => {
@@ -168,7 +141,8 @@ export function useGeolocation(): UseGeolocationReturn {
         setPermissionState("granted");
         setLoading(false);
         setError(null);
-        writeStoredLocation({
+        void saveUserLocationAction(coords, DEFAULT_GEO_LABEL, "geolocation");
+        broadcastLocation({
           coordinates: coords,
           label: DEFAULT_GEO_LABEL,
           source: "geolocation",
