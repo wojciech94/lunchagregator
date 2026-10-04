@@ -18,12 +18,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 const mockGetAdmin = vi.fn();
-const mockGetOrphanOffersAction = vi.fn();
+const mockListAdminOffers = vi.fn();
 const mockNotFound = vi.fn();
 
 vi.mock('@/lib/auth', () => ({ getAdmin: () => mockGetAdmin() }));
-vi.mock('@/actions/offers', () => ({
-  getOrphanOffersAction: () => mockGetOrphanOffersAction(),
+vi.mock('@/actions/admin', () => ({
+  listAdminOffers: () => mockListAdminOffers(),
 }));
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
@@ -61,6 +61,11 @@ function orphan(overrides: Record<string, unknown> = {}) {
   };
 }
 
+
+/** The page takes the query string as Next.js delivers it. */
+function renderPage(searchParams: Record<string, string | string[]> = { orphan: '1' }) {
+  return AdminOffersPage({ searchParams: Promise.resolve(searchParams) });
+}
 beforeEach(() => {
   vi.clearAllMocks();
   mockGetAdmin.mockResolvedValue(ADMIN);
@@ -73,7 +78,7 @@ describe('a non-admin', () => {
       throw new Error('NEXT_NOT_FOUND');
     });
 
-    await expect(AdminOffersPage()).rejects.toThrow('NEXT_NOT_FOUND');
+    await expect(renderPage()).rejects.toThrow('NEXT_NOT_FOUND');
   });
 
   it('and the query is never reached, so nothing leaks through a late render', async () => {
@@ -82,21 +87,24 @@ describe('a non-admin', () => {
       throw new Error('NEXT_NOT_FOUND');
     });
 
-    await expect(AdminOffersPage()).rejects.toThrow();
+    await expect(renderPage()).rejects.toThrow();
     // Not merely an empty result: a fetch below the guard would put the panel's
     // data one refactor away from anybody who can reach the route.
-    expect(mockGetOrphanOffersAction).not.toHaveBeenCalled();
+    expect(mockListAdminOffers).not.toHaveBeenCalled();
   });
 });
 
 describe('an admin', () => {
   it('sees each ownerless offer, with the restaurant and the address', async () => {
-    mockGetOrphanOffersAction.mockResolvedValue({
-      success: true,
-      data: [orphan(), orphan({ id: '44444444-4444-4444-4444-444444444444', dishName: 'Kotlet schabowy' })],
+    mockListAdminOffers.mockResolvedValue({
+      rows: [
+        orphan(),
+        orphan({ id: '44444444-4444-4444-4444-444444444444', dishName: 'Kotlet schabowy' }),
+      ],
+      total: 2,
     });
 
-    render(await AdminOffersPage());
+    render(await renderPage());
 
     expect(screen.getByText('Rosół')).toBeInTheDocument();
     expect(screen.getByText('Kotlet schabowy')).toBeInTheDocument();
@@ -109,9 +117,9 @@ describe('an admin', () => {
 
   it('is offered the edit and delete actions for each one', async () => {
     const id = '33333333-3333-3333-3333-333333333333';
-    mockGetOrphanOffersAction.mockResolvedValue({ success: true, data: [orphan({ id })] });
+    mockListAdminOffers.mockResolvedValue({ rows: [orphan({ id })], total: 1 });
 
-    render(await AdminOffersPage());
+    render(await renderPage());
 
     // The controls are what make the panel usable, and their absence would leave a
     // list an operator can read and not act on -- the exact state #54 created.
@@ -129,31 +137,25 @@ describe('an admin', () => {
   it('sees an offer with an address but no coordinates flagged', async () => {
     // #17/#18 made this the common case, and it is the one worth fixing from this
     // page -- so it cannot render as an ordinary row.
-    mockGetOrphanOffersAction.mockResolvedValue({
-      success: true,
-      data: [orphan({ restaurantLocation: null })],
-    });
+    mockListAdminOffers.mockResolvedValue({ rows: [orphan({ restaurantLocation: null })], total: 1 });
 
-    render(await AdminOffersPage());
+    render(await renderPage());
 
     expect(screen.getByText(/brak współrzędnych/i)).toBeInTheDocument();
   });
 
   it('does not flag coordinates on an offer that has them', async () => {
-    mockGetOrphanOffersAction.mockResolvedValue({ success: true, data: [orphan()] });
+    mockListAdminOffers.mockResolvedValue({ rows: [orphan()], total: 1 });
 
-    render(await AdminOffersPage());
+    render(await renderPage());
 
     expect(screen.queryByText(/brak współrzędnych/i)).not.toBeInTheDocument();
   });
 
   it('says so plainly when an offer has no address at all', async () => {
-    mockGetOrphanOffersAction.mockResolvedValue({
-      success: true,
-      data: [orphan({ restaurantAddress: null })],
-    });
+    mockListAdminOffers.mockResolvedValue({ rows: [orphan({ restaurantAddress: null })], total: 1 });
 
-    render(await AdminOffersPage());
+    render(await renderPage());
 
     // Distinct from "no coordinates": one is a datum to fill in, the other means
     // the offer cannot be placed on a map at all.
@@ -162,18 +164,18 @@ describe('an admin', () => {
   });
 
   it('sees an empty list described as empty, not as a failure', async () => {
-    mockGetOrphanOffersAction.mockResolvedValue({ success: true, data: [] });
+    mockListAdminOffers.mockResolvedValue({ rows: [], total: 1 });
 
-    render(await AdminOffersPage());
+    render(await renderPage());
 
     expect(screen.getByText(/nie ma ofert bez właściciela/i)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it('sees a failure as a failure, and never as an empty list', async () => {
-    mockGetOrphanOffersAction.mockResolvedValue({ success: false, error: 'boom' });
+    mockListAdminOffers.mockResolvedValue({ rows: null, total: 0, error: 'boom' });
 
-    render(await AdminOffersPage());
+    render(await renderPage());
 
     expect(screen.getByRole('alert')).toHaveTextContent(/nie udało się pobrać/i);
     // The dangerous half: "nothing to reclaim" must not appear when the query
@@ -182,12 +184,9 @@ describe('an admin', () => {
   });
 
   it('counts the rows rather than saying "some"', async () => {
-    mockGetOrphanOffersAction.mockResolvedValue({
-      success: true,
-      data: [orphan(), orphan({ id: '44444444-4444-4444-4444-444444444444' })],
-    });
+    mockListAdminOffers.mockResolvedValue({ rows: [orphan(), orphan({ id: '44444444-4444-4444-4444-444444444444' })], total: 1 });
 
-    render(await AdminOffersPage());
+    render(await renderPage());
 
     expect(screen.getByText('2 ofert')).toBeInTheDocument();
   });
