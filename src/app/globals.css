@@ -126,17 +126,15 @@
     @apply border-border;
   }
 
-  html,
-  body {
-    @apply overflow-x-hidden;
-  }
-
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  /* Requirement 7.4: Minimum 16px body text on mobile */
+  /* Requirement 7.4: inherited body text is at least 16px on narrow viewports.
+     Explicit text-sm / text-xs utilities take precedence on purpose -- see
+     Requirement 7.4. Required-field markers and labels are exempt from that
+     precedence and must be fixed individually, not by this rule. */
   @media (max-width: 768px) {
     body {
       font-size: 16px;

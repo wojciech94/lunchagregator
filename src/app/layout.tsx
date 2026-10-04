@@ -28,7 +28,7 @@ export default function RootLayout({
   return (
     <html lang="pl">
       <body
-        className={`${inter.variable} font-sans antialiased overflow-x-hidden`}
+        className={`${inter.variable} font-sans antialiased`}
       >
         <NavHeader />
         <PostAuthMigrationWarning />

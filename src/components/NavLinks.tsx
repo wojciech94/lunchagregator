@@ -18,7 +18,7 @@ export function NavLinks() {
     pathname === href || (href !== "/" && pathname.startsWith(href));
 
   return (
-    <nav className="hidden md:flex md:items-center md:gap-1">
+    <nav className="hidden lg:flex lg:items-center lg:gap-2">
       {navLinks.map((link) => (
         <Link
           key={link.href}

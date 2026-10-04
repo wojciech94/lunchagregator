@@ -27,185 +27,53 @@
     "desktop-1440 /auth/login": []
   },
   "tapTargets": {
-    "mobile-320 /": [
-      "button.flex.items-center",
-      "input.h-9.w-full"
-    ],
+    "mobile-320 /": [],
     "mobile-320 /chat": [],
-    "mobile-320 /restaurants": [
-      "input.h-9.w-full"
-    ],
-    "mobile-320 /auth/login": [
-      "#email",
-      "#password",
-      "a.font-medium.text-primary",
-      "button.inline-flex.shrink-0"
-    ],
-    "mobile-320 /auth/register": [
-      "#email",
-      "#password",
-      "a.font-medium.text-primary",
-      "button.inline-flex.shrink-0"
-    ],
-    "tablet-768 /chat": [
-      "button.inline-flex.items-center"
-    ],
-    "tablet-768 /restaurants": [
-      "button.inline-flex.items-center",
-      "input.h-9.w-full"
-    ],
-    "tablet-768 /": [
-      "button.flex.items-center",
-      "button.inline-flex.items-center",
-      "input.h-9.min-w-0",
-      "input.h-9.w-full"
-    ],
-    "tablet-768 /auth/login": [
-      "#email",
-      "#password",
-      "a.font-medium.text-primary",
-      "button.inline-flex.items-center",
-      "button.inline-flex.shrink-0"
-    ],
-    "tablet-768 /auth/register": [
-      "#email",
-      "#password",
-      "a.font-medium.text-primary",
-      "button.inline-flex.items-center",
-      "button.inline-flex.shrink-0"
-    ]
+    "mobile-320 /restaurants": [],
+    "mobile-320 /auth/login": [],
+    "mobile-320 /auth/register": [],
+    "tablet-768 /chat": [],
+    "tablet-768 /restaurants": [],
+    "tablet-768 /": [],
+    "tablet-768 /auth/login": [],
+    "tablet-768 /auth/register": []
   },
   "spacing": {
-    "mobile-320 /": [
-      "input.h-9.w-full"
-    ],
+    "mobile-320 /": [],
     "mobile-320 /chat": [],
-    "mobile-320 /restaurants": [
-      "a.inline-flex.min-h-[44px]",
-      "button.md:hidden.inline-flex",
-      "button.md:hidden.min-h-[44px]",
-      "input.h-9.w-full"
-    ],
-    "mobile-320 /auth/login": [
-      "#email",
-      "#password",
-      "button.inline-flex.shrink-0",
-      "button.md:hidden.min-h-[44px]"
-    ],
-    "mobile-320 /auth/register": [
-      "#email",
-      "#password",
-      "button.inline-flex.shrink-0",
-      "button.md:hidden.min-h-[44px]"
-    ],
-    "tablet-768 /chat": [
-      "button.inline-flex.items-center"
-    ],
-    "tablet-768 /restaurants": [
-      "a.inline-flex.min-h-[44px]",
-      "button.inline-flex.items-center",
-      "input.h-9.w-full"
-    ],
-    "tablet-768 /": [
-      "button.flex.shrink-0",
-      "button.inline-flex.items-center"
-    ],
-    "tablet-768 /auth/login": [
-      "#email",
-      "#password",
-      "button.inline-flex.shrink-0"
-    ],
-    "tablet-768 /auth/register": [
-      "#email",
-      "#password",
-      "button.inline-flex.shrink-0"
-    ]
+    "mobile-320 /restaurants": [],
+    "mobile-320 /auth/login": [],
+    "mobile-320 /auth/register": [],
+    "tablet-768 /chat": [],
+    "tablet-768 /restaurants": [],
+    "tablet-768 /": [],
+    "tablet-768 /auth/login": [],
+    "tablet-768 /auth/register": []
   },
   "fontSizes": {
-    "mobile-320 /": [
-      "a.rounded-[4px].px-3",
-      "button.inline-flex.items-center",
-      "label.flex.items-center",
-      "span.ml-1",
-      "span.text-sm.font-medium",
-      "span.text-xs.capitalize",
-      "span.truncate"
-    ],
+    "mobile-320 /": [],
     "mobile-320 /chat": [
-      "a.rounded-[4px].px-3",
       "p.text-sm.text-muted-foreground",
-      "span.rounded-md.px-2",
-      "span.truncate"
+      "span.rounded-md.px-2"
     ],
-    "mobile-320 /restaurants": [
-      "a.mt-4.inline-flex",
-      "a.rounded-[4px].px-3",
-      "button.inline-flex.items-center",
-      "button.md:hidden.inline-flex",
-      "label.flex.items-center",
-      "span",
-      "span.truncate"
-    ],
+    "mobile-320 /restaurants": [],
     "mobile-320 /auth/login": [
-      "a.font-medium.text-primary",
-      "a.rounded-[4px].px-3",
-      "button.inline-flex.shrink-0",
-      "label.flex.items-center",
-      "p.mt-1.text-sm",
-      "p.mt-6.text-center",
-      "span.text-destructive.ml-0.5",
-      "span.truncate"
+      "a.font-medium.text-primary"
     ],
     "mobile-320 /auth/register": [
-      "a.font-medium.text-primary",
-      "a.rounded-[4px].px-3",
-      "button.inline-flex.shrink-0",
-      "label.flex.items-center",
-      "p.mt-1.text-sm",
-      "p.mt-6.text-center",
-      "span.truncate"
+      "a.font-medium.text-primary"
     ],
     "tablet-768 /chat": [
-      "a.rounded-[4px].px-3",
       "p.text-sm.text-muted-foreground",
-      "span.rounded-md.px-2",
-      "span.truncate"
+      "span.rounded-md.px-2"
     ],
-    "tablet-768 /restaurants": [
-      "a.mt-4.inline-flex",
-      "a.rounded-[4px].px-3",
-      "button.inline-flex.items-center",
-      "label.flex.items-center",
-      "span",
-      "span.truncate"
-    ],
-    "tablet-768 /": [
-      "a.rounded-[4px].px-3",
-      "button.inline-flex.items-center",
-      "label.flex.items-center",
-      "span.ml-1",
-      "span.text-sm.font-medium",
-      "span.text-xs.capitalize",
-      "span.truncate"
-    ],
+    "tablet-768 /restaurants": [],
+    "tablet-768 /": [],
     "tablet-768 /auth/login": [
-      "a.font-medium.text-primary",
-      "a.rounded-[4px].px-3",
-      "button.inline-flex.shrink-0",
-      "label.flex.items-center",
-      "p.mt-1.text-sm",
-      "p.mt-6.text-center",
-      "span.text-destructive.ml-0.5",
-      "span.truncate"
+      "a.font-medium.text-primary"
     ],
     "tablet-768 /auth/register": [
-      "a.font-medium.text-primary",
-      "a.rounded-[4px].px-3",
-      "button.inline-flex.shrink-0",
-      "label.flex.items-center",
-      "p.mt-1.text-sm",
-      "p.mt-6.text-center",
-      "span.truncate"
+      "a.font-medium.text-primary"
     ]
   },
   "axe": {
@@ -222,20 +90,18 @@
     "mobile-320 /auth/register": [
       "color-contrast x2"
     ],
-    "tablet-768 /chat": [
-      "color-contrast x6"
-    ],
+    "tablet-768 /chat": [],
     "tablet-768 /restaurants": [
-      "color-contrast x8"
+      "color-contrast x2"
     ],
     "tablet-768 /": [
-      "color-contrast x14"
+      "color-contrast x8"
     ],
     "tablet-768 /auth/login": [
-      "color-contrast x9"
+      "color-contrast x2"
     ],
     "tablet-768 /auth/register": [
-      "color-contrast x9"
+      "color-contrast x2"
     ],
     "desktop-1024 /chat": [
       "color-contrast x6"

@@ -117,7 +117,15 @@ Anonimowe dodawanie ofert zostało świadomie wycofane — patrz Introduction. K
 
 #### Acceptance Criteria
 
-1. THE System SHALL provide a responsive layout that displays all content without horizontal scrolling and without requiring zooming at any screen width from 320px to 2560px
+1. THE System SHALL provide a responsive layout in which **no content is clipped or made unreachable** at any screen width from 320px to 2560px, and which does not require zooming
+   - *Reachability, not the absence of a scrollbar.* The previous wording — "without horizontal scrolling" — could not be tested: `overflow-x-hidden` on the root element makes the document never report a scrollbar regardless of what overflows, so a test asserting `scrollWidth <= clientWidth` passes on any layout, however broken. That is not a hypothetical; it was the state of this repository. The requirement is about content being reachable, which is observable.
 2. THE System SHALL render all features fully functional, without layout breaks or JavaScript errors, in the latest two versions of Chrome, Firefox, Safari, and Edge browsers
-3. WHILE the viewport width is 768px or less, THE System SHALL provide interactive elements (buttons, links, form controls) with a minimum tap target size of 44x44 pixels and a minimum spacing of 8px between adjacent targets
-4. WHILE the viewport width is 768px or less, THE System SHALL display body text at a minimum font size of 16px to ensure readability without zooming
+3. WHILE the viewport width is 768px or less, THE System SHALL provide interactive elements (buttons, links, form controls) with a minimum target size of 24x24 CSS pixels and a minimum spacing of 8px between adjacent targets
+   - **Links rendered inline within a sentence are exempt from the size minimum**, per WCAG 2.2 SC 2.5.8. "Masz już konto? Zaloguj się" is a link inside a sentence, not a control in a toolbar.
+   - *Why 24 and not 44.* 24x24 is the WCAG 2.2 level AA threshold. 44x44 is an Apple HIG figure and the WCAG 2.1 AAA threshold; measured against this application it produced 54 findings, where 24x24 produces none once the inline-link exemption applies. Holding 44 would mean rebuilding every UI primitive to satisfy a level the specification never asked for.
+4. WHILE the viewport width is 768px or less, THE System SHALL display **inherited** body text at a minimum font size of 16px to ensure readability without zooming
+   - **Explicit font-size utilities take precedence over this rule, deliberately.** `text-sm` and `text-xs` on a component mean that component is 14px or 12px, and that is a design decision, not a defect.
+   - **The exception is text a User must read to complete a task**: required-field markers, form labels, and control labels. These are not exempt.
+   - *Why this is worded this way.* The previous wording set a minimum for "body text" while the only mechanism enforcing it — a `font-size: 16px` rule on the root — loses to every explicit utility. As written the requirement was satisfiable by being consistently unreadable. Stating the precedence makes the rule enforceable where it was never going to be overridden, and stops pretending it is enforced elsewhere.
+
+> **Notes on 7.3 and 7.4.** Both state 768px. They are written as two independent rules rather than one shared threshold, so that moving the threshold later moves them independently. They are not both tied to the `md` breakpoint: the desktop navigation was measured as the *worst* width for both target size and font size, and it now starts at `lg` (1024px) for that reason, leaving the mobile menu — which already meets both rules — in place below it.

@@ -66,7 +66,7 @@ export function LocationIndicator() {
         aria-expanded={open}
         aria-haspopup="dialog"
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-[4px] px-2.5 py-1.5 text-sm transition-colors max-w-[300px]",
+          "inline-flex items-center gap-1.5 rounded-[4px] px-2.5 py-1.5 text-base transition-colors max-w-[300px]",
           coordinates
             ? "text-[#f7f8f8] hover:bg-white/5"
             : "text-[#62666d] hover:text-[#f7f8f8]"
@@ -127,7 +127,7 @@ export function LocationIndicator() {
               <span className="w-full border-t border-border" />
             </div>
             <div className="relative flex justify-center">
-              <span className="bg-popover px-2 text-xs text-muted-foreground">lub</span>
+              <span className="bg-popover px-2 text-base text-muted-foreground">lub</span>
             </div>
           </div>
 
