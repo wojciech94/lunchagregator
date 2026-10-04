@@ -60,12 +60,21 @@ const DEFAULT_SORT: OfferFiltersType["sortBy"] = undefined;
 
 interface OfferFiltersProps {
   onChange: (filters: OfferFiltersType) => void;
+  /**
+   * Search text, on its own channel and on its own clock.
+   *
+   * Typing is not a filter the User has committed to, so it debounces and
+   * replaces the history entry rather than pushing one per keystroke. Chips,
+   * price, sort and day push instead, which is what makes Back undo them.
+   */
+  onSearchChange?: (filters: OfferFiltersType) => void;
   userLocation?: Coordinates | null;
   initialFilters?: Partial<OfferFiltersType>;
 }
 
 export function OfferFilters({
   onChange,
+  onSearchChange,
   userLocation,
   initialFilters,
 }: OfferFiltersProps) {
@@ -95,6 +104,43 @@ export function OfferFilters({
   const debounceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+
+  // Follow the URL. Without this the form keeps whatever was typed while the
+  // list changes underneath it, and Back moves the list without moving the
+  // controls -- which is the form disagreeing with the page it filters, the
+  // failure that having one source of truth is meant to prevent.
+  //
+  // Keyed on a serialised value rather than the object, because the filters
+  // object is rebuilt on every navigation.
+  const incoming = JSON.stringify({
+    q: initialFilters?.searchQuery ?? null,
+    d: initialFilters?.distance?.radius ?? null,
+    min: initialFilters?.price?.min ?? null,
+    max: initialFilters?.price?.max ?? null,
+    ct: initialFilters?.cuisineTypes ?? [],
+    dt: initialFilters?.dietaryTags ?? [],
+    sort: initialFilters?.sortBy ?? null,
+  });
+
+  React.useEffect(() => {
+    const next = JSON.parse(incoming) as {
+      q: string | null;
+      d: number | null;
+      min: number | null;
+      max: number | null;
+      ct: CuisineType[];
+      dt: DietaryTag[];
+      sort: OfferFiltersType["sortBy"];
+    };
+
+    setSearchQuery(next.q ?? "");
+    setDistance(next.d ?? 10);
+    setPriceMin(next.min?.toString() ?? "");
+    setPriceMax(next.max?.toString() ?? "");
+    setCuisineTypes(next.ct);
+    setDietaryTags(next.dt);
+    setSortBy(next.sort ?? DEFAULT_SORT);
+  }, [incoming]);
 
   const buildFilters = React.useCallback(
     (overrides?: Partial<{
@@ -166,7 +212,13 @@ export function OfferFilters({
     }
 
     debounceTimerRef.current = setTimeout(() => {
-      emitChange({ searchQuery: value });
+      // On its own channel when the caller provides one: typing replaces the
+      // URL, it does not push a history entry per keystroke.
+      if (onSearchChange) {
+        onSearchChange(buildFilters({ searchQuery: value }));
+      } else {
+        emitChange({ searchQuery: value });
+      }
     }, 300);
   };
 

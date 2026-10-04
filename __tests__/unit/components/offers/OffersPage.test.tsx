@@ -40,14 +40,30 @@ vi.mock("@/hooks/useGeolocation", () => ({
 
 // Replaced with a single button so a filter change can be driven without
 // reproducing the whole filter form.
-vi.mock("@/components/offers/OfferFilters", () => ({
-  OfferFilters: ({ onChange }: { onChange: (f: Record<string, unknown>) => void }) => (
-    <button onClick={() => onChange({ cuisineTypes: ["polska"] })}>apply filters</button>
-  ),
-}));
-
 vi.mock("@/components/location/AddressInput", () => ({
   AddressInput: () => null,
+}));
+
+// The real filter form drives its own state from the filters it is given, so
+// it is replaced by a button for clicks plus a field for typing. The second
+// one exercises the debounced search channel.
+vi.mock("@/components/offers/OfferFilters", () => ({
+  OfferFilters: ({
+    onChange,
+    onSearchChange,
+  }: {
+    onChange: (f: Record<string, unknown>) => void;
+    onSearchChange?: (f: Record<string, unknown>) => void;
+  }) => (
+    <>
+      <button onClick={() => onChange({ cuisineTypes: ["polska"] })}>apply filters</button>
+      <button
+        onClick={() => onSearchChange?.({ cuisineTypes: ["polska"] })}
+      >
+        type search
+      </button>
+    </>
+  ),
 }));
 
 import { OffersPage } from "@/components/offers/OffersPage";
@@ -105,6 +121,24 @@ describe("OffersPage empty state", () => {
     // push, not replace: a filter the User committed to should be undoable.
     expect(mockReplace).not.toHaveBeenCalled();
   });
+});
+
+describe("a link that needs a location", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    currentSearch = "";
+    mockGetOffers.mockResolvedValue({ success: true, data: emptyPage });
+  });
+
+  it("says so rather than dropping the parameters", () => {
+    currentSearch = "radius=5";
+    render(<OffersPage initialData={emptyPage} />);
+
+    expect(screen.getByTestId("distance-needs-location")).toBeInTheDocument();
+    // Requirement 2.12: the URL is untouched, so re-sharing it still works.
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
 
   it("does not render the list alongside the empty state", () => {
     render(<OffersPage initialData={emptyPage} />);
@@ -112,5 +146,27 @@ describe("OffersPage empty state", () => {
     expect(
       screen.queryByRole("list", { name: "Lista ofert lunchowych" })
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("a link that needs a location", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    currentSearch = "";
+    mockGetOffers.mockResolvedValue({ success: true, data: emptyPage });
+  });
+
+  it("says so when the link asks to sort by distance", () => {
+    currentSearch = "sort=distance";
+    render(<OffersPage initialData={emptyPage} />);
+
+    expect(screen.getByTestId("distance-needs-location")).toBeInTheDocument();
+  });
+
+  it("says nothing when no distance filter was asked for", () => {
+    currentSearch = "cuisines=polska";
+    render(<OffersPage initialData={emptyPage} />);
+
+    expect(screen.queryByTestId("distance-needs-location")).not.toBeInTheDocument();
   });
 });

@@ -5,6 +5,7 @@ import { LocationIndicator } from "@/components/location/LocationIndicator";
 import { NavLinks } from "@/components/NavLinks";
 import { NavMobileMenu } from "@/components/NavMobileMenu";
 import { LogoutButton } from "@/components/auth/LogoutButton";
+import { AuthNavLinks } from "@/components/auth/AuthNavLinks";
 
 export async function NavHeader() {
   const user = await getUser();
@@ -37,20 +38,7 @@ export async function NavHeader() {
                 <LogoutButton />
               </>
             ) : (
-              <>
-                <Link
-                  href="/auth/login"
-                  className="rounded-[4px] px-3 py-2 text-sm font-medium text-[#62666d] hover:text-primary transition-colors min-h-[44px] flex items-center"
-                >
-                  Zaloguj się
-                </Link>
-                <Link
-                  href="/auth/register"
-                  className="rounded-[4px] px-3 py-2 text-sm font-medium text-[#62666d] hover:text-primary transition-colors min-h-[44px] flex items-center"
-                >
-                  Zarejestruj się
-                </Link>
-              </>
+              <AuthNavLinks />
             )}
           </div>
 

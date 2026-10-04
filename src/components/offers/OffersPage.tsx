@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { AddressInput } from "@/components/location/AddressInput";
 import { MapPin } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { OfferFilters } from "./OfferFilters";
 import { OfferList } from "./OfferList";
 import { upcomingDays, todayISO } from "@/utils/day-of-week";
@@ -155,6 +156,21 @@ export function OffersPage({ initialData }: OffersPageProps) {
   // Show address input when geolocation is denied/errored and we have no coordinates
   const showAddressInput = !coordinates && (permissionState === "denied" || (!!geoError && !geoLoading));
 
+  /**
+   * The link asks for something that needs a location, and there is none.
+   *
+   * Requirement 2.12: the parameters stay in the URL and the page says so.
+   * Stripping them would break the link for anyone it is re-shared to, and
+   * `permissionState` has three values of which the server sees none -- so
+   * stripping while the browser is still asking would throw the filters away
+   * before the User could accept. This is the same shape as 7.1: saying
+   * nothing while the promise goes unmet is worse than saying it plainly.
+   */
+  const distanceRequestedWithoutLocation =
+    !coordinates &&
+    !geoLoading &&
+    (radius !== undefined || filters.sortBy === "distance");
+
   return (
     <div className="flex flex-col gap-6">
       {/* Geolocation loading */}
@@ -162,6 +178,29 @@ export function OffersPage({ initialData }: OffersPageProps) {
         <p className="text-sm text-muted-foreground animate-pulse">
           Określanie lokalizacji...
         </p>
+      )}
+
+      {distanceRequestedWithoutLocation && (
+        <div
+          className="rounded-md border border-border bg-card p-4 shadow-[0_1.2px_0_0_rgba(0,0,0,0.03)]"
+          role="status"
+          data-testid="distance-needs-location"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <MapPin className="size-4 text-primary" />
+            <p className="text-sm text-muted-foreground">
+              Ten link prosi o filtrowanie lub sortowanie według odległości, a nie
+              znamy Twojej lokalizacji. Parametry zostały w adresie — podaj
+              lokalizację, żeby zadziałały.
+            </p>
+          </div>
+          {permissionState === "prompt" || permissionState === null ? (
+            <Button variant="outline" onClick={requestLocation} disabled={geoLoading}>
+              Ustal lokalizację
+            </Button>
+          ) : null}
+          <AddressInput onLocationResolved={handleManualLocation} />
+        </div>
       )}
 
       {/* Manual address input fallback */}
@@ -212,12 +251,20 @@ export function OffersPage({ initialData }: OffersPageProps) {
       {/* Filters */}
       <OfferFilters
         onChange={handleFiltersChange}
+        onSearchChange={handleSearchChange}
         userLocation={coordinates}
-        // Distance only once there is something to measure from. Without a
-        // location the control stays unset, which is what makes the list
-        // alphabetical by restaurant name -- Requirement 1.2 -- rather than the
-        // newest-first list this used to ask for.
-        initialFilters={coordinates ? { sortBy: "distance" } : {}}
+        // From the URL, not from what this component thinks. Passing a
+        // sortBy derived from whether a location exists -- which is what this
+        // did -- left the form showing a different filter set than the list it
+        // was filtering, whenever the two disagreed, which a shared link
+        // guarantees they do.
+        initialFilters={{
+          ...filters,
+          ...(coordinates && !filters.sortBy ? { sortBy: "distance" as const } : {}),
+          ...(radius !== undefined && coordinates
+            ? { distance: { radius, from: coordinates } }
+            : {}),
+        }}
       />
 
       {/* Loading indicator */}
