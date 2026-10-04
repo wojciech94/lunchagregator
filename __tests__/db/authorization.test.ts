@@ -115,11 +115,16 @@ describe('row level security', () => {
 });
 
 describe('ownership of a row with no user_id', () => {
-  it('is writable by nobody except the migration function', async () => {
+  it('is writable by nobody except an admin', async () => {
     // `user_id IS NULL` on an anonymous-era row. `checkOwnership` returns
     // false for a null record user id, so the application layer refuses too.
-    // Together these mean the row is not merely unpublished, it is
-    // unmanageable -- which is what the map's #6 ticket is about.
+    //
+    // The title used to say "except the migration function", and that was true
+    // when this file was written. `20250101000005` added the admin role, which is
+    // now the only way such a row can be reclaimed. An admin who edits one does
+    // not become its owner -- `user_id` stays null -- so the row is still owned
+    // by nobody after the correction. See admin-role.test.ts for the admin side,
+    // which is where that behaviour is pinned.
     const { data, error } = await admin
       .from('lunch_offers')
       .select('user_id')
