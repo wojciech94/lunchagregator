@@ -2,7 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { getUser } from '@/lib/auth';
-import { canDelete, canModify } from '@/lib/ownership';
+import { canDelete, canModify, isAdmin } from '@/lib/ownership';
+import { recordAudit, shouldAudit } from '@/lib/audit';
 import { createRestaurantSchema, updateRestaurantSchema } from '@/schemas/restaurant.schema';
 import { geocodeAddress } from '@/services/geocoding';
 import type {
@@ -235,6 +236,7 @@ export async function deleteRestaurant(
   const existingRow = existing as DbRestaurant;
 
   // 2. Verify ownership via user_id, or the admin role
+  const actorIsAdmin = isAdmin(user);
   if (!canDelete(user, existingRow.user_id)) {
     return {
       success: false,
@@ -293,6 +295,22 @@ export async function deleteRestaurant(
     };
   }
 
+  // Logged last, after the delete succeeded -- there is no point recording an
+  // action that did not happen.
+  //
+  // `supabase` is the caller's own client, so the insert is subject to the same
+  // RLS policy as the delete above. A non-admin never reaches here: step 2
+  // refuses them before any write.
+  if (shouldAudit(actorIsAdmin)) {
+    await recordAudit(supabase, user.id, {
+      action: 'delete',
+      tableName: 'restaurants',
+      recordId: id,
+      before: existingRow as unknown as Record<string, unknown>,
+      after: null,
+    });
+  }
+
   return { success: true, data: undefined };
 }
 
@@ -332,6 +350,7 @@ export async function updateRestaurant(
   const existingRow = existing as DbRestaurant;
 
   // 2. Verify ownership via user_id, or the admin role
+  const actorIsAdmin = isAdmin(user);
   if (!canModify(user, existingRow.user_id)) {
     return {
       success: false,
@@ -422,6 +441,19 @@ export async function updateRestaurant(
       success: false,
       error: `Nie udało się zaktualizować restauracji: ${updateError.message}`,
     };
+  }
+
+  // Only for an admin, and only after the update succeeded. `before` is the row
+  // as read at step 1, which for an admin correcting somebody else's listing is
+  // the only record of what was there before.
+  if (shouldAudit(actorIsAdmin)) {
+    await recordAudit(supabase, user.id, {
+      action: 'update',
+      tableName: 'restaurants',
+      recordId: id,
+      before: existingRow as unknown as Record<string, unknown>,
+      after: updated as unknown as Record<string, unknown>,
+    });
   }
 
   return { success: true, data: mapDbRowToRestaurant(updated as DbRestaurant) };

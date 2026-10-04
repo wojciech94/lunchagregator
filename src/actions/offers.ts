@@ -1,7 +1,9 @@
 'use server';
 
 import { getUser } from '@/lib/auth';
-import { canDelete, canModify } from '@/lib/ownership';
+import { canDelete, canModify, isAdmin } from '@/lib/ownership';
+import { recordAudit, shouldAudit } from '@/lib/audit';
+import { createClient } from '@/lib/supabase/server';
 import { offerFiltersSchema } from '@/lib/validations/filters';
 import {
   listOffers,
@@ -235,11 +237,32 @@ export async function updateOfferAction(
 
     // The user object, not just its id: an admin is recognised by app_metadata,
     // and passing `user.id` here would reduce every caller to owner-or-nobody.
+    const actorIsAdmin = isAdmin(user);
     if (!canModify(user, recordUserId)) {
       return { success: false, error: 'Brak uprawnień do tej operacji' };
     }
 
-    return await updateOffer(id, data);
+    const result = await updateOffer(id, data);
+
+    // Logged only on success, and only for an admin. An ordinary owner editing
+    // their own record is already constrained by RLS and checkOwnership; the log
+    // exists for the admin who is not the owner.
+    if (result.success && shouldAudit(actorIsAdmin)) {
+      const supabase = await createClient();
+      await recordAudit(supabase, user.id, {
+        action: 'update',
+        tableName: 'lunch_offers',
+        recordId: id,
+        // The record as the application read it, not the raw snake_case row.
+        // restaurantLocation is a Coordinates here and null when the address was
+        // never geocoded, which is more readable for an operator than WKB hex and
+        // no less complete.
+        before: existing.data as unknown as Record<string, unknown>,
+        after: result.data as unknown as Record<string, unknown>,
+      });
+    }
+
+    return result;
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Failed to update offer';
@@ -274,11 +297,27 @@ export async function deleteOfferAction(
 
     const recordUserId = existing.data.userId ?? null;
 
+    const actorIsAdmin = isAdmin(user);
     if (!canDelete(user, recordUserId)) {
       return { success: false, error: 'Brak uprawnień do tej operacji' };
     }
 
-    return await deleteOffer(id);
+    const result = await deleteOffer(id);
+
+    if (result.success && shouldAudit(actorIsAdmin)) {
+      const supabase = await createClient();
+      // `before` carries the whole record, which is the point: the row is gone
+      // after this, so the log is the only remaining copy of what was deleted.
+      await recordAudit(supabase, user.id, {
+        action: 'delete',
+        tableName: 'lunch_offers',
+        recordId: id,
+        before: existing.data as unknown as Record<string, unknown>,
+        after: null,
+      });
+    }
+
+    return result;
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Failed to delete offer';
