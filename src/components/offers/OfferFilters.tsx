@@ -43,6 +43,21 @@ const SORT_OPTIONS: { value: OfferFiltersType["sortBy"]; label: string }[] = [
   { value: "newest", label: "Najnowsze" },
 ];
 
+/**
+ * What the sort control shows, and what "clear filters" restores.
+ *
+ * `undefined` rather than a literal, because with no user location there is no
+ * distance to sort by and Requirement 1.2 wants alphabetical by restaurant name.
+ * `newest` was used here before, which meant both the initial control state and
+ * a filter reset produced a newest-first list for anyone without a location --
+ * so the control claimed one order while the list, once the competing sorts
+ * were removed, followed another.
+ *
+ * `undefined` is also what `listOffers` needs to apply that fallback: it only
+ * reaches for `restaurant_name` when no sortBy was asked for.
+ */
+const DEFAULT_SORT: OfferFiltersType["sortBy"] = undefined;
+
 interface OfferFiltersProps {
   onChange: (filters: OfferFiltersType) => void;
   userLocation?: Coordinates | null;
@@ -74,7 +89,7 @@ export function OfferFilters({
     initialFilters?.dietaryTags ?? []
   );
   const [sortBy, setSortBy] = React.useState<OfferFiltersType["sortBy"]>(
-    initialFilters?.sortBy ?? "newest"
+    initialFilters?.sortBy ?? DEFAULT_SORT
   );
 
   const debounceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
@@ -217,8 +232,11 @@ export function OfferFilters({
     setPriceMax("");
     setCuisineTypes([]);
     setDietaryTags([]);
-    setSortBy("newest");
-    onChange({ sortBy: "newest" });
+    setSortBy(DEFAULT_SORT);
+    // No sortBy key at all, rather than an explicit value: `listOffers` only
+    // applies the alphabetical fallback when none was requested, so sending
+    // "newest" here would restore a newest-first list on a filter reset.
+    onChange({});
   };
 
   return (
