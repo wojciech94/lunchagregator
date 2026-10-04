@@ -7,6 +7,19 @@ import type { PaginatedOffers } from "@/types/offers";
 
 const mockGetOffers = vi.fn();
 const mockRequestLocation = vi.fn();
+const mockPush = vi.fn();
+const mockReplace = vi.fn();
+
+// The URL is the source of truth for filters, so the "some filters are set"
+// signal comes from here rather than from component state. Rendering twice
+// with different params is what a navigation actually does.
+let currentSearch = "";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: mockPush, replace: mockReplace, refresh: vi.fn() }),
+  usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(currentSearch),
+}));
 
 vi.mock("@/actions/offers", () => ({
   getOffers: (...args: unknown[]) => mockGetOffers(...args),
@@ -50,6 +63,7 @@ const emptyPage: PaginatedOffers = {
 describe("OffersPage empty state", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    currentSearch = "";
     mockGetOffers.mockResolvedValue({
       success: true,
       data: emptyPage,
@@ -66,20 +80,30 @@ describe("OffersPage empty state", () => {
     ).toBeInTheDocument();
   });
 
-  it("points at the filters once some are set", async () => {
+  it("points at the filters once the URL carries some", () => {
+    // This used to be driven by clicking a filter and waiting for a re-fetch.
+    // Now the same thing happens by navigating, so the assertion is on what the
+    // URL produces.
+    currentSearch = "cuisines=polska";
+    render(<OffersPage initialData={emptyPage} />);
+
+    expect(
+      screen.getByText(
+        "Brak ofert spełniających wybrane kryteria. Spróbuj zmienić filtry."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("writes a filter change to the URL rather than fetching", async () => {
     render(<OffersPage initialData={emptyPage} />);
 
     fireEvent.click(screen.getByRole("button", { name: "apply filters" }));
 
-    // Applying filters re-fetches, so the message only settles once the
-    // in-flight request has cleared the loading flag.
     await waitFor(() => {
-      expect(
-        screen.getByText(
-          "Brak ofert spełniających wybrane kryteria. Spróbuj zmienić filtry."
-        )
-      ).toBeInTheDocument();
+      expect(mockPush).toHaveBeenCalledWith("/?cuisines=polska");
     });
+    // push, not replace: a filter the User committed to should be undoable.
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it("does not render the list alongside the empty state", () => {
