@@ -18,7 +18,7 @@ export default async function RestaurantsListPage() {
           className="inline-flex min-h-[44px] items-center gap-2 rounded-[4px] bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-[#5e6ad2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
-          <span>Dodaj restaurację</span>
+          <span className="text-base">Dodaj restaurację</span>
         </Link>
       </div>
       <RestaurantsPage initialData={initialData} />

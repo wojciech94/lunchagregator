@@ -26,9 +26,9 @@ export async function NavHeader() {
         <NavLinks />
 
         {/* Right side: auth + location + mobile toggle */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           {/* Auth controls (desktop) */}
-          <div className="hidden md:flex md:items-center md:gap-2">
+          <div className="hidden lg:flex lg:items-center lg:gap-2">
             {user ? (
               <>
                 <span className="text-sm text-[#62666d] truncate max-w-[200px]">
@@ -54,7 +54,7 @@ export async function NavHeader() {
             )}
           </div>
 
-          <div className="hidden md:block">
+          <div className="hidden lg:block">
             <LocationIndicator />
           </div>
 

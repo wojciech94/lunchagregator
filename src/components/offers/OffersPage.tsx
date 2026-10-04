@@ -175,8 +175,14 @@ export function OffersPage({ initialData }: OffersPageProps) {
         </div>
       )}
 
-      {/* Day selector — browse offers per day (useful for weekly menus) */}
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+      {/* Day selector - browse offers per day (useful for weekly menus).
+
+          Seven 64px buttons plus gaps need 496px; a 320px viewport has 280px
+          for this row. Horizontal scrolling left four of the seven days
+          unreachable with no visual sign that more existed, which is what
+          Requirement 7.1 now forbids. Wrapping fits all seven at every width
+          and leaves the layout unchanged from 768px up. */}
+      <div className="flex flex-wrap gap-2 pb-1">
         {days.map((d) => {
           const active = d.date === selectedDate;
           return (
@@ -192,8 +198,8 @@ export function OffersPage({ initialData }: OffersPageProps) {
                   : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground"
               )}
             >
-              <span className="text-sm font-medium">{d.label}</span>
-              <span className="text-xs capitalize opacity-70">{d.weekday}</span>
+              <span className="text-base font-medium">{d.label}</span>
+              <span className="text-base capitalize opacity-70">{d.weekday}</span>
             </button>
           );
         })}

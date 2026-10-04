@@ -282,11 +282,11 @@ Implementacja aplikacji Lunch Agregator w Next.js (App Router) z TypeScript, Sup
 
   - [x] 14.3 Write accessibility and responsive tests
     - Run axe-core automated accessibility audit on all pages — `__tests__/e2e/responsive.spec.ts`, five routes across the five viewport projects. `axe-core` is no longer an unused dependency.
-    - Verify tap target sizes (44x44px) on mobile viewports — asserted at 320 and 768.
-    - Verify no horizontal scrolling at 320px-2560px — asserted per element, because `overflow-x-hidden` on html/body makes the document-level `scrollWidth` comparison vacuous.
-    - Verify font sizes (min 16px body text on mobile) — asserted at 320 and 768.
+    - Verify tap target sizes on mobile viewports — asserted at 320 and 768 against **24x24**, with links inline within a sentence exempt per WCAG 2.2 SC 2.5.8. The threshold was 44x44 until #25 settled it; 44 is an Apple HIG / WCAG 2.1 AAA figure and produced 54 findings where 24 produces 0.
+    - Verify content is reachable at 320px-2560px — asserted per element. `overflow-x-hidden` has been removed from `html`/`body`, so the document-level `scrollWidth` comparison is no longer vacuous, and the per-element probe is what catches a clipped control.
+    - Verify font sizes on mobile — inherited text must be 16px or larger at 320 and 768; explicit `text-sm`/`text-xs` are allowed to take precedence, required-field markers and control labels are not.
     - Screenshot comparison at key breakpoints — **not done.** The measurements cover the numeric requirements; visual regression needs reference images that do not exist in this repository, and generating them would enshrine the current layout as the baseline.
-    - The suite compares against a recorded baseline rather than asserting zero, because Requirement 7 currently has real violations catalogued in #23. It fails on anything new; deleting a baseline entry is the visible act of fixing that violation.
+    - The suite compares against a recorded baseline rather than asserting zero. Requirement 7 had real violations catalogued in #23; they are now fixed, so the baseline is close to empty and is retained only so a regression is still caught.
     - Cross-browser smoke for 7.2 lives in `__tests__/e2e/browser-smoke.spec.ts` and runs on chromium and edge. firefox and webkit need `npx playwright install firefox webkit`, which has not been run, so 7.2 is unverified on those two engines.
     - _Requirements: 7.1, 7.2, 7.3, 7.4_
 

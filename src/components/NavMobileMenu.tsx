@@ -35,7 +35,7 @@ export function NavMobileMenu() {
       {/* Mobile menu */}
       {open && (
         <nav className="md:hidden border-t border-border bg-[#0f1011] px-4 py-3 absolute top-14 left-0 right-0 z-50">
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-2">
             {navLinks.map((link) => (
               <Link
                 key={link.href}

@@ -175,7 +175,7 @@ export function RestaurantFilters({
           <div className="flex justify-end mb-4">
             <button
               onClick={handleClearFilters}
-              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+              className="inline-flex items-center gap-1.5 text-base text-muted-foreground hover:text-primary transition-colors"
             >
               <X className="size-3" />
               Wyczyść filtry
@@ -187,7 +187,7 @@ export function RestaurantFilters({
           {/* Distance slider */}
           {userLocation && (
             <div className="space-y-3">
-              <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <Label className="text-base font-medium uppercase tracking-wider text-muted-foreground">
                 Odległość: {distance} km
               </Label>
               <Slider
@@ -207,7 +207,7 @@ export function RestaurantFilters({
 
           {/* Price level */}
           <div className="space-y-3">
-            <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <Label className="text-base font-medium uppercase tracking-wider text-muted-foreground">
               Poziom cenowy
             </Label>
             <div className="flex flex-wrap gap-2">
@@ -220,7 +220,7 @@ export function RestaurantFilters({
                     onClick={() => handlePriceLevelToggle(level.value)}
                     aria-pressed={active}
                     className={cn(
-                      "inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                      "inline-flex items-center rounded-full border px-3 py-1.5 text-base font-medium transition-colors",
                       active
                         ? "border-primary/30 bg-primary/10 text-primary"
                         : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground"
@@ -235,7 +235,7 @@ export function RestaurantFilters({
 
           {/* Cuisine types */}
           <div className="space-y-3 md:col-span-2 lg:col-span-1">
-            <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <Label className="text-base font-medium uppercase tracking-wider text-muted-foreground">
               Typ kuchni
             </Label>
             <div className="flex flex-wrap gap-2">
@@ -248,7 +248,7 @@ export function RestaurantFilters({
                     onClick={() => handleCuisineToggle(cuisine.value)}
                     aria-pressed={active}
                     className={cn(
-                      "inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                      "inline-flex items-center rounded-full border px-3 py-1.5 text-base font-medium transition-colors",
                       active
                         ? "border-primary/30 bg-primary/10 text-primary"
                         : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground"
@@ -263,7 +263,7 @@ export function RestaurantFilters({
 
           {/* Lunch time */}
           <div className="space-y-3">
-            <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <Label className="text-base font-medium uppercase tracking-wider text-muted-foreground">
               Serwuje lunch o
             </Label>
             <Input

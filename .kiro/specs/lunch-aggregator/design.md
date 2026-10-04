@@ -464,6 +464,16 @@ interface LunchOfferWithDistance extends LunchOffer {
 
 **Validates: Requirements 4.5**
 
+### Przewijanie poziome
+
+**Strona nigdy nie scrolluje się w bok.** Poziomy scroll na poziomie dokumentu na telefonie to wzorzec, którego użytkownik nie oczekuje i nie kontroluje.
+
+**Komponent może przewijać się w bok**, ale tylko wtedy, gdy użytkownik widzi, że jest coś dalej — widoczna krawędź, cień, wskaźnik „jest więcej". Wspólny scroll bez żadnego sygnału wygląda jak treść, która po prostu się urwała.
+
+W praktyce zamiast przewijania używane jest **zawijanie wierszy**. Pasek wyboru dni ma siedem przycisków po 64px; przy 320px dostępne jest 280px, a `7 × 64 + 6 × 8 = 496px`, więc siedem nie mieści się w jednym wierszu przy żadnym rozsądnym rozmiarze etykiety. Zawijanie daje 3 + 3 + 1 wiersze i nic poza widokiem.
+
+**`overflow-x-hidden` na `html`/`body` zostało usunięte.** Nie robiło nic — zmierzone po zneutralizowaniu reguły, przepełnienia strony nie było w żadnej szerokości na żadnej trasie — a jednocześnie uniemożliwiało przetestowanie 7.1, bo dokument nigdy nie zgłasza paska. Ukrywało defekt zamiast go pokazywać.
+
 ## Error Handling
 
 ### Strategia obsługi błędów

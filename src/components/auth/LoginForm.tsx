@@ -66,7 +66,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="email">
           Adres e-mail
-          <span className="text-destructive ml-0.5" aria-hidden="true">*</span>
+          <span className="text-destructive ml-0.5 text-base" aria-hidden="true">*</span>
         </Label>
         <Input
           id="email"
@@ -92,7 +92,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="password">
           Hasło
-          <span className="text-destructive ml-0.5" aria-hidden="true">*</span>
+          <span className="text-destructive ml-0.5 text-base" aria-hidden="true">*</span>
         </Label>
         <Input
           id="password"

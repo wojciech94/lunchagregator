@@ -145,9 +145,18 @@ export async function measureHorizontalOverflow(page: Page): Promise<OverflowFin
   }, 'body *');
 }
 
+/**
+ * Requirement 7.3: minimum target size at 768px and below.
+ *
+ * 24x24 is the WCAG 2.2 level AA threshold. Links rendered inline within a
+ * sentence are exempt, per SC 2.5.8 — the parent being block-level (a `<p>`)
+ * does not disqualify one; what matters is that it shares a paragraph with
+ * other text, which is what makes it read as part of the sentence rather than
+ * as a standalone control.
+ */
 export async function measureTapTargets(
   page: Page,
-  minimum = 44
+  minimum = 24
 ): Promise<TapTargetFinding[]> {
   return page.evaluate(
     ({ selector, minimum }) => {
@@ -172,12 +181,25 @@ export async function measureTapTargets(
       for (const el of Array.from(document.querySelectorAll(selector))) {
         const style = getComputedStyle(el);
         if (style.display === 'none' || style.visibility === 'hidden') continue;
-        // A disabled control cannot be tapped, so its size is not a tap target.
+        // A disabled control cannot be tapped, so its size is not a target.
         if (el.hasAttribute('disabled')) continue;
         if (el.closest('[aria-hidden="true"]')) continue;
 
         const rect = el.getBoundingClientRect();
         if (rect.width === 0 && rect.height === 0) continue;
+
+        const parentText = el.parentElement
+          ? Array.from(el.parentElement.childNodes)
+              .filter((n) => n.nodeType === Node.TEXT_NODE)
+              .map((n) => (n.textContent ?? '').trim())
+              .join('')
+              .trim()
+          : '';
+        const inlineInSentence =
+          el.tagName === 'A' &&
+          ['inline', 'contents'].includes(style.display) &&
+          parentText.length > 0;
+        if (inlineInSentence) continue;
 
         if (rect.height < minimum || rect.width < minimum) {
           findings.push({
@@ -235,7 +257,11 @@ export async function measureTargetSpacing(
         const overlapsHorizontally = ra.left < rb.right && rb.left < ra.right;
         if (!overlapsHorizontally) continue;
 
-        const gapPx = Math.round(Math.min(rb.top - ra.bottom, ra.top - rb.bottom) * 10) / 10;
+        // Order by vertical centre, then measure the real edge-to-edge distance.
+        // Taking min() of both directions reports a large negative number for
+        // every stacked pair, which reads as a catastrophic violation.
+        const aFirst = ra.top + ra.height / 2 <= rb.top + rb.height / 2;
+        const gapPx = Math.round((aFirst ? rb.top - ra.bottom : ra.top - rb.bottom) * 10) / 10;
         if (gapPx < minimum) {
           findings.push({
             selector: describe(a),
@@ -255,6 +281,11 @@ export async function measureTargetSpacing(
  *
  * Only elements holding a direct text node count: an element with no text of
  * its own inherits a font size that affects nothing.
+ *
+ * Elements carrying an explicit font-size utility are exempt, by Requirement
+ * 7.4: `text-sm` and `text-xs` are a design decision. What the requirement
+ * does not exempt -- required-field markers, form labels, control labels -- is
+ * reached by removing the utility from those, not by widening this probe.
  */
 export async function measureFontSizes(
   page: Page,
@@ -286,6 +317,9 @@ export async function measureFontSizes(
 
         const size = parseFloat(style.fontSize);
         if (Number.isNaN(size) || size >= minimum) continue;
+
+        const cls = el.getAttribute('class') ?? '';
+        if (/[\s"']text-(xs|sm|base|lg|xl|\[)/.test(cls)) continue;
 
         findings.push({
           selector: describe(el),

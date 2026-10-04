@@ -262,7 +262,7 @@ export function OfferFilters({
             aria-label={isOpen ? "Ukryj filtry" : "Pokaż filtry"}
           >
             <SlidersHorizontal className="size-4" />
-            <span className="ml-1">Filtry</span>
+            <span className="ml-1 text-base">Filtry</span>
           </Button>
         </div>
       </div>
@@ -280,7 +280,7 @@ export function OfferFilters({
           <div className="flex justify-end">
             <button
               onClick={handleClearFilters}
-              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              className="inline-flex items-center gap-1.5 text-base text-muted-foreground hover:text-foreground transition-colors"
             >
               <X className="size-3" />
               Wyczyść filtry
@@ -292,7 +292,7 @@ export function OfferFilters({
           {/* Distance slider - only shown when user location is available */}
           {userLocation && (
             <div className="space-y-3">
-              <Label htmlFor="distance-slider" className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              <Label htmlFor="distance-slider" className="text-base font-medium uppercase tracking-wider text-muted-foreground">
                 Odległość: {distance} km
               </Label>
               <Slider
@@ -313,7 +313,7 @@ export function OfferFilters({
 
           {/* Price range */}
           <div className="space-y-3">
-            <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <Label className="text-base font-medium uppercase tracking-wider text-muted-foreground">
               Zakres cen (PLN)
             </Label>
             <div className="flex items-center gap-2">
@@ -345,7 +345,7 @@ export function OfferFilters({
 
           {/* Cuisine type multi-select */}
           <div className="space-y-3 md:col-span-2 lg:col-span-1">
-            <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <Label className="text-base font-medium uppercase tracking-wider text-muted-foreground">
               Typ kuchni
             </Label>
             <div className="flex flex-wrap gap-2">
@@ -358,7 +358,7 @@ export function OfferFilters({
                     onClick={() => handleCuisineToggle(cuisine.value)}
                     aria-pressed={active}
                     className={cn(
-                      "inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                      "inline-flex items-center rounded-full border px-3 py-1.5 text-base font-medium transition-colors",
                       active
                         ? "border-primary/30 bg-primary/10 text-primary"
                         : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground"
@@ -373,7 +373,7 @@ export function OfferFilters({
 
           {/* Dietary tags multi-select */}
           <div className="space-y-3 md:col-span-2 lg:col-span-1">
-            <Label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <Label className="text-base font-medium uppercase tracking-wider text-muted-foreground">
               Dieta
             </Label>
             <div className="flex flex-wrap gap-2">
@@ -386,7 +386,7 @@ export function OfferFilters({
                     onClick={() => handleDietaryToggle(tag.value)}
                     aria-pressed={active}
                     className={cn(
-                      "inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                      "inline-flex items-center rounded-full border px-3 py-1.5 text-base font-medium transition-colors",
                       active
                         ? "border-primary/30 bg-primary/10 text-primary"
                         : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground"
