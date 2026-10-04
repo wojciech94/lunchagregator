@@ -7,13 +7,14 @@
  * so it passes whether or not the shipped SQL agrees with it. Everything below
  * runs the shipped function.
  *
- * `get_offers_within_radius` is scheduled for replacement in #19, which folds
- * every filter into one ordered, sliced function. This suite is written against
- * the function's contract, not its signature, so it should survive that change
- * with only its call site updated.
+ * `get_offers_within_radius` is replaced in #19 by `get_offers_filtered`, which
+ * folds every filter into one ordered, sliced function. This suite is written
+ * against the contract rather than the signature, so #19 changed only the call
+ * site here. What the wider function can do that this one could not is covered
+ * in filtered-query.test.ts.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { WARSAW, adminClient, anonClient, deleteOffersWithToken, insertOffer, runToken } from './helpers';
+import { WARSAW, adminClient, anonClient, deleteOffersWithToken, insertOffer, runToken, todayUtc } from './helpers';
 
 const admin = adminClient();
 const anon = anonClient();
@@ -48,17 +49,31 @@ interface RadiusRow {
   distance_km: number;
 }
 
+/**
+ * Calls the replacement function (#19), which took the radius and returned
+ * everything else separately. The assertions below are about radius semantics,
+ * which did not change; the wider contract -- dates, filters, slicing -- is in
+ * filtered-query.test.ts.
+ *
+ * Scoped to this suite's rows on purpose. One database, many files:
+ * `filtered-query.test.ts` also seeds an offer at exactly WARSAW, so an
+ * assertion about the *first* row of an unbounded radius query would depend on
+ * which file ran first. Scoping by id is the same discipline
+ * `deleteOffersWithToken` uses.
+ */
 async function withinRadius(radiusKm: number): Promise<RadiusRow[]> {
-  const { data, error } = await anon.rpc('get_offers_within_radius', {
-    user_lat: WARSAW.lat,
-    user_lng: WARSAW.lon,
-    radius_km: radiusKm,
+  const { data, error } = await anon.rpc('get_offers_filtered', {
+    p_date: todayUtc(),
+    p_user_lat: WARSAW.lat,
+    p_user_lng: WARSAW.lon,
+    p_radius_km: radiusKm,
   });
   if (error) throw new Error(`rpc failed: ${error.message}`);
-  return (data ?? []) as RadiusRow[];
+  const ours = ((data ?? []) as RadiusRow[]).filter((row) => inserted.includes(row.id));
+  return ours;
 }
 
-describe('get_offers_within_radius', () => {
+describe('get_offers_filtered: radius semantics', () => {
   it('returns only offers inside the radius', async () => {
     const rows = await withinRadius(5);
     const names = rows.map((row) => row.dish_name);
