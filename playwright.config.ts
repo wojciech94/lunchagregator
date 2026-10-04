@@ -18,14 +18,11 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
+    // Firefox and WebKit are deliberately absent. Requirement 7.2 covers
+    // Chromium-based engines only, and declaring projects for browsers that are
+    // not installed made every full run fail at launch -- Playwright starts a
+    // browser before an in-body test.skip can run, so `npm run test:e2e`
+    // without --project could never pass. Add them back if that changes.
     {
       name: 'edge',
       use: { ...devices['Desktop Edge'] },
