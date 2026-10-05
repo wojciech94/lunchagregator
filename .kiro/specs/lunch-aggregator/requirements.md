@@ -141,3 +141,26 @@ Anonimowe dodawanie ofert zostało świadomie wycofane — patrz Introduction. K
    - *Why this is worded this way.* The previous wording set a minimum for "body text" while the only mechanism enforcing it — a `font-size: 16px` rule on the root — loses to every explicit utility. As written the requirement was satisfiable by being consistently unreadable. Stating the precedence makes the rule enforceable where it was never going to be overridden, and stops pretending it is enforced elsewhere.
 
 > **Notes on 7.3 and 7.4.** Both state 768px. They are written as two independent rules rather than one shared threshold, so that moving the threshold later moves them independently. They are not both tied to the `md` breakpoint: the desktop navigation was measured as the *worst* width for both target size and font size, and it now starts at `lg` (1024px) for that reason, leaving the mobile menu — which already meets both rules — in place below it.
+
+### Requirement 8: Przypisanie restauracji oraz „Moje oferty" i wznowienie menu
+
+**User Story:** As a User who adds lunch offers for a restaurant, I want every published offer assigned to a restaurant and the current menu renewed with one click, so that offers stay traceable per restaurant and the listing stays current without re-pasting the same menu every week.
+
+> Decyzje ustalone w [#68](https://github.com/wojciech94/lunchagregator/issues/68): restaurant-first przy ekstrakcji, flaga tygodniowa na restauracji (bez automatyzacji), wznowienie jako okno + mapowanie +7. Mechanika w `design.md`, sekcja „Przypisanie restauracji, „Moje oferty" i wznowienie".
+
+#### Acceptance Criteria
+
+1. WHEN an AI extraction completes and its restaurant does not deterministically match an existing restaurant, THE System SHALL require the User to assign an existing restaurant or create a new one (name prefilled from the extraction, address required) before any offer form opens
+2. WHEN the extraction matches exactly one existing restaurant — or exactly one result carries an exact normalized-name hit — THE System SHALL preselect that restaurant and let the User confirm it
+3. WHEN a User publishes an assigned offer, THE System SHALL copy the assigned restaurant's name and address onto the offer as its snapshot; **inwariant 6.2 bez zmian** — późniejsza edycja restauracji nie przepisuje opublikowanych ofert
+4. WHEN an authenticated User opens „Moje oferty", THE System SHALL display the User's own offers grouped by restaurant, split into nadchodzące (`available_date >= today`) and wygasłe (`available_date < today`), 50 per section; offers with no restaurant SHALL appear in a separate group with a hint to re-add the menu through the restaurant-first flow
+5. WHEN a User invokes wznowienie for a restaurant, THE System SHALL create one new offer per eligible source offer — the User's own offers of that restaurant with `available_date` from 7 days before today through 6 days ahead — dated **source date + 7 days**, copying dish fields verbatim and the address snapshot and coordinates from the restaurant's current row, without geocoding
+   - *Why `+7`, not the next occurrence of the weekday.* Menus typically run Monday–Friday and are renewed weekly. `nextDateForDay` breaks a mid-week renewal: renewing on Wednesday picks up only the expired Mon/Tue dishes and silently drops Wed–Fri from next week's menu. Within the window, `+7` preserves the weekday structure exactly and can never land in the past: the oldest source (today − 7) maps to today, the newest (today + 6) to today + 13, both inside the INSERT trigger's bounds. `nextDateForDay` remains the convention only where it already lived — weekly-menu publishing in the add flow.
+   - *Why the window ends at today + 6.* It bounds the renewal to "the current menu week". Sources older than seven days are history, not the current menu; renewing over the full expired history would resurrect dishes the User deliberately dropped, and the dedupe rule cannot tell a dropped dish from an omitted one.
+6. IF an offer with the same restaurant, dish name and target date already exists for the User, THEN THE System SHALL skip that item and report the skip in the renewal summary
+   - Overlapping windows make this normal, not exceptional: a Monday renewal maps last week's dishes onto existing rows (skipped, reported) while this week's rows create next week's menu. One click per week is the intended rhythm.
+7. THE System SHALL allow the owner — and an admin — to mark a restaurant as carrying its menu week to week and to revoke the mark („do odwołania"); while marked and its menu is expired, THE System SHALL surface it first on „Moje oferty" as a menu to renew; THE System SHALL NOT renew anything automatically
+   - *Flaga to marker intencji, nie wyzwalacz.* Brak crona, brak materializacji w tle — świadoma decyzja v1; automatyzacja byłaby osobną decyzją, nie dopiskiem.
+8. Assignment and renewal require an authenticated User; a Visitor is returned to sign-in with a return path, as in 2.13
+9. THE System SHALL NOT attach a restaurant to an existing offer post-hoc (decyzja #18 obowiązuje) and SHALL NOT delete or migrate dead offers automatically
+   - Oferty bez restauracji są martwe i zostają martwe; śledzenie zaczyna się od nowego flow. Admin nadal może edytować dowolny rekord w panelu.
