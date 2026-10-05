@@ -27,6 +27,15 @@ export const navLinks: readonly NavLink[] = [
 ];
 
 /**
+ * Shown to a signed-in User only. A Visitor clicking it lands on the login
+ * redirect (`/my-offers` refuses with a return path, Req 8.8) -- hiding it is
+ * a courtesy, not the guard, exactly like the admin panel's.
+ */
+export const userNavLinks: readonly NavLink[] = [
+  { href: "/my-offers", label: "Moje oferty" },
+];
+
+/**
  * Appended for an admin only.
  *
  * The role is read in `NavHeader` and passed down as a boolean, rather than being
@@ -41,7 +50,11 @@ export const adminNavLinks: readonly NavLink[] = [
   { href: "/admin/offers", label: "Panel admina" },
 ];
 
-/** The links a given viewer should see: the public ones, plus admin's if they are one. */
-export function linksFor(isAdmin: boolean): readonly NavLink[] {
-  return isAdmin ? [...navLinks, ...adminNavLinks] : navLinks;
+/**
+ * The links a given viewer should see: the public ones, the User's own when
+ * signed in, and the admin's if they are one.
+ */
+export function linksFor(isAdmin: boolean, isAuthenticated = false): readonly NavLink[] {
+  const links = isAuthenticated ? [...navLinks, ...userNavLinks] : navLinks;
+  return isAdmin ? [...links, ...adminNavLinks] : links;
 }

@@ -31,7 +31,7 @@ export async function NavHeader() {
         </Link>
 
         {/* Desktop navigation */}
-        <NavLinks isAdmin={viewerIsAdmin} />
+        <NavLinks isAdmin={viewerIsAdmin} isAuthenticated={!!user} />
 
         {/* Right side: auth + location + mobile toggle */}
         <div className="flex items-center gap-2">
@@ -54,7 +54,7 @@ export async function NavHeader() {
           </div>
 
           {/* Mobile hamburger + dropdown */}
-          <NavMobileMenu isAdmin={viewerIsAdmin} />
+          <NavMobileMenu isAdmin={viewerIsAdmin} isAuthenticated={!!user} />
         </div>
       </div>
     </header>

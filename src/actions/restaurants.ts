@@ -43,6 +43,7 @@ interface DbRestaurant {
   website_url: string | null;
   session_token: string | null;
   user_id: string | null;
+  menu_recurs_weekly: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -108,6 +109,7 @@ function mapDbRowToRestaurant(row: DbRestaurant): Restaurant {
     websiteUrl: row.website_url,
     sessionToken: row.session_token,
     userId: row.user_id,
+    menuRecursWeekly: row.menu_recurs_weekly,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -426,6 +428,9 @@ export async function updateRestaurant(
   }
   if (validated.websiteUrl !== undefined) {
     updateObj.website_url = validated.websiteUrl;
+  }
+  if (validated.menuRecursWeekly !== undefined) {
+    updateObj.menu_recurs_weekly = validated.menuRecursWeekly;
   }
 
   // 6. Update in Supabase

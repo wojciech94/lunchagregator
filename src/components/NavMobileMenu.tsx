@@ -17,9 +17,14 @@ interface NavMobileMenuProps {
    * one of them is a link that works at one screen width and 404s at the other.
    */
   isAdmin?: boolean;
+  /** Same courtesy rule as `isAdmin`: the User's links appear when signed in. */
+  isAuthenticated?: boolean;
 }
 
-export function NavMobileMenu({ isAdmin = false }: NavMobileMenuProps) {
+export function NavMobileMenu({
+  isAdmin = false,
+  isAuthenticated = false,
+}: NavMobileMenuProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -41,7 +46,7 @@ export function NavMobileMenu({ isAdmin = false }: NavMobileMenuProps) {
       {open && (
         <nav className="md:hidden border-t border-border bg-[#0f1011] px-4 py-3 absolute top-14 left-0 right-0 z-50">
           <div className="flex flex-col gap-2">
-            {linksFor(isAdmin).map((link) => (
+            {linksFor(isAdmin, isAuthenticated).map((link) => (
               <Link
                 key={link.href}
                 href={link.href}

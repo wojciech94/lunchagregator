@@ -4,6 +4,7 @@ import * as React from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { createRestaurantSchema } from "@/schemas/restaurant.schema";
 import { geocodeAddressAction } from "@/actions/geocode";
@@ -64,6 +65,9 @@ export function RestaurantForm({
   const [cuisineTypes, setCuisineTypes] = React.useState<CuisineType[]>(initialData?.cuisineTypes ?? []);
   const [phoneNumber, setPhoneNumber] = React.useState(initialData?.phoneNumber ?? "");
   const [websiteUrl, setWebsiteUrl] = React.useState(initialData?.websiteUrl ?? "");
+  const [menuRecursWeekly, setMenuRecursWeekly] = React.useState(
+    initialData?.menuRecursWeekly ?? false
+  );
   const [location, setLocation] = React.useState<Coordinates | null>(initialData?.location ?? null);
 
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -135,6 +139,7 @@ export function RestaurantForm({
         cuisineTypes,
         phoneNumber: phoneNumber.trim() || null,
         websiteUrl: websiteUrl.trim() || null,
+        menuRecursWeekly,
       };
 
       const result = await updateRestaurant(restaurantId, updateData);
@@ -295,6 +300,29 @@ export function RestaurantForm({
           aria-invalid={!!fieldErrors["websiteUrl"]}
         />
       </FormField>
+
+      {/* Weekly menu flag (Req 8.7, edit mode only) — a brand-new restaurant
+          has no menu to carry over yet. */}
+      {isEditMode && (
+        <label className="flex items-start gap-3 rounded-md border border-border bg-muted/30 p-4 cursor-pointer">
+          <Checkbox
+            checked={menuRecursWeekly}
+            onCheckedChange={(checked) => setMenuRecursWeekly(checked === true)}
+            className="mt-0.5"
+            aria-describedby="menu-recurs-weekly-hint"
+          />
+          <span className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-foreground">
+              Menu tygodniowe (do odwołania)
+            </span>
+            <span id="menu-recurs-weekly-hint" className="text-xs text-muted-foreground">
+              Zaznacz, gdy lunchowe menu tej restauracji powtarza się z tygodnia
+              na tydzień — pojawi się na górze „Moich ofert” jako do odnowienia.
+              Nic nie publikuje się samo; odznacz, aby cofnąć.
+            </span>
+          </span>
+        </label>
+      )}
 
       {/* Submit */}
       <button
