@@ -25,8 +25,7 @@ import {
 import type { PrefilledOffer } from "@/lib/validations/extraction";
 import type { CuisineType, DietaryTag, Allergen } from "@/types/offers";
 import { nextDateForDay, todayISO } from "@/utils/day-of-week";
-import { RestaurantSelect } from "@/components/restaurants/RestaurantSelect";
-import type { RestaurantSummary } from "@/types/restaurants";
+import type { AssignedRestaurant } from "@/lib/restaurant-match";
 
 // ============================================================================
 // Types
@@ -35,6 +34,12 @@ import type { RestaurantSummary } from "@/types/restaurants";
 export interface OfferFormProps {
   prefilledData: PrefilledOffer;
   sourceType: "link" | "text" | "photo";
+  /**
+   * Req 8.1: the restaurant assigned in the previous step. The form renders
+   * it instead of free-text restaurant fields; its values are the defaults
+   * for the snapshot fields (the server re-asserts them from the entity).
+   */
+  assignedRestaurant: AssignedRestaurant;
   onSubmit: (data: CreateOfferInput) => void;
   isSubmitting?: boolean;
   className?: string;
@@ -104,7 +109,8 @@ function canonicalDayOfWeek(value: unknown): DayOfWeek | null {
 
 function buildDefaultValues(
   prefilledData: PrefilledOffer,
-  sourceType: "link" | "text" | "photo"
+  sourceType: "link" | "text" | "photo",
+  assignedRestaurant: AssignedRestaurant
 ): Partial<CreateOfferInput> {
   const firstDish = prefilledData.dishes[0];
   const day = canonicalDayOfWeek(firstDish?.dayOfWeek);
@@ -112,7 +118,7 @@ function buildDefaultValues(
   return {
     dishName: firstDish?.name ?? "",
     price: firstDish?.price ?? undefined,
-    restaurantName: prefilledData.restaurantName ?? "",
+    restaurantName: assignedRestaurant.name,
     availableDate: day ? nextDateForDay(day) : todayISO(),
     sourceType,
     description: firstDish?.description ?? "",
@@ -120,7 +126,8 @@ function buildDefaultValues(
     cuisineType: undefined,
     dietaryTags: firstDish?.dietaryTags ?? [],
     allergens: firstDish?.allergens ?? [],
-    restaurantAddress: prefilledData.address ?? "",
+    restaurantAddress: assignedRestaurant.address ?? "",
+    restaurantId: assignedRestaurant.id,
   };
 }
 
@@ -131,13 +138,12 @@ function buildDefaultValues(
 export function OfferForm({
   prefilledData,
   sourceType,
+  assignedRestaurant,
   onSubmit,
   isSubmitting = false,
   className,
 }: OfferFormProps) {
   const missingFields = prefilledData.missingFields;
-  const [selectedRestaurantId, setSelectedRestaurantId] = React.useState<string | undefined>(undefined);
-
   const {
     register,
     handleSubmit,
@@ -146,27 +152,13 @@ export function OfferForm({
     formState: { errors },
   } = useForm<CreateOfferInput>({
     resolver: zodResolver(createOfferSchema),
-    defaultValues: buildDefaultValues(prefilledData, sourceType),
+    defaultValues: buildDefaultValues(prefilledData, sourceType, assignedRestaurant),
   });
 
   const dietaryTags = watch("dietaryTags") ?? [];
   const allergens = watch("allergens") ?? [];
   const cuisineType = watch("cuisineType");
   const items = watch("items") ?? [];
-
-  function handleRestaurantSelect(restaurant: RestaurantSummary | null) {
-    if (restaurant) {
-      setSelectedRestaurantId(restaurant.id);
-      setValue("restaurantName", restaurant.name, { shouldValidate: true });
-      setValue("restaurantAddress", restaurant.address ?? "", { shouldValidate: true });
-      setValue("restaurantId", restaurant.id, { shouldValidate: true });
-    } else {
-      setSelectedRestaurantId(undefined);
-      setValue("restaurantName", "", { shouldValidate: true });
-      setValue("restaurantAddress", "", { shouldValidate: true });
-      setValue("restaurantId", undefined, { shouldValidate: true });
-    }
-  }
 
   function isMissing(fieldName: string): boolean {
     return missingFields.some((f) => f.includes(fieldName));
@@ -223,8 +215,13 @@ export function OfferForm({
       className={cn("flex flex-col gap-5", className)}
       noValidate
     >
-      {/* Hidden sourceType */}
+      {/* Hidden fields the schema needs; their values are the assigned
+          restaurant's, set in defaultValues. Req 8.3: the server re-asserts
+          the snapshot from the entity, so these are prefills, not authority. */}
       <input type="hidden" {...register("sourceType")} />
+      <input type="hidden" {...register("restaurantName")} />
+      <input type="hidden" {...register("restaurantAddress")} />
+      <input type="hidden" {...register("restaurantId")} />
 
       {/* Dish Name */}
       <FormField
@@ -265,42 +262,27 @@ export function OfferForm({
         />
       </FormField>
 
-      {/* Restaurant Selection */}
-      <div className="flex flex-col gap-3">
-        <Label>
-          Wybierz istniejącą restaurację
-          <span className="text-muted-foreground font-normal ml-1 text-xs">
-            (opcjonalne)
-          </span>
-        </Label>
-        <RestaurantSelect
-          onSelect={handleRestaurantSelect}
-          selectedId={selectedRestaurantId}
-        />
-        <p className="text-xs text-muted-foreground text-center">
-          lub wpisz ręcznie poniżej
+      {/* Assigned restaurant (Req 8.1–8.3): bound in the previous step,
+          rendered read-only. Its name and address become the offer's snapshot
+          at publish; edits to the restaurant happen on the restaurant, not
+          here. */}
+      <div className="rounded-md border border-border bg-muted/30 p-4">
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+          Restauracja
+        </p>
+        <p className="mt-1 text-base font-semibold text-foreground">
+          {assignedRestaurant.name}
+        </p>
+        {assignedRestaurant.address && (
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {assignedRestaurant.address}
+          </p>
+        )}
+        <p className="mt-2 text-xs text-muted-foreground">
+          Nazwa i adres zostaną zapisane na ofercie w stanie obecnym. Zmiany
+          adresu zrób w edycji restauracji.
         </p>
       </div>
-
-      {/* Restaurant Name */}
-      <FormField
-        label="Nazwa restauracji"
-        htmlFor="restaurantName"
-        error={errors.restaurantName?.message}
-        isMissing={isMissing("restaurantName")}
-        required
-      >
-        <Input
-          id="restaurantName"
-          placeholder="np. Restauracja Pod Lipami"
-          maxLength={100}
-          aria-invalid={!!errors.restaurantName}
-          aria-describedby={
-            errors.restaurantName ? "restaurantName-error" : undefined
-          }
-          {...register("restaurantName")}
-        />
-      </FormField>
 
       {/* Available Date */}
       <FormField
@@ -458,25 +440,6 @@ export function OfferForm({
             </label>
           ))}
         </div>
-      </FormField>
-
-      {/* Restaurant Address */}
-      <FormField
-        label="Adres restauracji"
-        htmlFor="restaurantAddress"
-        error={errors.restaurantAddress?.message}
-        isOptional
-      >
-        <Input
-          id="restaurantAddress"
-          placeholder="np. ul. Marszałkowska 10, Warszawa"
-          maxLength={200}
-          aria-invalid={!!errors.restaurantAddress}
-          aria-describedby={
-            errors.restaurantAddress ? "restaurantAddress-error" : undefined
-          }
-          {...register("restaurantAddress")}
-        />
       </FormField>
 
       {/* Submit */}

@@ -24,8 +24,16 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PrefilledDish, PrefilledOffer } from '@/lib/validations/extraction';
 import type { DayOfWeek } from '@/services/ai-analyzer';
+import type { AssignedRestaurant } from '@/lib/restaurant-match';
 import { nextDateForDay, toISODate } from '@/utils/day-of-week';
 import { OfferForm } from './OfferForm';
+
+/** The restaurant every form render binds to (Req 8.1). */
+const ASSIGNED: AssignedRestaurant = {
+  id: '550e8400-e29b-41d4-a716-446655440000',
+  name: 'Bar Mleko',
+  address: 'Marszałkowska 10, Warszawa',
+};
 
 // jsdom does not implement ResizeObserver; the Radix Select trigger measures
 // itself on mount via @radix-ui/react-use-size. Stubbed per test so the
@@ -83,7 +91,7 @@ function availableDateInput(): HTMLInputElement {
 describe('OfferForm: extracted weekday should prefill the availability date', () => {
   it('COUNTEREXAMPLE 1: friday dish opened on local Thursday 2026-07-30 → 2026-07-31', () => {
     freezeAt([2026, 7, 30]);
-    render(<OfferForm prefilledData={offer('friday')} sourceType="text" onSubmit={vi.fn()} />);
+    render(<OfferForm prefilledData={offer('friday')} sourceType="text" assignedRestaurant={ASSIGNED} onSubmit={vi.fn()} />);
 
     // Spec example: the form must prefill the Friday after (2026-07-31);
     // the defect is the plain default (2026-07-30).
@@ -92,7 +100,7 @@ describe('OfferForm: extracted weekday should prefill the availability date', ()
 
   it('COUNTEREXAMPLE 2: monday dish opened on local Friday 2026-07-31 → 2026-08-03', () => {
     freezeAt([2026, 7, 31]);
-    render(<OfferForm prefilledData={offer('monday')} sourceType="text" onSubmit={vi.fn()} />);
+    render(<OfferForm prefilledData={offer('monday')} sourceType="text" assignedRestaurant={ASSIGNED} onSubmit={vi.fn()} />);
 
     // Rollover: an earlier weekday resolves to the following week, never back.
     expect(availableDateInput().value).toBe('2026-08-03');
@@ -100,7 +108,7 @@ describe('OfferForm: extracted weekday should prefill the availability date', ()
 
   it('control, same-day: thursday dish opened on Thursday → today (2026-07-30)', () => {
     freezeAt([2026, 7, 30]);
-    render(<OfferForm prefilledData={offer('thursday')} sourceType="text" onSubmit={vi.fn()} />);
+    render(<OfferForm prefilledData={offer('thursday')} sourceType="text" assignedRestaurant={ASSIGNED} onSubmit={vi.fn()} />);
 
     // Inclusive semantics: today counts as a match. Passes on unfixed code too
     // (the default happens to equal the answer), so it is not proof of a fix.
@@ -109,18 +117,38 @@ describe('OfferForm: extracted weekday should prefill the availability date', ()
 
   it('control, null weekday: falls back to the local current date', () => {
     freezeAt([2026, 7, 30]);
-    render(<OfferForm prefilledData={offer(null)} sourceType="text" onSubmit={vi.fn()} />);
+    render(<OfferForm prefilledData={offer(null)} sourceType="text" assignedRestaurant={ASSIGNED} onSubmit={vi.fn()} />);
 
     expect(availableDateInput().value).toBe('2026-07-30');
   });
 
   it('preserves the other extracted fields alongside the date', () => {
     freezeAt([2026, 7, 30]);
-    render(<OfferForm prefilledData={offer('friday')} sourceType="text" onSubmit={vi.fn()} />);
+    render(<OfferForm prefilledData={offer('friday')} sourceType="text" assignedRestaurant={ASSIGNED} onSubmit={vi.fn()} />);
 
     expect(screen.getByLabelText(/Nazwa dania/)).toHaveValue('Zestaw obiadowy');
     expect(screen.getByLabelText(/Cena \(PLN\)/)).toHaveValue(25.5);
-    expect(screen.getByLabelText(/Nazwa restauracji/)).toHaveValue('Bar Mleko');
+  });
+
+  it('binds the assigned restaurant: shown read-only, carried in the payload fields', () => {
+    freezeAt([2026, 7, 30]);
+    const { container } = render(
+      <OfferForm prefilledData={offer('friday')} sourceType="text" assignedRestaurant={ASSIGNED} onSubmit={vi.fn()} />
+    );
+
+    // Read-only display instead of the free-text inputs.
+    expect(screen.getByText('Bar Mleko')).toBeInTheDocument();
+    expect(container.querySelector('input#restaurantName')).toBeNull();
+    expect(container.querySelector('input#restaurantAddress')).toBeNull();
+
+    // The hidden fields carry the binding into the submitted values.
+    expect(container.querySelector('input[name="restaurantId"]')).toHaveValue(
+      '550e8400-e29b-41d4-a716-446655440000'
+    );
+    expect(container.querySelector('input[name="restaurantName"]')).toHaveValue('Bar Mleko');
+    expect(container.querySelector('input[name="restaurantAddress"]')).toHaveValue(
+      'Marszałkowska 10, Warszawa'
+    );
   });
 
   it('UTC boundary: form opened at local 00:30 on 2026-07-30 shows the LOCAL date, not the UTC one', () => {
@@ -138,7 +166,7 @@ describe('OfferForm: extracted weekday should prefill the availability date', ()
       return;
     }
 
-    render(<OfferForm prefilledData={offer(null)} sourceType="text" onSubmit={vi.fn()} />);
+    render(<OfferForm prefilledData={offer(null)} sourceType="text" assignedRestaurant={ASSIGNED} onSubmit={vi.fn()} />);
 
     // Unfixed: toISOString() yields 2026-07-29 (yesterday) → the DB trigger
     // rejects the submission the User never edited.
@@ -156,7 +184,7 @@ describe('OfferForm: preservation (spec properties 3 & 4)', () => {
         dishes: [{ ...dish(null), dayOfWeek: bad as unknown as DayOfWeek }],
       };
       const { unmount } = render(
-        <OfferForm prefilledData={malformed} sourceType="text" onSubmit={vi.fn()} />
+        <OfferForm prefilledData={malformed} sourceType="text" assignedRestaurant={ASSIGNED} onSubmit={vi.fn()} />
       );
       // Normal local default, no crash, no invalid date.
       expect(availableDateInput().value).toBe('2026-07-30');
@@ -169,7 +197,7 @@ describe('OfferForm: preservation (spec properties 3 & 4)', () => {
     freezeAt([2026, 7, 30]);
     const absent = offer(null);
     delete (absent.dishes[0] as unknown as Record<string, unknown>).dayOfWeek;
-    render(<OfferForm prefilledData={absent} sourceType="text" onSubmit={vi.fn()} />);
+    render(<OfferForm prefilledData={absent} sourceType="text" assignedRestaurant={ASSIGNED} onSubmit={vi.fn()} />);
 
     expect(availableDateInput().value).toBe('2026-07-30');
   });
@@ -177,7 +205,7 @@ describe('OfferForm: preservation (spec properties 3 & 4)', () => {
   it('a past date is rejected with field-level feedback and the manual value survives', async () => {
     freezeAt([2026, 7, 30]);
     const onSubmit = vi.fn();
-    render(<OfferForm prefilledData={offer(null)} sourceType="text" onSubmit={onSubmit} />);
+    render(<OfferForm prefilledData={offer(null)} sourceType="text" assignedRestaurant={ASSIGNED} onSubmit={onSubmit} />);
 
     fireEvent.change(availableDateInput(), { target: { value: '2026-07-01' } });
     fireEvent.click(screen.getByRole('button', { name: /Opublikuj ofertę/ }));
@@ -190,7 +218,7 @@ describe('OfferForm: preservation (spec properties 3 & 4)', () => {
   it('a date more than 30 days ahead is rejected the same way', async () => {
     freezeAt([2026, 7, 30]);
     const onSubmit = vi.fn();
-    render(<OfferForm prefilledData={offer(null)} sourceType="text" onSubmit={onSubmit} />);
+    render(<OfferForm prefilledData={offer(null)} sourceType="text" assignedRestaurant={ASSIGNED} onSubmit={onSubmit} />);
 
     fireEvent.change(availableDateInput(), { target: { value: '2026-09-15' } });
     fireEvent.click(screen.getByRole('button', { name: /Opublikuj ofertę/ }));
@@ -203,7 +231,7 @@ describe('OfferForm: preservation (spec properties 3 & 4)', () => {
   it('a missing date is rejected', async () => {
     freezeAt([2026, 7, 30]);
     const onSubmit = vi.fn();
-    render(<OfferForm prefilledData={offer(null)} sourceType="text" onSubmit={onSubmit} />);
+    render(<OfferForm prefilledData={offer(null)} sourceType="text" assignedRestaurant={ASSIGNED} onSubmit={onSubmit} />);
 
     fireEvent.change(availableDateInput(), { target: { value: '' } });
     fireEvent.click(screen.getByRole('button', { name: /Opublikuj ofertę/ }));
@@ -215,7 +243,7 @@ describe('OfferForm: preservation (spec properties 3 & 4)', () => {
   it('after a rejected submission, corrected edits are submitted (error recovery)', async () => {
     freezeAt([2026, 7, 30]);
     const onSubmit = vi.fn();
-    render(<OfferForm prefilledData={offer(null)} sourceType="text" onSubmit={onSubmit} />);
+    render(<OfferForm prefilledData={offer(null)} sourceType="text" assignedRestaurant={ASSIGNED} onSubmit={onSubmit} />);
 
     fireEvent.change(availableDateInput(), { target: { value: '2026-07-01' } });
     fireEvent.click(screen.getByRole('button', { name: /Opublikuj ofertę/ }));
