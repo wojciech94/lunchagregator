@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import { cn } from "@/lib/utils";
 import { createRestaurantSchema } from "@/schemas/restaurant.schema";
 import { geocodeAddressAction } from "@/actions/geocode";
@@ -222,19 +224,13 @@ export function RestaurantForm({
       <FormField label="Poziom cenowy" error={fieldErrors["priceLevel"]} isOptional>
         <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Poziom cenowy">
           {PRICE_LEVEL_OPTIONS.map((option) => (
-            <button
+            <Chip
               key={option.value}
-              type="button"
+              active={priceLevel === option.value}
               onClick={() => setPriceLevel(priceLevel === option.value ? "" : option.value)}
-              className={cn(
-                "rounded-[4px] border px-3 py-2 text-sm transition-colors",
-                priceLevel === option.value
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border text-muted-foreground hover:border-primary/30 hover:text-foreground"
-              )}
             >
               {option.label}
-            </button>
+            </Chip>
           ))}
         </div>
       </FormField>
@@ -325,17 +321,18 @@ export function RestaurantForm({
       )}
 
       {/* Submit */}
-      <button
+      <Button
         type="submit"
+        size="lg"
         disabled={isSubmitting}
-        className="self-start mt-2 inline-flex min-h-[48px] items-center rounded-[4px] bg-primary px-6 py-3 text-base font-medium text-primary-foreground transition-colors hover:bg-[#5e6ad2] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="self-start mt-2"
       >
         {isSubmitting
           ? "Zapisywanie..."
           : initialData
             ? "Zapisz zmiany"
             : "Dodaj restaurację"}
-      </button>
+      </Button>
     </form>
   );
 }

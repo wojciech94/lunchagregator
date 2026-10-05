@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -348,13 +349,10 @@ export function OfferFilters({
         {/* Clear filters button */}
         {hasActiveFilters && (
           <div className="flex justify-end">
-            <button
-              onClick={handleClearFilters}
-              className="inline-flex items-center gap-1.5 text-base text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="size-3" />
+            <Button variant="ghost" size="sm" onClick={handleClearFilters}>
+              <X className="size-3.5" />
               Wyczyść filtry
-            </button>
+            </Button>
           </div>
         )}
 
@@ -422,20 +420,13 @@ export function OfferFilters({
               {CUISINE_TYPES.map((cuisine) => {
                 const active = cuisineTypes.includes(cuisine.value);
                 return (
-                  <button
+                  <Chip
                     key={cuisine.value}
-                    type="button"
+                    active={active}
                     onClick={() => handleCuisineToggle(cuisine.value)}
-                    aria-pressed={active}
-                    className={cn(
-                      "inline-flex items-center rounded-full border px-3 py-1.5 text-base font-medium transition-colors",
-                      active
-                        ? "border-primary/30 bg-primary/10 text-primary"
-                        : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                    )}
                   >
                     {cuisine.label}
-                  </button>
+                  </Chip>
                 );
               })}
             </div>
@@ -450,20 +441,13 @@ export function OfferFilters({
               {DIETARY_TAGS.map((tag) => {
                 const active = dietaryTags.includes(tag.value);
                 return (
-                  <button
+                  <Chip
                     key={tag.value}
-                    type="button"
+                    active={active}
                     onClick={() => handleDietaryToggle(tag.value)}
-                    aria-pressed={active}
-                    className={cn(
-                      "inline-flex items-center rounded-full border px-3 py-1.5 text-base font-medium transition-colors",
-                      active
-                        ? "border-primary/30 bg-primary/10 text-primary"
-                        : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                    )}
                   >
                     {tag.label}
-                  </button>
+                  </Chip>
                 );
               })}
             </div>

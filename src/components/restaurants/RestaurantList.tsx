@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RestaurantCard } from "./RestaurantCard";
 import type { PaginatedRestaurants } from "@/types/restaurants";
@@ -43,7 +44,7 @@ export function RestaurantList({
         </p>
         <Link
           href="/restaurants/new"
-          className="mt-4 inline-flex min-h-[48px] items-center gap-2 rounded-[4px] bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-[#5e6ad2]"
+          className={cn(buttonVariants(), "mt-4 min-h-[48px] px-6")}
         >
           <Plus className="size-4" aria-hidden="true" />
           Dodaj restaurację
@@ -71,31 +72,33 @@ export function RestaurantList({
           className="flex items-center justify-center gap-3 pt-4 border-t border-border"
           aria-label="Paginacja"
         >
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => onPageChange?.(page - 1)}
             disabled={page <= 1}
-            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-[4px] border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground hover:border-primary/30 disabled:pointer-events-none disabled:opacity-40"
             aria-label="Poprzednia strona"
           >
             <ChevronLeft className="size-4" aria-hidden="true" />
             <span className="hidden sm:inline">Poprzednia</span>
-          </button>
+          </Button>
 
           <span className="text-sm text-muted-foreground tabular-nums px-2">
             Strona {page}
           </span>
 
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => onPageChange?.(page + 1)}
             disabled={!hasMore}
-            className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-[4px] border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground hover:border-primary/30 disabled:pointer-events-none disabled:opacity-40"
             aria-label="Następna strona"
           >
             <span className="hidden sm:inline">Następna</span>
             <ChevronRight className="size-4" aria-hidden="true" />
-          </button>
+          </Button>
         </nav>
       )}
     </div>
