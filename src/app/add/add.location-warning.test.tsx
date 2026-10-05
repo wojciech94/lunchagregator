@@ -60,9 +60,23 @@ vi.mock('@/components/add-offer/InputSelector', () => ({
   ),
 }));
 
+// Req 8.1: the assignment step sits between the extraction and the preview.
+// Reduced to one button, like InputSelector above — what the component does
+// internally is covered in RestaurantAssignment.test.tsx.
+vi.mock('@/components/add-offer/RestaurantAssignment', () => ({
+  RestaurantAssignment: ({ onAssigned }: { onAssigned: (r: { id: string; name: string; address: string | null }) => void }) => (
+    <button
+      type="button"
+      onClick={() => onAssigned({ id: '550e8400-e29b-41d4-a716-446655440000', name: 'Bar Mleko', address: 'Marszałkowska 10, Warszawa' })}
+    >
+      przypisz restauracje
+    </button>
+  ),
+}));
+
 vi.mock('@/components/add-offer/WeeklyMenuPreview', () => ({
-  WeeklyMenuPreview: ({ onConfirm }: { onConfirm: (s: unknown[], n: string) => void }) => (
-    <button type="button" onClick={() => onConfirm([{ dish: {}, date: '2030-01-01' }], 'Bar Mleko')}>
+  WeeklyMenuPreview: ({ onConfirm }: { onConfirm: (s: unknown[]) => void }) => (
+    <button type="button" onClick={() => onConfirm([{ dish: {}, date: '2030-01-01' }])}>
       potwierdz menu
     </button>
   ),
@@ -84,7 +98,7 @@ const WEEKLY = {
   missingFields: [],
 };
 
-/** Drives input -> analyzing -> weekly -> success. */
+/** Drives input -> analyzing -> assignment -> weekly -> success. */
 async function publishWeeklyMenu(missingCoordinates: number) {
   mocks.analyzeImageAction.mockResolvedValue({ success: true, data: WEEKLY });
   mocks.createOffersBatchAction.mockResolvedValue({
@@ -95,6 +109,7 @@ async function publishWeeklyMenu(missingCoordinates: number) {
   render(<AddOfferPage />);
 
   fireEvent.click(await screen.findByRole('button', { name: 'wyslij zdjecie' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'przypisz restauracje' }));
   fireEvent.click(await screen.findByRole('button', { name: 'potwierdz menu' }));
 }
 

@@ -1,29 +1,25 @@
 "use client";
 
 import * as React from "react";
-import { Calendar, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Calendar, CheckCircle2, AlertTriangle, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { DAY_LABELS_PL, nextDateForDay } from "@/utils/day-of-week";
 import type { PrefilledOffer, PrefilledDish } from "@/lib/validations/extraction";
 import type { DayOfWeek } from "@/services/ai-analyzer";
+import type { AssignedRestaurant } from "@/lib/restaurant-match";
 
 export interface WeeklyMenuPreviewProps {
   offer: PrefilledOffer;
   /**
-   * Called with the list of dishes the user chose to publish, each resolved to
-   * a date, plus the restaurant name to publish them under.
-   *
-   * The name is passed back rather than read from `offer` because it is
-   * editable here. `createOfferSchema` requires it, and `restaurantName` is
-   * frequently null for a menu photo, so a batch published without it fails
-   * validation on every single day at once.
+   * Req 8.1: the restaurant assigned before this preview opened. The batch is
+   * published under its name and address, with `restaurantId` set, so the
+   * server can take the snapshot from the entity (Req 8.3). This replaces the
+   * editable name field (#39): a menu photo with an unreadable name can no
+   * longer fail the whole batch at the server, because the name is guaranteed
+   * before publication.
    */
-  onConfirm: (
-    selected: { dish: PrefilledDish; date: string }[],
-    restaurantName: string
-  ) => void;
+  assignedRestaurant: AssignedRestaurant;
+  onConfirm: (selected: { dish: PrefilledDish; date: string }[]) => void;
   isSubmitting?: boolean;
   className?: string;
 }
@@ -49,6 +45,7 @@ function groupByDay(dishes: PrefilledDish[]): Map<DayOfWeek, PrefilledDish[]> {
 
 export function WeeklyMenuPreview({
   offer,
+  assignedRestaurant,
   onConfirm,
   isSubmitting = false,
   className,
@@ -60,17 +57,6 @@ export function WeeklyMenuPreview({
   const [selectedDays, setSelectedDays] = React.useState<Set<DayOfWeek>>(
     () => new Set(days)
   );
-
-  // Editable because the AI often cannot read a restaurant name off a menu
-  // photo, and `createOfferSchema` rejects an empty one. Publishing is blocked
-  // until it is filled rather than letting the whole batch fail at the server.
-  const [restaurantName, setRestaurantName] = React.useState(
-    () => offer.restaurantName ?? ""
-  );
-  const [nameError, setNameError] = React.useState<string | null>(null);
-
-  const nameMissingFromExtraction = !offer.restaurantName?.trim();
-  const canPublish = restaurantName.trim().length > 0;
 
   const toggleDay = (day: DayOfWeek) => {
     setSelectedDays((prev) => {
@@ -84,13 +70,6 @@ export function WeeklyMenuPreview({
   const selectedCount = days.filter((d) => selectedDays.has(d)).length;
 
   const handleConfirm = () => {
-    const name = restaurantName.trim();
-    if (name.length === 0) {
-      setNameError("Nazwa restauracji jest wymagana do opublikowania menu.");
-      return;
-    }
-    setNameError(null);
-
     const selected: { dish: PrefilledDish; date: string }[] = [];
     for (const day of days) {
       if (!selectedDays.has(day)) continue;
@@ -106,7 +85,7 @@ export function WeeklyMenuPreview({
         }
       }
     }
-    onConfirm(selected, name);
+    onConfirm(selected);
   };
 
   return (
@@ -125,40 +104,22 @@ export function WeeklyMenuPreview({
           opublikować.
         </p>
 
-        <div className="mt-4 flex flex-col gap-1.5">
-          <Label htmlFor="weekly-restaurant-name">
-            Nazwa restauracji
-            <span className="text-destructive ml-0.5">*</span>
-          </Label>
-          <Input
-            id="weekly-restaurant-name"
-            value={restaurantName}
-            onChange={(e) => {
-              setRestaurantName(e.target.value);
-              if (nameError) setNameError(null);
-            }}
-            onBlur={() => {
-              if (restaurantName.trim().length === 0 && nameMissingFromExtraction) {
-                setNameError(
-                  "AI nie odczytało nazwy restauracji z tego materiału. Uzupełnij ją, aby opublikować menu."
-                );
-              }
-            }}
-            maxLength={100}
-            placeholder="np. Restauracja Pod Lipami"
-            aria-invalid={!!nameError}
-            aria-describedby={nameError ? "weekly-restaurant-name-error" : undefined}
-          />
-          {nameError ? (
-            <p id="weekly-restaurant-name-error" className="text-sm text-destructive" role="alert">
-              {nameError}
+        <div className="mt-4 rounded-md border border-border bg-muted/30 p-3">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">
+            Restauracja
+          </p>
+          <p className="mt-0.5 text-sm font-semibold text-foreground">
+            {assignedRestaurant.name}
+          </p>
+          {assignedRestaurant.address && (
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+              <MapPin className="size-3 shrink-0" aria-hidden="true" />
+              {assignedRestaurant.address}
             </p>
-          ) : nameMissingFromExtraction ? (
-            <p className="text-xs text-muted-foreground">
-              Nazwa jest wymagana — bez niej żadna oferta z tego menu nie
-              zostanie zapisana.
-            </p>
-          ) : null}
+          )}
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Wszystkie dni tego menu zostaną opublikowane pod tą restauracją.
+          </p>
         </div>
       </div>
 
@@ -242,7 +203,7 @@ export function WeeklyMenuPreview({
         <button
           type="button"
           onClick={handleConfirm}
-          disabled={isSubmitting || selectedCount === 0 || !canPublish}
+          disabled={isSubmitting || selectedCount === 0}
           className="inline-flex items-center gap-2 rounded-[4px] bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-[#5e6ad2] disabled:opacity-50"
         >
           <CheckCircle2 className="size-4" />

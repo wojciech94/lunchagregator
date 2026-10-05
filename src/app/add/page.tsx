@@ -7,12 +7,14 @@ import { InputSelector, type InputSubmission } from "@/components/add-offer/Inpu
 import { OfferPreview } from "@/components/add-offer/OfferPreview";
 import { OfferForm } from "@/components/add-offer/OfferForm";
 import { WeeklyMenuPreview } from "@/components/add-offer/WeeklyMenuPreview";
+import { RestaurantAssignment } from "@/components/add-offer/RestaurantAssignment";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { analyzeUrlAction, analyzeTextAction, analyzeImageAction } from "@/actions/analyze";
 import { createOfferAction, createOffersBatchAction } from "@/actions/offers";
 import { validateExtraction, isWeeklyMenu, type PrefilledOffer, type PrefilledDish } from "@/lib/validations/extraction";
 import { todayISO } from "@/utils/day-of-week";
+import type { AssignedRestaurant } from "@/lib/restaurant-match";
 import type { ExtractedOffers } from "@/services/ai-analyzer";
 import type { CreateOfferInput } from "@/lib/validations/offer";
 import type { InputType } from "@/components/add-offer/InputSelector";
@@ -35,12 +37,18 @@ function locationWarningFor(count: number): string {
   return `${LOCATION_WARNING} Dotyczy to ${count} ${count === 1 ? "oferty" : "ofert"} z tego menu.`;
 }
 
-type Step = "input" | "analyzing" | "preview" | "weekly" | "form" | "saving" | "success";
+type Step = "input" | "analyzing" | "assignment" | "preview" | "weekly" | "form" | "saving" | "success";
 
 interface PageState {
   step: Step;
   sourceType: InputType;
   prefilledData: PrefilledOffer | null;
+  /**
+   * Req 8.1: the restaurant assigned in the assignment step. Set before any
+   * offer form opens and carried through publication; every payload the page
+   * sends includes its id, name and address.
+   */
+  assigned: AssignedRestaurant | null;
   confidence: number;
   error: string | null;
   fieldErrors: Record<string, string>;
@@ -64,6 +72,7 @@ export default function AddOfferPage() {
     step: "input",
     sourceType: "link",
     prefilledData: null,
+    assigned: null,
     confidence: 0,
     error: null,
     fieldErrors: {},
@@ -149,22 +158,11 @@ export default function AddOfferPage() {
       // Use the first offer for preview/form
       const firstOffer = validation.prefilledData[0];
 
-      // If the offer is a weekly menu (dishes spread across ≥2 days), go to the
-      // weekly batch preview instead of the single-offer preview.
-      if (isWeeklyMenu(firstOffer)) {
-        setState((prev) => ({
-          ...prev,
-          step: "weekly",
-          prefilledData: firstOffer,
-          confidence: validation.confidence,
-          error: null,
-        }));
-        return;
-      }
-
+      // Req 8.1: the restaurant is assigned before any offer form opens,
+      // whether the extraction produced a single offer or a weekly batch.
       setState((prev) => ({
         ...prev,
-        step: "preview",
+        step: "assignment",
         prefilledData: firstOffer,
         confidence: validation.confidence,
         error: null,
@@ -188,8 +186,35 @@ export default function AddOfferPage() {
     }));
   }
 
+  /**
+   * Req 8.1: the assignment step's completion. Where the flow continues
+   * depends on what the extraction produced: an empty manual form goes
+   * straight to the form, a weekly batch to the day selector, everything else
+   * to the single-offer preview.
+   */
+  function handleAssigned(restaurant: AssignedRestaurant) {
+    setState((prev) => {
+      const prefilled = prev.prefilledData;
+      const nextStep: Step =
+        !prefilled || prefilled.dishes.length === 0
+          ? "form"
+          : isWeeklyMenu(prefilled)
+            ? "weekly"
+            : "preview";
+
+      return {
+        ...prev,
+        assigned: restaurant,
+        step: nextStep,
+        error: null,
+        fieldErrors: {},
+      };
+    });
+  }
+
   function handleSkipToManualForm() {
-    // Create empty prefilled data for manual entry
+    // Create empty prefilled data for manual entry. Req 8.1 applies here too:
+    // the assignment step runs first, in its choose phase (no extracted name).
     const emptyPrefilled: PrefilledOffer = {
       restaurantName: null,
       address: "",
@@ -199,7 +224,7 @@ export default function AddOfferPage() {
 
     setState((prev) => ({
       ...prev,
-      step: "form",
+      step: "assignment",
       prefilledData: emptyPrefilled,
       confidence: 0,
       error: null,
@@ -252,6 +277,7 @@ export default function AddOfferPage() {
       step: "input",
       sourceType: "link",
       prefilledData: null,
+      assigned: null,
       confidence: 0,
       error: null,
       fieldErrors: {},
@@ -261,16 +287,17 @@ export default function AddOfferPage() {
   }
 
   async function handleWeeklyConfirm(
-    selected: { dish: PrefilledDish; date: string }[],
-    restaurantName: string
+    selected: { dish: PrefilledDish; date: string }[]
   ) {
     if (!state.prefilledData) return;
+    const assigned = state.assigned;
 
-    const name = restaurantName.trim();
-    if (name.length === 0) {
+    if (!assigned) {
+      // Req 8.1 makes this unreachable through the UI; the guard keeps a
+      // regression from publishing an unlinked batch.
       setState((prev) => ({
         ...prev,
-        error: "Nazwa restauracji jest wymagana do opublikowania menu.",
+        error: "Najpierw przypisz restaurację do tego menu.",
       }));
       return;
     }
@@ -286,13 +313,15 @@ export default function AddOfferPage() {
     setIsSubmitting(true);
     setState((prev) => ({ ...prev, error: null, fieldErrors: {} }));
 
-    const restaurantAddress = state.prefilledData.address || undefined;
+    const restaurantAddress = assigned.address || undefined;
 
-    // Build a CreateOfferInput payload per selected dish/day
+    // Build a CreateOfferInput payload per selected dish/day. Name, address
+    // and restaurantId come from the assigned restaurant; the server takes
+    // the snapshot from the entity row (Req 8.3).
     const payloads = selected.map(({ dish, date }) => ({
       dishName: dish.name as string,
       price: dish.price as number,
-      restaurantName: name,
+      restaurantName: assigned.name,
       availableDate: date,
       sourceType: state.sourceType,
       description: dish.description || undefined,
@@ -300,6 +329,7 @@ export default function AddOfferPage() {
       dietaryTags: dish.dietaryTags,
       allergens: dish.allergens,
       restaurantAddress,
+      restaurantId: assigned.id,
     }));
 
     try {
@@ -419,8 +449,27 @@ export default function AddOfferPage() {
         />
       )}
 
+      {/* Step: Restaurant assignment (Req 8.1) */}
+      {state.step === "assignment" && (
+        <div className="flex flex-col gap-4">
+          <RestaurantAssignment
+            extractedName={state.prefilledData?.restaurantName ?? null}
+            onAssigned={handleAssigned}
+          />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleBackToInput}
+            className="self-start"
+          >
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            Wróć do wprowadzania danych
+          </Button>
+        </div>
+      )}
+
       {/* Step: Preview */}
-      {state.step === "preview" && state.prefilledData && (
+      {state.step === "preview" && state.prefilledData && state.assigned && (
         <div className="flex flex-col gap-4">
           <OfferPreview
             offer={state.prefilledData}
@@ -441,10 +490,11 @@ export default function AddOfferPage() {
       )}
 
       {/* Step: Weekly menu batch preview */}
-      {state.step === "weekly" && state.prefilledData && (
+      {state.step === "weekly" && state.prefilledData && state.assigned && (
         <div className="flex flex-col gap-4">
           <WeeklyMenuPreview
             offer={state.prefilledData}
+            assignedRestaurant={state.assigned}
             onConfirm={handleWeeklyConfirm}
             isSubmitting={isSubmitting}
           />
@@ -462,11 +512,12 @@ export default function AddOfferPage() {
       )}
 
       {/* Step: Form */}
-      {state.step === "form" && state.prefilledData && (
+      {state.step === "form" && state.prefilledData && state.assigned && (
         <div className="flex flex-col gap-4">
           <OfferForm
             prefilledData={state.prefilledData}
             sourceType={state.sourceType}
+            assignedRestaurant={state.assigned}
             onSubmit={handleFormSubmit}
             isSubmitting={isSubmitting}
           />

@@ -240,6 +240,12 @@ export async function getOffersByRestaurant(
  *   2. geocoding the address
  *   3. nothing, per Requirement 6.5 -- the offer is still saved
  *
+ * **Snapshot authority (Req 8.3).** When the offer is linked to a restaurant,
+ * the name and address snapshot comes from the restaurant's row, not from the
+ * client payload -- the form's values are prefills, never authority. The same
+ * resolved address feeds the geocode fallback, so a restaurant that has an
+ * address but no coordinates still gets placed from it.
+ *
  * When (3) happens and an address was supplied, `locationWarning` is returned so
  * the caller can tell the User that distance sorting will not include this
  * offer. Requirement 6.5 asks for exactly that message, and the server is the
@@ -272,32 +278,52 @@ export async function createOffer(
   const supabase = await createClient();
   const dbRow = mapOfferToDbRow(parsed.data, userId);
 
-  // Whether an address was asked to be resolved. Tracked separately from
-  // `restaurant_location` so the warning below can distinguish "no address, so
-  // none was expected" from "an address was given and we could not place it".
-  const addressRequested =
-    typeof parsed.data.restaurantAddress === 'string' &&
-    parsed.data.restaurantAddress.trim().length > 0;
+  // The snapshot's authority: the linked restaurant's own row. The client's
+  // name/address values are prefills, not authority (Req 8.3) — a bound offer
+  // snapshots what the restaurant says, so a stray client value cannot make an
+  // offer disagree with the entity it claims to belong to.
+  let snapshotName = parsed.data.restaurantName;
+  let snapshotAddress = parsed.data.restaurantAddress ?? null;
 
   // 1. The linked restaurant already has coordinates: reuse them rather than
   // paying Nominatim again for an address we have already resolved.
   if (parsed.data.restaurantId) {
     const { data: restaurant } = await supabase
       .from('restaurants')
-      .select('location')
+      .select('location, name, address')
       .eq('id', parsed.data.restaurantId)
       .single();
 
-    if (restaurant?.location) {
-      dbRow.restaurant_location = restaurant.location;
+    if (restaurant) {
+      if (restaurant.location) {
+        dbRow.restaurant_location = restaurant.location;
+      }
+      if (restaurant.name) {
+        snapshotName = restaurant.name;
+      }
+      if (restaurant.address) {
+        snapshotAddress = restaurant.address;
+      }
     }
   }
+
+  dbRow.restaurant_name = snapshotName;
+  dbRow.restaurant_address = snapshotAddress;
+
+  // Whether an address was asked to be resolved. Tracked separately from
+  // `restaurant_location` so the warning below can distinguish "no address, so
+  // none was expected" from "an address was given and we could not place it".
+  // Computed from the resolved snapshot, not the raw payload: a restaurant
+  // that carries its own address still gets placed even when the client sent
+  // none, and an entity without one falls back to what the client sent.
+  const addressRequested =
+    typeof snapshotAddress === 'string' && snapshotAddress.trim().length > 0;
 
   // 2. Otherwise geocode, once, on the server, before the row exists. Only
   // when an address is present and we have no coordinates yet.
   if (!dbRow.restaurant_location && addressRequested) {
     try {
-      const coordinates = await geocodeAddress(parsed.data.restaurantAddress!);
+      const coordinates = await geocodeAddress(snapshotAddress!);
       if (coordinates) {
         dbRow.restaurant_location = pointString(coordinates);
       }

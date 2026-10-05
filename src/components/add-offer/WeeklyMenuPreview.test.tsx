@@ -1,22 +1,32 @@
 /**
  * @vitest-environment jsdom
  */
-// Regression tests for publishing a weekly menu extracted from a photo.
+// Tests for the weekly-menu batch preview under the restaurant-first flow
+// (Req 8.1–8.3, #70).
 //
-// The reported failure: the photo analyzed fine and the preview rendered, then
-// publishing threw. The cause was not a malformed payload -- `createOfferSchema`
-// accepts a well-formed weekly batch, verified against the real database. It was
-// that `restaurantName` is regularly null for a menu photo, and both the preview
-// and the batch builder turned that null into `""`, which fails
-// `restaurantName: z.string().min(1)` on every day of the menu at once. The User
-// saw a bare "Validation failed" because the batch action dropped fieldErrors.
+// History worth keeping: publishing a weekly menu used to fail with a bare
+// "Validation failed" when the AI read no restaurant name off the photo —
+// one bad shared field sank every day at once (#39). The preview used to
+// carry an editable name field as the workaround. That field is gone: the
+// assignment step now guarantees a restaurant — name, address and
+// `restaurantId` — before any preview opens, so the batch cannot be published
+// without them. The component's own responsibility is narrower and is what
+// these tests pin: showing the assigned restaurant, selecting days, and
+// dropping dishes the schema would reject.
 
 import { cleanup, render, screen, fireEvent } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PrefilledOffer } from '@/lib/validations/extraction';
+import type { AssignedRestaurant } from '@/lib/restaurant-match';
 import { WeeklyMenuPreview } from './WeeklyMenuPreview';
 
 afterEach(cleanup);
+
+const ASSIGNED: AssignedRestaurant = {
+  id: 'r-1',
+  name: 'Bar Mleko',
+  address: 'Marszałkowska 10, Warszawa',
+};
 
 /** A weekly menu as the AI returns it when it read no restaurant name. */
 function menuWithoutName(): PrefilledOffer {
@@ -39,58 +49,59 @@ function publishButton(): HTMLButtonElement {
   return screen.getByRole('button', { name: /Opublikuj/ }) as HTMLButtonElement;
 }
 
-describe('WeeklyMenuPreview: restaurant name', () => {
-  it('blocks publishing when the AI read no restaurant name', () => {
+describe('WeeklyMenuPreview: the assigned restaurant', () => {
+  it('shows the assigned restaurant the offer will publish under', () => {
+    render(
+      <WeeklyMenuPreview
+        offer={menuWithoutName()}
+        assignedRestaurant={ASSIGNED}
+        onConfirm={vi.fn()}
+      />
+    );
+
+    // The extraction read no name — the binding supplies it anyway.
+    expect(screen.getByText('Bar Mleko')).toBeInTheDocument();
+    expect(screen.getByText(/Marszałkowska 10, Warszawa/)).toBeInTheDocument();
+    expect(screen.getByText(/Wszystkie dni tego menu/)).toBeInTheDocument();
+  });
+
+  it('publishes the selected days; the name comes from the binding, not the component', () => {
     const onConfirm = vi.fn();
-    render(<WeeklyMenuPreview offer={menuWithoutName()} onConfirm={onConfirm} />);
+    render(
+      <WeeklyMenuPreview
+        offer={menuWithName()}
+        assignedRestaurant={ASSIGNED}
+        onConfirm={onConfirm}
+      />
+    );
+
+    expect(publishButton()).not.toBeDisabled();
+    fireEvent.click(publishButton());
+
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+    const [selected] = onConfirm.mock.calls[0];
+    expect(selected).toHaveLength(2);
+    expect(selected.map((entry: { dish: { name: string } }) => entry.dish.name)).toEqual([
+      'Kotlet schabowy',
+      'Pierogi ruskie',
+    ]);
+  });
+
+  it('disables publishing when every day is deselected', () => {
+    const onConfirm = vi.fn();
+    render(
+      <WeeklyMenuPreview
+        offer={menuWithName()}
+        assignedRestaurant={ASSIGNED}
+        onConfirm={onConfirm}
+      />
+    );
+
+    fireEvent.click(screen.getByText(/Poniedziałek/));
+    fireEvent.click(screen.getByText(/Wtorek/));
 
     expect(publishButton()).toBeDisabled();
     expect(onConfirm).not.toHaveBeenCalled();
-  });
-
-  it('publishes once the User supplies the missing name', () => {
-    const onConfirm = vi.fn();
-    render(<WeeklyMenuPreview offer={menuWithoutName()} onConfirm={onConfirm} />);
-
-    fireEvent.change(screen.getByLabelText(/Nazwa restauracji/), {
-      target: { value: 'Bar Mleko' },
-    });
-
-    expect(publishButton()).not.toBeDisabled();
-    fireEvent.click(publishButton());
-
-    expect(onConfirm).toHaveBeenCalledTimes(1);
-    const [, name] = onConfirm.mock.calls[0];
-    expect(name).toBe('Bar Mleko');
-  });
-
-  it('sends the edited name rather than the extracted one', () => {
-    const onConfirm = vi.fn();
-    render(<WeeklyMenuPreview offer={menuWithName()} onConfirm={onConfirm} />);
-
-    fireEvent.change(screen.getByLabelText(/Nazwa restauracji/), {
-      target: { value: '  Bar Mleko Nowy  ' },
-    });
-    fireEvent.click(publishButton());
-
-    const [, name] = onConfirm.mock.calls[0];
-    expect(name).toBe('Bar Mleko Nowy');
-  });
-
-  it('explains why the name is required when the AI could not read it', () => {
-    render(<WeeklyMenuPreview offer={menuWithoutName()} onConfirm={vi.fn()} />);
-    expect(screen.getByText(/AI nie odczytało nazwy restauracji|bez niej żadna oferta/)).toBeTruthy();
-  });
-
-  it('publishes normally when the AI read the name', () => {
-    const onConfirm = vi.fn();
-    render(<WeeklyMenuPreview offer={menuWithName()} onConfirm={onConfirm} />);
-
-    expect(publishButton()).not.toBeDisabled();
-    fireEvent.click(publishButton());
-
-    expect(onConfirm).toHaveBeenCalledTimes(1);
-    expect(onConfirm.mock.calls[0][1]).toBe('Bar Mleko');
   });
 });
 
@@ -102,7 +113,9 @@ describe('WeeklyMenuPreview: dishes without a usable price', () => {
       { ...offer.dishes[0], dayOfWeek: 'monday' },
       { name: 'Bez ceny', price: null, description: '', items: [], dietaryTags: [], allergens: [], dayOfWeek: 'tuesday', missingFields: ['price'] },
     ];
-    render(<WeeklyMenuPreview offer={offer} onConfirm={onConfirm} />);
+    render(
+      <WeeklyMenuPreview offer={offer} assignedRestaurant={ASSIGNED} onConfirm={onConfirm} />
+    );
 
     fireEvent.click(publishButton());
     expect(onConfirm.mock.calls[0][0]).toHaveLength(1);
@@ -117,7 +130,9 @@ describe('WeeklyMenuPreview: dishes without a usable price', () => {
       { ...offer.dishes[0], dayOfWeek: 'monday' },
       { name: 'Bez ceny', price: undefined as unknown as number, description: '', items: [], dietaryTags: [], allergens: [], dayOfWeek: 'tuesday', missingFields: ['price'] },
     ];
-    render(<WeeklyMenuPreview offer={offer} onConfirm={onConfirm} />);
+    render(
+      <WeeklyMenuPreview offer={offer} assignedRestaurant={ASSIGNED} onConfirm={onConfirm} />
+    );
 
     fireEvent.click(publishButton());
     expect(onConfirm.mock.calls[0][0]).toHaveLength(1);
@@ -130,7 +145,9 @@ describe('WeeklyMenuPreview: dishes without a usable price', () => {
       { ...offer.dishes[0], dayOfWeek: 'monday' },
       { name: 'Za darmo', price: 0, description: '', items: [], dietaryTags: [], allergens: [], dayOfWeek: 'tuesday', missingFields: [] },
     ];
-    render(<WeeklyMenuPreview offer={offer} onConfirm={onConfirm} />);
+    render(
+      <WeeklyMenuPreview offer={offer} assignedRestaurant={ASSIGNED} onConfirm={onConfirm} />
+    );
 
     fireEvent.click(publishButton());
     expect(onConfirm.mock.calls[0][0]).toHaveLength(1);
