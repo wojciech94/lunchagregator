@@ -2,7 +2,6 @@
 
 import { getAdmin } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
-import { listOffers } from '@/services/offers';
 import { listOrphanOffers } from '@/services/offers';
 import { listRestaurants } from '@/actions/restaurants';
 import type { LunchOfferWithDistance } from '@/types/offers';
@@ -49,12 +48,23 @@ export async function listAdminOffers(
       return { rows: orphans, total: orphans.length };
     }
 
-    // `listOffers` is paginated and answers "what can I eat, near me, today" --
-    // the wrong question for an operator working a queue. Only the first page is
-    // returned, and the panel says so rather than implying it showed
-    // everything.
-    const page = await listOffers({});
-    return { rows: page.offers, total: page.total, partial: page.hasMore };
+    // The operator's queue, not the public listing: every offer, from every
+    // date, newest first, with an exact count. `listOffers` answers "what can
+    // I eat, near me, today" -- the wrong question for someone deleting a
+    // record that is legitimately present but no longer wanted, which is why
+    // this is a direct query shaped like `listAdminRestaurants` (#76).
+    const supabase = await createClient();
+    const { data, error, count } = await supabase
+      .from('lunch_offers')
+      .select('*', { count: 'exact' })
+      .order('available_date', { ascending: false })
+      .limit(200);
+
+    if (error) throw new Error(error.message);
+
+    const rows = (data ?? []) as unknown as LunchOfferWithDistance[];
+    const total = count ?? rows.length;
+    return { rows, total, partial: total > rows.length };
   } catch (error) {
     return {
       rows: null,

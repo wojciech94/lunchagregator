@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 
 import { listAdminRestaurants } from "@/actions/admin";
-import { OrphanOnlyToggle, isOrphanOnly } from "@/components/admin/OrphanOnlyToggle";
+import { OrphanOnlyToggle } from "@/components/admin/OrphanOnlyToggle";
+import { isOrphanOnly } from "@/lib/admin-filters";
 import { DeleteRestaurantButton } from "@/components/restaurants/DeleteRestaurantButton";
 import { getAdmin } from "@/lib/auth";
 
