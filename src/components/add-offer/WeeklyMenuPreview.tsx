@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Calendar, CheckCircle2, AlertTriangle, MapPin } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { DAY_LABELS_PL, nextDateForDay } from "@/utils/day-of-week";
 import type { PrefilledOffer, PrefilledDish } from "@/lib/validations/extraction";
@@ -200,17 +201,12 @@ export function WeeklyMenuPreview({
         <span className="text-sm text-muted-foreground">
           Wybrano {selectedCount} z {days.length}
         </span>
-        <button
-          type="button"
-          onClick={handleConfirm}
-          disabled={isSubmitting || selectedCount === 0}
-          className="inline-flex items-center gap-2 rounded-[4px] bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-[#5e6ad2] disabled:opacity-50"
-        >
+        <Button type="button" onClick={handleConfirm} disabled={isSubmitting || selectedCount === 0}>
           <CheckCircle2 className="size-4" />
           {isSubmitting
             ? "Publikowanie..."
             : `Opublikuj ${selectedCount} ${selectedCount === 1 ? "ofertę" : "ofert"}`}
-        </button>
+        </Button>
       </div>
     </div>
   );

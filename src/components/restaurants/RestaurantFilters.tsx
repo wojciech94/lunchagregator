@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -150,16 +152,18 @@ export function RestaurantFilters({
         </div>
 
         {/* Mobile toggle */}
-        <button
+        <Button
+          variant="outline"
+          size="sm"
+          className="md:hidden"
           onClick={() => setIsOpen(!isOpen)}
-          className="md:hidden inline-flex min-h-[44px] items-center gap-2 rounded-[4px] border border-border px-4 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground hover:border-primary/30"
           aria-expanded={isOpen}
           aria-controls="restaurant-filters-panel"
           aria-label={isOpen ? "Ukryj filtry" : "Pokaż filtry"}
         >
           <SlidersHorizontal className="size-4" />
           Filtry
-        </button>
+        </Button>
       </div>
 
       {/* Filters panel */}
@@ -173,13 +177,10 @@ export function RestaurantFilters({
         {/* Clear button */}
         {hasActiveFilters && (
           <div className="flex justify-end mb-4">
-            <button
-              onClick={handleClearFilters}
-              className="inline-flex items-center gap-1.5 text-base text-muted-foreground hover:text-primary transition-colors"
-            >
-              <X className="size-3" />
+            <Button variant="ghost" size="sm" onClick={handleClearFilters}>
+              <X className="size-3.5" />
               Wyczyść filtry
-            </button>
+            </Button>
           </div>
         )}
 
@@ -214,20 +215,13 @@ export function RestaurantFilters({
               {PRICE_LEVELS.map((level) => {
                 const active = priceLevels.includes(level.value);
                 return (
-                  <button
+                  <Chip
                     key={level.value}
-                    type="button"
+                    active={active}
                     onClick={() => handlePriceLevelToggle(level.value)}
-                    aria-pressed={active}
-                    className={cn(
-                      "inline-flex items-center rounded-full border px-3 py-1.5 text-base font-medium transition-colors",
-                      active
-                        ? "border-primary/30 bg-primary/10 text-primary"
-                        : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                    )}
                   >
                     {level.label}
-                  </button>
+                  </Chip>
                 );
               })}
             </div>
@@ -242,20 +236,13 @@ export function RestaurantFilters({
               {CUISINE_TYPES.map((cuisine) => {
                 const active = cuisineTypes.includes(cuisine.value);
                 return (
-                  <button
+                  <Chip
                     key={cuisine.value}
-                    type="button"
+                    active={active}
                     onClick={() => handleCuisineToggle(cuisine.value)}
-                    aria-pressed={active}
-                    className={cn(
-                      "inline-flex items-center rounded-full border px-3 py-1.5 text-base font-medium transition-colors",
-                      active
-                        ? "border-primary/30 bg-primary/10 text-primary"
-                        : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                    )}
                   >
                     {cuisine.label}
-                  </button>
+                  </Chip>
                 );
               })}
             </div>
