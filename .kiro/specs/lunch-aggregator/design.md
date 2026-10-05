@@ -74,6 +74,7 @@ Ustalone w grillu, zamkniętym komentarzem „Settled". Dwie decyzje sterujące:
 **Deduplikacja per użytkownik.** Klucz: `restaurant_id` + `dish_name` + `data docelowa` wśród własnych ofert; pominięte pozycje trafiają do podsumowania. Globalne ograniczenie unikatowości (indeks) to osobna migracja, nie ukryte zapytanie w akcji — ustalone w Q4.
 
 **Stare oferty bez restauracji są martwe.** Bez migracji, bez czyszczenia, bez doczepiania post-hoc (decyzja #18 obowiązuje). W „Moje oferty" lądują w odrębnej grupie „bez restauracji" z podpowiedzią ponownego dodania przez nowy flow. Admin pozostaje narzędziem backlogu (#54–#56).
+**Zmienione w #74:** doczepianie jest dostępne — kafelek „Bez restauracji" subgrupuje po nazwie snapshota, a jedna decyzja przypisuje całą grupę. Węższa zasada: **attach-when-null tylko** (nigdy przepiąć, nigdy odwiązać — #18 w mocy), snapshot bez zmian (Req 6.2).
 
 **Poza zakresem v1 (świadomie):** automatyczna materializacja menu (cron/pg_cron), digesty e-mail, scalanie zdublowanych restauracji, globalne ograniczenie unikatowości ofert, doczepianie restauracji do starych ofert.
 

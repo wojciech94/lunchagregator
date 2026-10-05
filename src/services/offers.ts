@@ -526,6 +526,69 @@ export async function renewRestaurantMenu(
 }
 
 /**
+ * Req 8.9 as amended by #74: attach the User's own name-only offers to a
+ * restaurant.
+ *
+ * The narrow exception to #18's "no post-hoc attach", granted when the legacy
+ * bucket turned out to be a real backlog rather than an archive:
+ *
+ * - **attach-when-null only.** An offer with a restaurant is skipped, never
+ *   re-linked; nothing is ever detached. #18's rule -- an offer does not
+ *   change or drop its restaurant -- survives intact.
+ * - **The snapshot is not rewritten.** Req 6.2 keeps the offer's own name and
+ *   address as the display truth; the link is for traceability and renewal.
+ * - Ownership is enforced twice: the offers must belong to the caller, and
+ *   the restaurant must be one they can modify (checked by the action).
+ */
+export async function assignOffersToRestaurant(
+  offerIds: string[],
+  restaurantId: string,
+  userId: string
+): Promise<ActionResult<{ attached: number; skippedAlreadyLinked: number }>> {
+  const supabase = await createClient();
+
+  const { data: rows, error } = await supabase
+    .from('lunch_offers')
+    .select('id, restaurant_id')
+    .in('id', offerIds)
+    .eq('user_id', userId);
+
+  if (error) {
+    return {
+      success: false,
+      error: `Nie udało się pobrać ofert: ${error.message}`,
+    };
+  }
+
+  const owned = (rows ?? []) as { id: string; restaurant_id: string | null }[];
+  const attachable = owned
+    .filter((row) => row.restaurant_id === null)
+    .map((row) => row.id);
+  const skippedAlreadyLinked = owned.length - attachable.length;
+
+  if (attachable.length === 0) {
+    return { success: true, data: { attached: 0, skippedAlreadyLinked } };
+  }
+
+  const { error: updateError } = await supabase
+    .from('lunch_offers')
+    .update({ restaurant_id: restaurantId })
+    .in('id', attachable);
+
+  if (updateError) {
+    return {
+      success: false,
+      error: `Nie udało się przypisać ofert: ${updateError.message}`,
+    };
+  }
+
+  return {
+    success: true,
+    data: { attached: attachable.length, skippedAlreadyLinked },
+  };
+}
+
+/**
  * Update an existing offer.
  * Ownership must be verified by the caller (action layer) before calling this function.
  */

@@ -14,6 +14,7 @@ import {
   updateOffer,
   deleteOffer,
   renewRestaurantMenu,
+  assignOffersToRestaurant,
   type ActionResult,
   type ActionResultWithLocationWarning,
 } from '@/services/offers';
@@ -333,6 +334,58 @@ export async function renewMenuAction(
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Failed to renew the menu';
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Server action to attach the User's own unlinked offers to a restaurant
+ * (Req 8.9 as amended by #74). Attach-when-null only: already-linked offers
+ * are skipped and reported, never re-linked, never detached. The restaurant
+ * must be one the User can modify.
+ */
+export async function assignOfferRestaurantAction(
+  offerIds: string[],
+  restaurantId: string
+): Promise<ActionResult<{ attached: number; skippedAlreadyLinked: number }>> {
+  try {
+    if (
+      !Array.isArray(offerIds) ||
+      offerIds.length === 0 ||
+      offerIds.length > 50 ||
+      offerIds.some((id) => typeof id !== 'string' || id.length === 0)
+    ) {
+      return { success: false, error: 'Invalid offer IDs' };
+    }
+
+    if (!restaurantId || typeof restaurantId !== 'string') {
+      return { success: false, error: 'Invalid restaurant ID' };
+    }
+
+    const user = await getUser();
+
+    if (!user) {
+      return { success: false, error: 'Brak autoryzacji' };
+    }
+
+    // Two-layer gate, as everywhere: the RLS policies scope the reads and
+    // writes, and this check refuses before any query runs for a restaurant
+    // the User does not own.
+    const supabase = await createClient();
+    const { data: row } = await supabase
+      .from('restaurants')
+      .select('user_id')
+      .eq('id', restaurantId)
+      .single();
+
+    if (!row || !canModify(user, (row as { user_id: string | null }).user_id)) {
+      return { success: false, error: 'Brak uprawnień do tej operacji' };
+    }
+
+    return await assignOffersToRestaurant(offerIds, restaurantId, user.id);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Failed to assign the offers';
     return { success: false, error: message };
   }
 }
