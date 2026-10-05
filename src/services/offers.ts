@@ -2,6 +2,13 @@ import { createClient } from '@/lib/supabase/server';
 import { parsePostGisPoint } from '@/lib/postgis';
 import { geocodeAddress } from '@/services/geocoding';
 import {
+  addDaysISO,
+  anchorIsTooOld,
+  computeRenewalPlan,
+  renewalAnchor,
+  type RenewalInputOffer,
+} from '@/lib/offer-renewal';
+import {
   createOfferSchema,
   updateOfferSchema,
   type CreateOfferInput,
@@ -253,7 +260,8 @@ export async function getOffersByRestaurant(
  */
 export async function createOffer(
   data: unknown,
-  userId: string
+  userId: string,
+  options?: { presetLocation?: string | null }
 ): Promise<ActionResultWithLocationWarning<LunchOffer>> {
   // Validate input with Zod
   const parsed = createOfferSchema.safeParse(data);
@@ -321,7 +329,16 @@ export async function createOffer(
 
   // 2. Otherwise geocode, once, on the server, before the row exists. Only
   // when an address is present and we have no coordinates yet.
-  if (!dbRow.restaurant_location && addressRequested) {
+  //
+  // A preset place (Req 8.5) short-circuits this: the renewal has already
+  // resolved the coordinates from the restaurant's current row, and renewal
+  // never geocodes -- a null preset means "no coordinates", not "ask
+  // Nominatim".
+  if (options?.presetLocation !== undefined) {
+    if (options.presetLocation !== null) {
+      dbRow.restaurant_location = options.presetLocation;
+    }
+  } else if (!dbRow.restaurant_location && addressRequested) {
     try {
       const coordinates = await geocodeAddress(snapshotAddress!);
       if (coordinates) {
@@ -356,6 +373,156 @@ export async function createOffer(
   }
 
   return { success: true, data: offer };
+}
+
+/**
+ * Req 8.5–8.6 (#71): re-create the restaurant's current menu week one week
+ * ahead, in one click.
+ *
+ * The plan (`computeRenewalPlan`) picks the anchor week, maps every dish to
+ * `available_date + 7`, and dedupes against the User's own upcoming rows.
+ * This function owns the rest of the contract:
+ *
+ * - **The place comes from the restaurant's current row** -- name, address
+ *   and coordinates. Renewal passes them to `createOffer` as a preset, so a
+ *   restaurant that moved publishes its new address and one whose
+ *   coordinates were never resolved stays unplaced but counted.
+ * - **Renewal never geocodes** -- the preset short-circuits Nominatim
+ *   entirely (Req 8.5).
+ * - **A single failed create does not sink the batch** (the
+ *   `createOffersBatchAction` precedent): it is counted and reported, like
+ *   the skips.
+ */
+export async function renewRestaurantMenu(
+  restaurantId: string,
+  userId: string
+): Promise<
+  ActionResult<{
+    created: number;
+    skipped: number;
+    failed: number;
+    missingCoordinates: number;
+  }>
+> {
+  const supabase = await createClient();
+
+  const { data: restaurant, error: restaurantError } = await supabase
+    .from('restaurants')
+    .select('id, name, address, location')
+    .eq('id', restaurantId)
+    .single();
+
+  if (restaurantError || !restaurant) {
+    return { success: false, error: 'Nie znaleziono restauracji' };
+  }
+
+  const today = getTodayDate();
+
+  // One fetch serves the anchor, the sources and the dedupe set: the User's
+  // own offers for this restaurant, newest first. Renewal never needs older
+  // history -- anything beyond the anchor week is archive.
+  const { data: rows, error: offersError } = await supabase
+    .from('lunch_offers')
+    .select(
+      'id, dish_name, available_date, price, description, items, dietary_tags, allergens, source_type'
+    )
+    .eq('restaurant_id', restaurantId)
+    .eq('user_id', userId)
+    .gte('available_date', addDaysISO(today, -30))
+    .order('available_date', { ascending: false })
+    .limit(200);
+
+  if (offersError) {
+    return {
+      success: false,
+      error: `Nie udało się pobrać ofert: ${offersError.message}`,
+    };
+  }
+
+  const offerRows = rows ?? [];
+
+  if (offerRows.length === 0) {
+    return { success: false, error: 'Brak ofert tej restauracji do wznowienia.' };
+  }
+
+  const anchor = renewalAnchor(offerRows.map((row) => row.available_date as string))!;
+
+  if (anchorIsTooOld(anchor, today)) {
+    return {
+      success: false,
+      error:
+        'Menu jest starsze niż tydzień — dodaj je ponownie przez „Dodaj ofertę”.',
+    };
+  }
+
+  const plan = computeRenewalPlan(
+    offerRows.map(
+      (row): RenewalInputOffer => ({
+        id: row.id,
+        dishName: row.dish_name as string,
+        availableDate: row.available_date as string,
+      })
+    ),
+    today
+  );
+
+  if (plan.toCreate.length === 0) {
+    return {
+      success: false,
+      error: 'Nie ma czego wznowić — wszystkie dania nowego tygodnia już istnieją.',
+    };
+  }
+
+  const rowsById = new Map(offerRows.map((row) => [row.id, row]));
+
+  let created = 0;
+  let failed = 0;
+  let missingCoordinates = 0;
+
+  for (const item of plan.toCreate) {
+    const source = rowsById.get(item.offer.id);
+    if (!source) {
+      failed += 1;
+      continue;
+    }
+
+    const result = await createOffer(
+      {
+        dishName: source.dish_name as string,
+        price: source.price as number,
+        restaurantName: restaurant.name as string,
+        restaurantAddress: (restaurant.address as string | null) ?? undefined,
+        availableDate: item.targetDate,
+        sourceType: source.source_type as CreateOfferInput['sourceType'],
+        description: (source.description as string | null) ?? undefined,
+        items: (source.items as string[]) ?? [],
+        dietaryTags: (source.dietary_tags as string[]) ?? [],
+        allergens: (source.allergens as string[]) ?? [],
+        restaurantId,
+      },
+      userId,
+      { presetLocation: (restaurant.location as string | null) ?? null }
+    );
+
+    if (result.success) {
+      created += 1;
+      if (!result.data.restaurantLocation) {
+        missingCoordinates += 1;
+      }
+    } else {
+      failed += 1;
+    }
+  }
+
+  return {
+    success: true,
+    data: {
+      created,
+      skipped: plan.skipped.length,
+      failed,
+      missingCoordinates,
+    },
+  };
 }
 
 /**
@@ -469,8 +636,14 @@ function mapDbRowToOfferWithDistance(
 
 /**
  * Returns today's date in YYYY-MM-DD format.
+ *
+ * UTC on purpose: every date this service compares against the database --
+ * whose `CURRENT_DATE` is also UTC -- must use the same calendar, or the
+ * offer-listing boundary drifts by a day around midnight. The *local*
+ * calendar (`todayISO()` in day-of-week.ts) is the form-default convention
+ * and stays there.
  */
-function getTodayDate(): string {
+export function getTodayDate(): string {
   const now = new Date();
   return now.toISOString().split('T')[0];
 }

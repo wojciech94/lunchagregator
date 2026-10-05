@@ -134,6 +134,7 @@ describe('choose phase', () => {
         websiteUrl: null,
         sessionToken: null,
         userId: null,
+        menuRecursWeekly: false,
         createdAt: '',
         updatedAt: '',
       },

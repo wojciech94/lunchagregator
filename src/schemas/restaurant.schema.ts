@@ -118,6 +118,10 @@ export const updateRestaurantSchema = z.object({
     .url('Nieprawidłowy format URL')
     .nullable()
     .optional(),
+  // Req 8.7: "menu tygodniowe, do odwołania". An intent marker -- set when the
+  // restaurant's lunch menu carries over week to week, revoked when it stops.
+  // Surfacing only; nothing publishes automatically.
+  menuRecursWeekly: z.boolean().optional(),
 });
 
 export type CreateRestaurantSchemaInput = z.infer<typeof createRestaurantSchema>;

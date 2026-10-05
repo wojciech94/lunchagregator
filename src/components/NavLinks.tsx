@@ -13,9 +13,17 @@ interface NavLinksProps {
    * hold and cannot accidentally render something from it.
    */
   isAdmin?: boolean;
+  /**
+   * Whether the viewer is signed in: the User's own links (`Moje oferty`)
+   * appear only then. Same courtesy-not-guard rule as the admin's.
+   */
+  isAuthenticated?: boolean;
 }
 
-export function NavLinks({ isAdmin = false }: NavLinksProps) {
+export function NavLinks({
+  isAdmin = false,
+  isAuthenticated = false,
+}: NavLinksProps) {
   const pathname = usePathname();
 
   const isActive = (href: string) =>
@@ -23,7 +31,7 @@ export function NavLinks({ isAdmin = false }: NavLinksProps) {
 
   return (
     <nav className="hidden lg:flex lg:items-center lg:gap-2">
-      {linksFor(isAdmin).map((link) => (
+      {linksFor(isAdmin, isAuthenticated).map((link) => (
         <Link
           key={link.href}
           href={link.href}
