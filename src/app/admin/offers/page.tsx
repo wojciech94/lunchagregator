@@ -4,7 +4,8 @@ import { CheckCircle2 } from "lucide-react";
 
 import { listAdminOffers } from "@/actions/admin";
 import { OrphanOfferRow } from "@/components/admin/OrphanOfferRow";
-import { OrphanOnlyToggle, isOrphanOnly } from "@/components/admin/OrphanOnlyToggle";
+import { OrphanOnlyToggle } from "@/components/admin/OrphanOnlyToggle";
+import { isOrphanOnly } from "@/lib/admin-filters";
 import { getAdmin } from "@/lib/auth";
 
 /**
@@ -93,7 +94,7 @@ export default async function AdminOffersPage({
           </p>
           {result.partial && (
             <p className="mt-1 text-xs text-muted-foreground">
-              To pierwsza strona. Pełna lista jest na stronie publicznej.
+              Pokazano pierwsze {offers.length}, od najnowszych.
             </p>
           )}
           <ul className="mt-3 flex flex-col gap-3">
