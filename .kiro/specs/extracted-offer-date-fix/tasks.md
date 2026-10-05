@@ -6,7 +6,7 @@ Fix only the single-offer form’s initial availability-date selection. Use a re
 
 ## Tasks
 
-- [ ] 1. Write bug condition exploration tests before implementing the fix
+- [x] 1. Write bug condition exploration tests before implementing the fix
   - **Property 1: Bug Condition** - Recognized Weekday Resolves to Its Inclusive Next Local Date
   - **CRITICAL**: Write and run this property-based test on the unfixed single-offer form; it must fail for target weekdays that differ from the local current weekday. Do not alter production code when it fails.
   - Scope generated cases to every pair of relevant local weekday and valid canonical `DayOfWeek` (`monday` through `sunday`) for the first selected extracted dish, including a Lunch Set whose soup and daily dish are in `items`.
@@ -15,7 +15,7 @@ Fix only the single-offer form’s initial availability-date selection. Use a re
   - Verify the assertion also preserves all non-date extracted fields and the editable date input for recognized-weekday cases.
   - _Requirements: 1.1, 2.1, 2.2, 2.3, 2.4, 3.6_
 
-- [ ] 2. Write preservation property tests before implementing the fix
+- [x] 2. Write preservation property tests before implementing the fix
   - **Property 2: Preservation** - Non-Resolvable Weekday and Existing Form Behavior Remain Unchanged
   - **IMPORTANT**: Follow observation-first methodology on unfixed code. Capture the normal local-date default and observable form behavior before changing the implementation.
   - Generate extracted offers with `null`, absent, malformed, unsupported, and unassociated weekday values at the resolution boundary, together with valid arbitrary metadata; verify their initial values retain the observed normal current-local-date default, valid extracted data, and editable controls.
@@ -23,8 +23,8 @@ Fix only the single-offer form’s initial availability-date selection. Use a re
   - Confirm the preservation tests pass on unfixed code; also retain a weekly-menu control showing existing batch weekday-date resolution is unchanged.
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
-- [ ] 3. Fix extracted single-offer availability-date initialization
-  - [ ] 3.1 Implement the minimal `OfferForm` initialization fix
+- [x] 3. Fix extracted single-offer availability-date initialization
+  - [x] 3.1 Implement the minimal `OfferForm` initialization fix
     - In `src/components/add-offer/OfferForm.tsx`, update `buildDefaultValues` to use `nextDateForDay(firstDish.dayOfWeek)` when the first selected dish has a valid canonical `DayOfWeek`.
     - For no usable weekday, retain the normal local-date fallback using `todayISO()`. Remove the component-local UTC `getTodayISO` helper and use `todayISO()` for both the fallback default and the date input `min` value.
     - Leave source type, restaurant details, dish metadata, `items`, dietary tags, allergens, missing-field handling, submit handlers, form state, extraction contracts, payloads, persistence, server validation, and `WeeklyMenuPreview` unchanged.
@@ -33,19 +33,19 @@ Fix only the single-offer form’s initial availability-date selection. Use a re
     - _Preservation: Unusable weekdays use `todayISO()`; existing edits, validation, failures, metadata prefilling, and weekly-menu behavior are unchanged._
     - _Requirements: 1.1, 2.1, 2.2, 2.3, 2.4, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
-  - [ ] 3.2 Verify the exploration test now passes
+  - [x] 3.2 Verify the exploration test now passes
     - **Property 1: Expected Behavior** - Recognized Weekday Resolves to Its Inclusive Next Local Date
     - **IMPORTANT**: Re-run the same Property 1 test from task 1; do not write a replacement test.
     - Confirm all local-weekday/canonical-weekday pairs now resolve inclusively, including Thursday 2026-07-30 → Friday 2026-07-31, Friday → next Monday, same-day matching, and Lunch Set item preservation.
     - _Requirements: 1.1, 2.1, 2.2, 2.3, 2.4, 3.6_
 
-  - [ ] 3.3 Verify the preservation tests still pass
+  - [x] 3.3 Verify the preservation tests still pass
     - **Property 2: Preservation** - Non-Resolvable Weekday and Existing Form Behavior Remain Unchanged
     - **IMPORTANT**: Re-run the same Property 2 tests from task 2; do not write replacement tests.
     - Confirm fallback local defaults, manual edits, validation feedback, error recovery, independently extracted metadata, and the weekly flow remain unchanged.
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
-- [ ] 4. Checkpoint - Ensure all tests pass
+- [x] 4. Checkpoint - Ensure all tests pass
   - Run the targeted OfferForm/date-utility and integration tests, then the relevant project test suite; ensure exploratory and preservation properties pass after the fix.
   - Confirm no unrelated extraction, persistence, server validation, or weekly-menu behavior changed. Ask the user if questions arise.
 

@@ -17,12 +17,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import type { DayOfWeek } from "@/services/ai-analyzer";
 import {
   createOfferSchema,
   type CreateOfferInput,
 } from "@/lib/validations/offer";
 import type { PrefilledOffer } from "@/lib/validations/extraction";
 import type { CuisineType, DietaryTag, Allergen } from "@/types/offers";
+import { nextDateForDay, todayISO } from "@/utils/day-of-week";
 import { RestaurantSelect } from "@/components/restaurants/RestaurantSelect";
 import type { RestaurantSummary } from "@/types/restaurants";
 
@@ -78,8 +80,26 @@ const ALLERGEN_OPTIONS: { value: Allergen; label: string }[] = [
 // Helpers
 // ============================================================================
 
-function getTodayISO(): string {
-  return new Date().toISOString().split("T")[0];
+/**
+ * Canonical extraction weekdays, for a runtime check at the resolution
+ * boundary. Malformed, unsupported or unassociated values must be treated as
+ * absent rather than fed to nextDateForDay, which would produce an invalid
+ * date (spec: extracted-offer-date-fix, preservation property 3).
+ */
+const CANONICAL_DAYS: readonly string[] = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+];
+
+function canonicalDayOfWeek(value: unknown): DayOfWeek | null {
+  return typeof value === "string" && CANONICAL_DAYS.includes(value)
+    ? (value as DayOfWeek)
+    : null;
 }
 
 function buildDefaultValues(
@@ -87,12 +107,13 @@ function buildDefaultValues(
   sourceType: "link" | "text" | "photo"
 ): Partial<CreateOfferInput> {
   const firstDish = prefilledData.dishes[0];
+  const day = canonicalDayOfWeek(firstDish?.dayOfWeek);
 
   return {
     dishName: firstDish?.name ?? "",
     price: firstDish?.price ?? undefined,
     restaurantName: prefilledData.restaurantName ?? "",
-    availableDate: getTodayISO(),
+    availableDate: day ? nextDateForDay(day) : todayISO(),
     sourceType,
     description: firstDish?.description ?? "",
     items: firstDish?.items ?? [],
@@ -291,7 +312,7 @@ export function OfferForm({
         <Input
           id="availableDate"
           type="date"
-          min={getTodayISO()}
+          min={todayISO()}
           aria-invalid={!!errors.availableDate}
           aria-describedby={
             errors.availableDate ? "availableDate-error" : undefined
