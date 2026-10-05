@@ -209,7 +209,7 @@ export function RestaurantAssignment({
             <button
               type="button"
               onClick={() => setCreateOpen((prev) => !prev)}
-              className="self-start text-sm font-medium text-primary underline-offset-2 hover:underline"
+              className="self-start text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80"
               aria-expanded={createOpen}
             >
               Nie ma jej na liście? Dodaj nową restaurację
