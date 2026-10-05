@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import {
   groupOffersByRestaurant,
+  groupUnlinkedByName,
   UNLINKED_GROUP_KEY,
   UNLINKED_GROUP_NAME,
   type GroupableOffer,
@@ -20,6 +21,29 @@ function offer(
 ): GroupableOffer {
   return { id, restaurantId, restaurantName, availableDate };
 }
+
+describe("groupUnlinkedByName (sub-groups inside the unlinked bucket, #74)", () => {
+  it("groups by the normalized snapshot name, so one decision covers one menu", () => {
+    const groups = groupUnlinkedByName([
+      offer("o-1", null, "Pizzeria Roma", "2026-10-05"),
+      offer("o-2", null, "  pizzeria   roma  ", "2026-10-08"),
+      offer("o-3", null, "Pizzeria Roma", "2026-10-06"),
+    ]);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].name).toBe("Pizzeria Roma");
+    expect(groups[0].offers.map((o) => o.id)).toEqual(["o-1", "o-3", "o-2"]);
+  });
+
+  it("different snapshot names are different decisions", () => {
+    const groups = groupUnlinkedByName([
+      offer("o-1", null, "Bar A", "2026-10-05"),
+      offer("o-2", null, "Bar B", "2026-10-06"),
+    ]);
+
+    expect(groups.map((group) => group.name)).toEqual(["Bar B", "Bar A"]);
+  });
+});
 
 describe("groupOffersByRestaurant", () => {
   it("groups by restaurant id and names the group by the newest snapshot", () => {

@@ -23,7 +23,7 @@ Słownik domeny lunch-aggregatora. Format i konsumpcja: `docs/agents/domain.md`.
 
 ## Pętla świeżości
 
-- **Offer Group** — w „Moje oferty": oferty użytkownika jednej restauracji (klucz `restaurant_id`). Oferty bez `restaurant_id` lądują w odrębnej grupie „bez restauracji" — martwe, bez doczepiania post-hoc (decyzja #18).
+- **Offer Group** — w „Moje oferty": oferty użytkownika jednej restauracji (klucz `restaurant_id`). Oferty bez `restaurant_id` lądują w kafelku „bez restauracji", pogrupowane po nazwie snapshota; właściciel może je doczepić (attach-when-null, #74) — nigdy przepiąć ani odrywać (#18).
 - **Re-publication (Wznowienie)** — jednoczesne utworzenie nowych ofert z bieżącego menu restauracji: okno `[dziś−7, dziś+6]` na własnych ofertach, mapowanie **`data + 7 dni`**, dania verbatim z oferty źródłowej, adres i współrzędne z bieżącej restauracji, **zero geokodowania**, duplikaty pomijane z raportem (per użytkownik: `restaurant_id` + `dish_name` + data docelowa).
 - **Weekly Menu Flag** (`restaurants.menu_recurs_weekly`) — znacznik „menu powtarza się co tygodnie, do odwołania". Marker intencji i surfacingu („Menu tygodniowe do odnowienia" na górze „Moje oferty"); **nie jest wyzwalaczem automatyzacji** — nic nie publikuje się samo.
 

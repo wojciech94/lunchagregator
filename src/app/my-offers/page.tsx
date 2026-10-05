@@ -6,10 +6,12 @@ import { createClient } from "@/lib/supabase/server";
 import { getTodayDate } from "@/services/offers";
 import {
   groupOffersByRestaurant,
+  groupUnlinkedByName,
   UNLINKED_GROUP_KEY,
   type GroupableOffer,
 } from "@/lib/offer-grouping";
 import { RenewMenuButton } from "@/components/my-offers/RenewMenuButton";
+import { AssignRestaurantControl } from "@/components/my-offers/AssignRestaurantControl";
 import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Moje oferty — Lunch Agregator" };
@@ -43,6 +45,26 @@ function formatDate(iso: string): string {
     day: "numeric",
     month: "short",
   });
+}
+
+/** One offer row, shared by the linked groups and the bucket's sub-groups. */
+function OfferRow({ row }: { row: MyOfferRow }) {
+  return (
+    <li className="flex items-center justify-between gap-3 py-2.5">
+      <div className="min-w-0">
+        <p className="text-sm text-foreground truncate">{row.dish_name}</p>
+        <p className="text-xs text-muted-foreground">
+          {formatDate(row.available_date)} · {row.price.toFixed(2)} PLN
+        </p>
+      </div>
+      <Link
+        href={`/offers/${row.id}/edit`}
+        className="text-sm text-primary hover:underline shrink-0 min-h-[44px] flex items-center"
+      >
+        Edytuj
+      </Link>
+    </li>
+  );
 }
 
 // ============================================================================
@@ -235,45 +257,51 @@ export default async function MyOffersPage({
                 )}
               </div>
 
-              <ul className="mt-4 divide-y divide-border">
-                {group.offers.map((groupOffer) => {
-                  const row = rowById.get(groupOffer.id);
-                  if (!row) return null;
-                  return (
-                    <li
-                      key={row.id}
-                      className="flex items-center justify-between gap-3 py-2.5"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-sm text-foreground truncate">
-                          {row.dish_name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(row.available_date)} ·{" "}
-                          {row.price.toFixed(2)} PLN
-                        </p>
+              {group.key === UNLINKED_GROUP_KEY ? (
+                <div className="mt-4 flex flex-col gap-4">
+                  <p className="text-xs text-muted-foreground">
+                    Oferty bez restauracji, pogrupowane po nazwie z materiału.
+                    Jedno przypisanie obejmuje całą grupę — po nim znikną stąd
+                    i pojawią się jako zwykła restauracja z przyciskiem
+                    wznowienia.
+                  </p>
+                  {groupUnlinkedByName(group.offers).map((sub) => (
+                    <div key={sub.name} className="rounded-md border border-border p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="text-sm font-semibold text-foreground truncate">
+                            {sub.name}
+                          </h3>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {sub.offers.length}{" "}
+                            {offersPlural(sub.offers.length)} ·{" "}
+                            {formatDate(sub.offers[0].availableDate)} –{" "}
+                            {formatDate(
+                              sub.offers[sub.offers.length - 1].availableDate
+                            )}
+                          </p>
+                        </div>
+                        <AssignRestaurantControl
+                          offerIds={sub.offers.map((o) => o.id)}
+                          snapshotName={sub.name}
+                        />
                       </div>
-                      <Link
-                        href={`/offers/${row.id}/edit`}
-                        className="text-sm text-primary hover:underline shrink-0 min-h-[44px] flex items-center"
-                      >
-                        Edytuj
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-
-              {group.key === UNLINKED_GROUP_KEY && (
-                <p className="mt-4 text-xs text-muted-foreground border-t border-border pt-3">
-                  Te oferty nie mają przypisanej restauracji, więc nie da się
-                  ich wznowić. Dodaj menu jeszcze raz przez{" "}
-                  <Link href="/add" className="text-primary hover:underline">
-                    {'„Dodaj ofertę”'}
-                  </Link>
-                  , przypisując restaurację — nowy flow robi to w pierwszym
-                  kroku.
-                </p>
+                      <ul className="mt-3 divide-y divide-border">
+                        {sub.offers.map((groupOffer) => {
+                          const row = rowById.get(groupOffer.id);
+                          return row ? <OfferRow key={row.id} row={row} /> : null;
+                        })}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <ul className="mt-4 divide-y divide-border">
+                  {group.offers.map((groupOffer) => {
+                    const row = rowById.get(groupOffer.id);
+                    return row ? <OfferRow key={row.id} row={row} /> : null;
+                  })}
+                </ul>
               )}
             </section>
           );
