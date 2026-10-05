@@ -376,6 +376,37 @@ export async function createOffer(
 }
 
 /**
+ * Every offer in the table, newest first, mapped -- the operator's queue
+ * (#76). Deliberately NOT the public listing: that answers "what can I eat,
+ * near me, today", which left the admin panel showing a single today-row.
+ * The admin needs rows from every date and the exact count behind the cap.
+ *
+ * Returns mapped rows (camelCase) -- the panel renders `OrphanOfferRow`,
+ * which speaks `LunchOffer`, not database columns. The cap is enforced here
+ * as well as in the caller, same as `listOrphanOffers`.
+ */
+export async function listAllOffersForAdmin(
+  limit = 200
+): Promise<{ offers: LunchOffer[]; total: number }> {
+  const capped = Math.min(limit, 200);
+
+  const supabase = await createClient();
+
+  const { data, error, count } = await supabase
+    .from('lunch_offers')
+    .select('*', { count: 'exact' })
+    .order('available_date', { ascending: false })
+    .limit(capped);
+
+  if (error) {
+    throw new Error(`Failed to fetch offers: ${error.message}`);
+  }
+
+  const offers = ((data ?? []) as unknown as DbLunchOffer[]).map(mapDbRowToOffer);
+  return { offers, total: count ?? offers.length };
+}
+
+/**
  * Req 8.5–8.6 (#71): re-create the restaurant's current menu week one week
  * ahead, in one click.
  *

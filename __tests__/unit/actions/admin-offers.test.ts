@@ -29,7 +29,8 @@ const mockedCreateClient = vi.mocked(createClient);
 const ADMIN_ID = '22222222-2222-4222-8222-222222222222';
 
 interface StubOptions {
-  rows?: Array<{ id: string; available_date: string }>;
+  /** Raw database rows (snake_case), exactly what `select('*')` returns. */
+  rows?: Array<Record<string, unknown>>;
   count?: number | null;
   error?: { message: string } | null;
 }
@@ -52,6 +53,32 @@ function stubClient(opts: StubOptions = {}) {
   mockedCreateClient.mockResolvedValue({ from } as never);
 }
 
+/** A raw row as the database stores it -- snake_case columns. */
+function dbRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: 'o-1',
+    dish_name: 'Kotlet schabowy',
+    items: [],
+    price: 24.9,
+    currency: 'PLN',
+    description: null,
+    restaurant_id: null,
+    restaurant_name: 'Bar Mleko',
+    restaurant_address: 'Marszałkowska 10, Warszawa',
+    restaurant_location: null,
+    available_date: '2026-10-06',
+    cuisine_type: null,
+    dietary_tags: [],
+    allergens: [],
+    source_type: 'photo',
+    user_id: null,
+    session_token: null,
+    created_at: '',
+    updated_at: '',
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.getAdmin.mockResolvedValue({ id: ADMIN_ID, email: 'admin@test.pl' });
@@ -67,24 +94,28 @@ describe('listAdminOffers (#76): the queue sees everything', () => {
     expect(result.error).toBe('Brak uprawnień');
   });
 
-  it('passes every offered row through and maps the exact count', async () => {
+  it('returns MAPPED offers -- camelCase fields the panel can render (#81)', async () => {
+    // The #79 regression: raw snake_case rows reached the panel, and
+    // `OrphanOfferRow` -- which reads `offer.dishName`, `offer.restaurantName`
+    // -- rendered empty records.
     stubClient({
-      rows: [
-        { id: 'o-2', available_date: '2026-10-06' },
-        { id: 'o-1', available_date: '2026-09-20' },
-      ],
+      rows: [dbRow(), dbRow({ id: 'o-2', dish_name: 'Pierogi', available_date: '2026-09-20' })],
       count: 2,
     });
 
     const result = await listAdminOffers();
 
     expect(result.rows).toHaveLength(2);
+    const [first] = result.rows as Array<{ dishName?: string; restaurantName?: string; price?: number }>;
+    expect(first?.dishName).toBe('Kotlet schabowy');
+    expect(first?.restaurantName).toBe('Bar Mleko');
+    expect(first?.price).toBe(24.9);
     expect(result.total).toBe(2);
     expect(result.partial).toBe(false);
   });
 
   it('marks the list partial when the exact count exceeds the cap', async () => {
-    stubClient({ rows: [{ id: 'o-1', available_date: '2026-10-06' }], count: 250 });
+    stubClient({ rows: [dbRow()], count: 250 });
 
     const result = await listAdminOffers();
 
