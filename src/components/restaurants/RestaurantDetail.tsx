@@ -205,7 +205,7 @@ export function RestaurantDetail({ restaurant, canEdit, canDelete, offers = [] }
                     href={restaurant.websiteUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary hover:underline break-all text-sm"
+                    className="text-primary underline underline-offset-4 hover:text-primary/80 break-all text-sm"
                   >
                     {restaurant.websiteUrl}
                   </a>

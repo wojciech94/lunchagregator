@@ -47,7 +47,13 @@ function formatDate(iso: string): string {
   });
 }
 
-/** One offer row, shared by the linked groups and the bucket's sub-groups. */
+/** One offer row, shared by the linked groups and the bucket's sub-groups.
+ *
+ *  Link conventions (#78): a **standalone text action** — this „Edytuj", the
+ *  admin's „Wróć do listy" — is permanently underlined; a link **inline in a
+ *  text line** (a dish title, an external URL) underlines on hover. Color by
+ *  role: primary for forward actions, muted for going back.
+ */
 function OfferRow({ row }: { row: MyOfferRow }) {
   return (
     <li className="flex items-center justify-between gap-3 py-2.5">
@@ -59,7 +65,7 @@ function OfferRow({ row }: { row: MyOfferRow }) {
       </div>
       <Link
         href={`/offers/${row.id}/edit`}
-        className="text-sm text-primary hover:underline shrink-0 min-h-[44px] flex items-center"
+        className="text-sm text-primary underline underline-offset-4 hover:text-primary/80 shrink-0 min-h-[44px] flex items-center"
       >
         Edytuj
       </Link>
