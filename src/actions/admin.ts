@@ -2,9 +2,9 @@
 
 import { getAdmin } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
-import { listOrphanOffers } from '@/services/offers';
+import { listOrphanOffers, listAllOffersForAdmin } from '@/services/offers';
 import { listRestaurants } from '@/actions/restaurants';
-import type { LunchOfferWithDistance } from '@/types/offers';
+import type { LunchOffer } from '@/types/offers';
 import type { RestaurantWithDistance } from '@/types/restaurants';
 
 /**
@@ -39,7 +39,7 @@ function refusal<T>(): AdminListResult<T> {
 /** Offers, either everything or only the ones nobody owns. */
 export async function listAdminOffers(
   options: { orphanOnly: boolean } = { orphanOnly: false }
-): Promise<AdminListResult<LunchOfferWithDistance>> {
+): Promise<AdminListResult<LunchOffer>> {
   if (!(await getAdmin())) return refusal();
 
   try {
@@ -49,22 +49,12 @@ export async function listAdminOffers(
     }
 
     // The operator's queue, not the public listing: every offer, from every
-    // date, newest first, with an exact count. `listOffers` answers "what can
-    // I eat, near me, today" -- the wrong question for someone deleting a
-    // record that is legitimately present but no longer wanted, which is why
-    // this is a direct query shaped like `listAdminRestaurants` (#76).
-    const supabase = await createClient();
-    const { data, error, count } = await supabase
-      .from('lunch_offers')
-      .select('*', { count: 'exact' })
-      .order('available_date', { ascending: false })
-      .limit(200);
-
-    if (error) throw new Error(error.message);
-
-    const rows = (data ?? []) as unknown as LunchOfferWithDistance[];
-    const total = count ?? rows.length;
-    return { rows, total, partial: total > rows.length };
+    // date, newest first, with an exact count. The service maps the rows --
+    // the panel renders `LunchOffer`, not database columns. The first cut of
+    // this (#79) passed raw snake_case rows where the component expected
+    // camelCase fields, and the panel rendered empty records (#81 report).
+    const { offers, total } = await listAllOffersForAdmin();
+    return { rows: offers, total, partial: total > offers.length };
   } catch (error) {
     return {
       rows: null,
