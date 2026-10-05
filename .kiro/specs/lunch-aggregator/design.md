@@ -57,6 +57,26 @@ Powód: query string trafia do historii przeglądarki, logów serwera, analityki
 
 **Poza zakresem: `/restaurants`.** `RestaurantsPage` ma własny zestaw filtrów i własną wersję tego samego problemu — `restaurants/page.tsx` wywołuje `listRestaurants({})`, ignorując wszystko. Mechanizm jest identyczny, więc przeniesienie jest kodem, a nie nową decyzją. Robienie obu naraz oznaczałoby każdą zmianę mechanizmu dwa razy.
 
+### Przypisanie restauracji, „Moje oferty" i wznowienie (#68)
+
+Ustalone w grillu, zamkniętym komentarzem „Settled". Dwie decyzje sterujące: **restauracja-first** (każda publikowana oferta ma `restaurant_id`) i **flaga tygodniowa na restauracji** (marker intencji „do odwołania", bez automatyzacji).
+
+**Dopasowanie po ekstrakcji jest deterministyczne.** Po ekstrakcji uruchamia się `searchRestaurants(extractedName)` — istniejące wyszukiwanie `ilike` — z preferencją dla dokładnego trafienia po znormalizowanej nazwie (trim, case-insensitive) wśród wyników. Zero dopasowań AI. Jedno trafienie (albo dokładne wśród wielu) → preselect z potwierdzeniem przez Usera; zero lub niejednoznaczne → **obowiązkowy krok przypisania**: wybór z wyszukiwania albo inline mini-formularz tworzenia restauracji (nazwa prefilled, adres wymagany, geokodowanie po istniejącej ścieżce `createRestaurant`). Zdublowane restauracje między Userami są przyjęte w v1; narzędzie scalania to przyszła decyzja.
+
+**Formularze oferty są przypięte do restauracji.** Wolne pola tekstowe nazwy i adresu znikają z `OfferForm` i `WeeklyMenuPreview`; zamiast nich widok przypiętej restauracji. Przy publikacji snapshot (nazwa, adres, lokalizacja) jest kopiowany na ofertę — **inwariant 6.2 nietknięty**: późniejsza edycja restauracji nie przepisuje opublikowanych ofert, snapshot pozostaje źródłem prawdy dla wyświetlania.
+
+**Flaga: `restaurants.menu_recurs_weekly BOOLEAN NOT NULL DEFAULT FALSE`.** Ustawiana i odwoływana w edycji restauracji (właściciel lub admin, po istniejącej ścieżce `updateRestaurant`) oraz jednym klikiem w podsumowaniu wznowienia. Rola: marker intencji „menu powtarza się co tydzień, do odwołania" i kryterium surfacingu (restauracje z flagą i wygasłym menu na górze „Moje oferty" jako „Menu tygodniowe do odnowienia"). **Zero automatyzacji w v1** — brak crona, brak materializacji w tle; to świadoma decyzja, zapisana także w Req 8.7.
+
+**Wznowienie = okno + `+7`.** Eligible: własne oferty restauracji z `available_date ∈ [dziś−7, dziś+6]`. Każda dostaje `data źródłowa + 7 dni`. Dlaczego nie `nextDateForDay`: menu pon–pt odnawiane w środku tygodnia podniosłoby tylko wygasłe pon/wt i gubiąc śr–pt na kolejny tydzień; `+7` zachowuje strukturę dni, a okno gwarantuje poprawność (najstarsze źródło ląduje dokładnie na dziś — INSERT akceptuje; najnowsze na dziś+13 ≤ limit 30 dni). Nakładanie się okien jest normalne i obcina je dedupe: wznowienie w poniedziałek mapuje zeszłotygodniowe dania na istniejące wiersze („pomięto — już istnieją"), a bieżący tydzień tworzy następny. Rytm: jedno kliknięcie tygodniowo = pełne menu na kolejny tydzień. `nextDateForDay` zostaje tam, gdzie już żył: publikacja weekly-menu w flow dodawania.
+
+**Miejsce z restauracji, dania z oferty.** Adres snapshot i współrzędne bierze się z bieżącego wiersza restauracji — **zero geokodowania** (kopiąca ścieżka nie dotyka Nominatim; ustalone w Q3 grilla). Pola dań (nazwa, opis, pozycje, tagi, alergeny, cena) kopiowane verbatim z oferty źródłowej. Restauracja, która się przeprowadziła, publikuje nowy adres; oferta źródłowa bez współrzędnych leczy się, jeśli restauracja je ma.
+
+**Deduplikacja per użytkownik.** Klucz: `restaurant_id` + `dish_name` + `data docelowa` wśród własnych ofert; pominięte pozycje trafiają do podsumowania. Globalne ograniczenie unikatowości (indeks) to osobna migracja, nie ukryte zapytanie w akcji — ustalone w Q4.
+
+**Stare oferty bez restauracji są martwe.** Bez migracji, bez czyszczenia, bez doczepiania post-hoc (decyzja #18 obowiązuje). W „Moje oferty" lądują w odrębnej grupie „bez restauracji" z podpowiedzią ponownego dodania przez nowy flow. Admin pozostaje narzędziem backlogu (#54–#56).
+
+**Poza zakresem v1 (świadomie):** automatyczna materializacja menu (cron/pg_cron), digesty e-mail, scalanie zdublowanych restauracji, globalne ograniczenie unikatowości ofert, doczepianie restauracji do starych ofert.
+
 ## Architecture
 
 ### Diagram wysokopoziomowy
