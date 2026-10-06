@@ -15,6 +15,7 @@ Baza testowa: lokalny stos (`npx supabase start`) — patrz `docs/agents/test-da
 
 ## Conventions
 
+- Write new repository documentation, issues, and pull requests in English.
 - Zod waliduje dane wejściowe w server actions; schematy w `src/lib/validations/`, `src/schemas/`
 - Supabase client w `src/lib/supabase/` — `client.ts` (browser), `server.ts` (server actions)
 - Dostęp do zasobów chroniony dwukrotnie: politykami RLS w bazie (`auth.uid() = user_id`, migracja `20250101000000`) **i** kodem aplikacji (`getUser()` + `checkOwnership()` w `src/actions/*.ts`). Żadna z tych warstw nie wystarcza jako jedyna — każda zakłada, że druga może zawieść. Polityki `USING (true)` z `20240202000000` są nieaktualne i obalone; patrz nagłówek tego pliku.
@@ -30,3 +31,7 @@ Issues and specs live as GitHub issues in `wojciech94/lunchagregator`, driven th
 ### Domain docs
 
 Single-context layout: `GLOSSARY.md` at the repo root plus `docs/adr/`. See `docs/agents/domain.md`.
+
+### Pull request reviews
+
+When performing an automatic or user-requested PR review, read and follow `docs/agents/pr-review.md`. Review both issue/spec conformance and correctness/repository standards. Automatic review is configured externally; opening a PR does not require an additional agent-initiated review.
