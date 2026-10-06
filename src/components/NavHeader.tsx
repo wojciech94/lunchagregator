@@ -19,11 +19,11 @@ export async function NavHeader() {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-[#0f1011]">
-      <div className="mx-auto flex h-14 max-w-[1440px] items-center justify-between px-4 md:px-6">
+      <div className="mx-auto flex h-14 max-w-[1440px] items-center justify-between gap-3 px-4 md:px-6">
         {/* Logo */}
         <Link
           href="/"
-          className="flex items-center gap-2 text-[#f7f8f8] font-semibold min-h-[44px]"
+          className="flex shrink-0 items-center gap-2 text-[#f7f8f8] font-semibold min-h-[44px]"
         >
           <UtensilsCrossed className="size-5 text-primary" />
           <span className="hidden sm:inline text-base">Lunch Agregator</span>
@@ -34,12 +34,12 @@ export async function NavHeader() {
         <NavLinks isAdmin={viewerIsAdmin} isAuthenticated={!!user} />
 
         {/* Right side: auth + location + mobile toggle */}
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           {/* Auth controls (desktop) */}
-          <div className="hidden lg:flex lg:items-center lg:gap-2">
+          <div className="hidden xl:flex xl:items-center xl:gap-2">
             {user ? (
               <>
-                <span className="text-sm text-[#62666d] truncate max-w-[200px]">
+                <span className="text-sm text-[#62666d] truncate max-w-[120px]" title={user.email}>
                   {user.email}
                 </span>
                 <LogoutButton />
@@ -49,12 +49,16 @@ export async function NavHeader() {
             )}
           </div>
 
-          <div className="hidden lg:block">
+          <div className="hidden min-w-0 xl:block">
             <LocationIndicator />
           </div>
 
           {/* Mobile hamburger + dropdown */}
-          <NavMobileMenu isAdmin={viewerIsAdmin} isAuthenticated={!!user} />
+          <NavMobileMenu
+            isAdmin={viewerIsAdmin}
+            isAuthenticated={!!user}
+            accountControls={user ? <LogoutButton /> : <AuthNavLinks />}
+          />
         </div>
       </div>
     </header>
