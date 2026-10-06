@@ -72,7 +72,7 @@ test.describe('audit #87 navigation', () => {
       await seed(context, role);
       await page.goto(`${origin}/?date=2026-10-08&diets=vegetarian`);
       const header = page.locator('header');
-      for (const width of [320, 390, 767, 768, 1000, 1023, 1024, 1279, 1280, 1440]) {
+      for (const width of [320, 390, 767, 768, 1000, 1023, 1024, 1279, 1280, 1439, 1440]) {
         await page.setViewportSize({ width, height: 800 });
         if (width < 1440) {
           await header.getByRole('button', { name: 'Otwórz menu' }).click();
@@ -91,6 +91,8 @@ test.describe('audit #87 navigation', () => {
         } else {
           await expect(nav.getByRole('link', { name: 'Moje oferty' })).toBeVisible();
           await expect(header.getByRole('button', { name: 'Wyloguj się' })).toBeVisible();
+          const account = width < 1440 ? nav : header;
+          await expect(account.getByText(email, { exact: true })).toBeVisible();
         }
         await expect(nav.getByRole('link', { name: 'Panel admina' })).toHaveCount(role === 'admin' ? 1 : 0);
         await noOverflow(page);
@@ -116,8 +118,14 @@ test.describe('audit #87 navigation', () => {
     await page.goto(`${origin}/chat`);
     const toggle = page.getByRole('button', { name: 'Otwórz menu' });
     const menu = page.getByRole('navigation', { name: 'Nawigacja mobilna' });
+    // Confirm hydration via an observable interaction before sending raw keys.
+    await toggle.click();
+    await expect(menu).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
     await toggle.focus();
     await page.keyboard.press('Enter');
+    await expect(menu).toBeVisible();
     await page.keyboard.press('Tab');
     await expect(menu.getByRole('link', { name: 'Oferty', exact: true })).toBeFocused();
     await page.keyboard.press('Escape');

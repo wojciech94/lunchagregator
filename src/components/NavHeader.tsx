@@ -57,7 +57,14 @@ export async function NavHeader() {
           <NavMobileMenu
             isAdmin={viewerIsAdmin}
             isAuthenticated={!!user}
-            accountControls={user ? <LogoutButton /> : <AuthNavLinks />}
+            accountControls={user ? (
+              <>
+                <span className="px-3 text-sm text-[#62666d] [overflow-wrap:anywhere]">
+                  {user.email}
+                </span>
+                <LogoutButton />
+              </>
+            ) : <AuthNavLinks />}
           />
         </div>
       </div>
