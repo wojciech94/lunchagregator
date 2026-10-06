@@ -1,4 +1,5 @@
 import { logoutAction } from "@/actions/auth";
+import { Button } from "@/components/ui/button";
 
 /**
  * Server Component that renders a logout form.
@@ -13,12 +14,14 @@ export function LogoutButton() {
         await logoutAction();
       }}
     >
-      <button
+      <Button
         type="submit"
-        className="rounded-[4px] px-3 py-2 text-sm font-medium text-[#62666d] hover:text-primary transition-colors min-h-[44px] flex items-center"
+        variant="link"
+        size="sm"
+        className="text-[#62666d] hover:text-primary min-h-[44px]"
       >
         Wyloguj się
-      </button>
+      </Button>
     </form>
   );
 }

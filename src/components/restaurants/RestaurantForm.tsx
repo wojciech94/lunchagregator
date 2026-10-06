@@ -252,19 +252,13 @@ export function RestaurantForm({
       <FormField label="Typ kuchni" error={fieldErrors["cuisineTypes"]} isOptional>
         <div className="flex flex-wrap gap-2">
           {CUISINE_OPTIONS.map((option) => (
-            <button
+            <Chip
               key={option.value}
-              type="button"
+              active={cuisineTypes.includes(option.value)}
               onClick={() => handleCuisineToggle(option.value, !cuisineTypes.includes(option.value))}
-              className={cn(
-                "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                cuisineTypes.includes(option.value)
-                  ? "border-primary/30 bg-primary/10 text-primary"
-                  : "border-border text-muted-foreground hover:border-primary/20 hover:text-foreground"
-              )}
             >
               {option.label}
-            </button>
+            </Chip>
           ))}
         </div>
       </FormField>

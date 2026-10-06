@@ -170,14 +170,14 @@ export function DeleteRecordDialog({
                   Anuluj
                 </Button>
               </DialogClose>
-              <button
+              <Button
                 type="button"
+                variant="destructive"
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="inline-flex min-h-[40px] items-center rounded-[4px] border border-destructive/20 bg-destructive/10 px-4 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/20 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/30"
               >
                 {isDeleting ? "Usuwanie..." : confirmLabel}
-              </button>
+              </Button>
             </DialogFooter>
           </>
         )}

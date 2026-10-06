@@ -4,6 +4,7 @@ import * as React from "react";
 import { MapPin, ChevronDown, Crosshair, X, Check } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { AddressInput } from "./AddressInput";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Coordinates } from "@/types/offers";
 
@@ -95,14 +96,16 @@ export function LocationIndicator() {
                   </p>
                 </div>
               </div>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-xs"
                 onClick={handleClear}
-                className="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-destructive transition-colors"
+                className="shrink-0 text-muted-foreground hover:text-destructive"
                 aria-label="Wyczyść lokalizację"
               >
                 <X className="size-4" />
-              </button>
+              </Button>
             </div>
           ) : (
             <p className="mb-3 text-sm text-muted-foreground">
@@ -111,15 +114,15 @@ export function LocationIndicator() {
           )}
 
           {/* Use GPS */}
-          <button
+          <Button
             type="button"
             onClick={handleUseGps}
             disabled={loading}
-            className="mb-3 inline-flex w-full items-center justify-center gap-2 rounded-[4px] bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-[#5e6ad2] disabled:opacity-50"
+            className="w-full mb-3"
           >
             <Crosshair className="size-4" />
             {loading ? "Określanie..." : "Użyj mojej lokalizacji"}
-          </button>
+          </Button>
 
           {/* Divider */}
           <div className="relative my-3">
