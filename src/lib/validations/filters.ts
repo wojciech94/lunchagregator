@@ -18,15 +18,15 @@ export const priceFilterSchema = z
   .object({
     min: z
       .number()
-      .min(0.01, 'Minimum price is 0.01')
-      .max(999.99, 'Maximum price is 999.99'),
+      .min(0.01, 'Cena musi wynosić co najmniej 0,01 zł.')
+      .max(999.99, 'Cena nie może przekraczać 999,99 zł.'),
     max: z
       .number()
-      .min(0.01, 'Minimum price is 0.01')
-      .max(999.99, 'Maximum price is 999.99'),
+      .min(0.01, 'Cena musi wynosić co najmniej 0,01 zł.')
+      .max(999.99, 'Cena nie może przekraczać 999,99 zł.'),
   })
   .refine((data) => data.min <= data.max, {
-    message: 'Minimum price must be less than or equal to maximum price',
+    message: 'Cena minimalna nie może być wyższa od maksymalnej. Zmień zakres cen.',
     path: ['min'],
   });
 
@@ -50,6 +50,10 @@ export const offerFiltersSchema = z.object({
   date: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format')
+    .refine((value) => {
+      const date = new Date(`${value}T12:00:00Z`);
+      return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+    }, 'Date must be a real calendar date')
     .optional(),
   page: z.number().int().min(1).optional().default(1),
   limit: z.number().int().min(1).max(50).optional().default(50),

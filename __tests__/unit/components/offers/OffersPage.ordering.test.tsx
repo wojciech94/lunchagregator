@@ -173,11 +173,13 @@ describe('OffersPage default sort, Requirement 1.2', () => {
     expect('sortBy' in observedInitialFilters).toBe(false);
   });
 
-  it('asks for distance sorting once coordinates arrive', () => {
+  it('keeps location-aware default sorting implicit once coordinates arrive', () => {
     geoCoordinates = { latitude: 52.2297, longitude: 21.0122 };
 
     render(<OffersPage initialData={page([])} />);
 
-    expect(observedInitialFilters).toEqual({ sortBy: 'distance' });
+    // The service already uses the origin for default distance sorting. An
+    // explicit value here would turn a default into a user-selected criterion.
+    expect(observedInitialFilters).toEqual({});
   });
 });

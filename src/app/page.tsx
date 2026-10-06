@@ -2,6 +2,7 @@ import { getOffers } from "@/actions/offers";
 import { OffersPage } from "@/components/offers/OffersPage";
 import { parseFiltersFromSearchParams, withDistanceFilter } from "@/lib/filter-url";
 import { readStoredLocationCookie } from "@/lib/location";
+import { todayISO, upcomingDays } from "@/utils/day-of-week";
 
 interface HomeProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -32,10 +33,15 @@ export default async function Home({ searchParams }: HomeProps) {
     ? result.data
     : { offers: [], total: 0, page: 1, limit: 50, hasMore: false };
 
+  const date = filters.date ?? todayISO();
+  const dayLabel = date === todayISO() ? "dziś"
+    : date === upcomingDays(2)[1].date ? "jutro"
+    : new Date(`${date}T12:00:00`).toLocaleDateString("pl-PL", { day: "numeric", month: "long", year: "numeric" });
+
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <h1 className="text-2xl font-bold tracking-tight sm:text-3xl mb-6">
-        Oferty lunchowe na dziś
+        Oferty lunchowe na {dayLabel}
       </h1>
       <OffersPage initialData={initialData} />
     </div>
