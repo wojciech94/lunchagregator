@@ -206,14 +206,16 @@ export function RestaurantAssignment({
           </div>
 
           <div className="flex flex-col gap-3 rounded-md border border-border p-4">
-            <button
+            <Button
               type="button"
+              variant="link"
+              size="sm"
               onClick={() => setCreateOpen((prev) => !prev)}
-              className="self-start text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80"
+              className="self-start"
               aria-expanded={createOpen}
             >
               Nie ma jej na liście? Dodaj nową restaurację
-            </button>
+            </Button>
 
             {createOpen && (
               <div className="flex flex-col gap-4">

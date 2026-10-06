@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Search, X, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { searchRestaurants } from "@/actions/restaurants";
 import type { RestaurantSummary } from "@/types/restaurants";
 
@@ -119,14 +120,16 @@ export function RestaurantSelect({ onSelect, selectedId }: RestaurantSelectProps
               <p className="text-xs text-muted-foreground truncate">{selected.address}</p>
             )}
           </div>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
             onClick={handleClear}
-            className="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+            className="shrink-0"
             aria-label="Wyczyść wybór restauracji"
           >
             <X className="size-4" />
-          </button>
+          </Button>
         </div>
       ) : (
         <div className="relative">
