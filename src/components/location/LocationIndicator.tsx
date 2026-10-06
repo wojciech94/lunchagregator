@@ -60,14 +60,14 @@ export function LocationIndicator() {
     : "Ustaw lokalizację";
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative min-w-0">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="dialog"
         className={cn(
-          "inline-flex items-center gap-1.5 rounded-[4px] px-2.5 py-1.5 text-base transition-colors max-w-[300px]",
+          "inline-flex items-center gap-1.5 rounded-[4px] px-2.5 py-1.5 text-base transition-colors min-h-[44px] max-w-full xl:max-w-[200px]",
           coordinates
             ? "text-[#f7f8f8] hover:bg-white/5"
             : "text-[#62666d] hover:text-[#f7f8f8]"
@@ -82,7 +82,7 @@ export function LocationIndicator() {
         <div
           role="dialog"
           aria-label="Ustawienia lokalizacji"
-          className="absolute right-0 z-50 mt-2 w-[300px] rounded-md border border-border bg-popover p-4 shadow-[rgba(0,0,0,0.4)_0px_2px_8px_0px]"
+          className="relative xl:absolute right-0 z-50 mt-2 w-[300px] max-w-full rounded-md border border-border bg-popover p-4 shadow-[rgba(0,0,0,0.4)_0px_2px_8px_0px]"
         >
           {/* Current location status */}
           {coordinates ? (
