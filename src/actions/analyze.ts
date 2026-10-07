@@ -2,6 +2,7 @@
 
 import { analyzeUrl, analyzeText, analyzeImage } from '@/services/ai-analyzer';
 import type { ExtractedOffers } from '@/services/ai-analyzer';
+import { reportExtractionFailure } from '@/lib/ai/extraction-errors';
 
 // ============================================================================
 // Types
@@ -55,7 +56,7 @@ export async function analyzeUrlAction(
     const result = await analyzeUrl(url.trim());
     return { success: true, data: result };
   } catch (error) {
-    console.error('analyzeUrlAction error:', error);
+    reportExtractionFailure(error);
     return {
       success: false,
       error: 'Nie udało się przeanalizować podanego URL. Spróbuj ponownie lub wprowadź dane ręcznie.',
@@ -87,7 +88,7 @@ export async function analyzeTextAction(
     const result = await analyzeText(text.trim());
     return { success: true, data: result };
   } catch (error) {
-    console.error('analyzeTextAction error:', error);
+    reportExtractionFailure(error);
     return {
       success: false,
       error: 'Nie udało się przeanalizować tekstu. Spróbuj ponownie lub wprowadź dane ręcznie.',
@@ -119,7 +120,7 @@ export async function analyzeImageAction(
     const result = await analyzeImage(imageUrl.trim());
     return { success: true, data: result };
   } catch (error) {
-    console.error('analyzeImageAction error:', error);
+    reportExtractionFailure(error);
     return {
       success: false,
       error: 'Nie udało się przeanalizować obrazu. Spróbuj ponownie lub wprowadź dane ręcznie.',

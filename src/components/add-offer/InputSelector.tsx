@@ -67,21 +67,18 @@ export function InputSelector({
         </TabsList>
 
         <div className="mt-4">
-          {isLoading ? (
-            <LoadingState />
-          ) : (
-            <>
-              <TabsContent value="link">
-                <LinkInput onSubmit={onSubmit} />
-              </TabsContent>
-              <TabsContent value="text">
-                <TextInput onSubmit={onSubmit} />
-              </TabsContent>
-              <TabsContent value="photo">
-                <PhotoInput onSubmit={onSubmit} />
-              </TabsContent>
-            </>
-          )}
+          {isLoading && <LoadingState />}
+          <fieldset disabled={isLoading} hidden={isLoading}>
+            <TabsContent value="link" forceMount hidden={activeTab !== "link"}>
+              <LinkInput onSubmit={onSubmit} />
+            </TabsContent>
+            <TabsContent value="text" forceMount hidden={activeTab !== "text"}>
+              <TextInput onSubmit={onSubmit} />
+            </TabsContent>
+            <TabsContent value="photo" forceMount hidden={activeTab !== "photo"}>
+              <PhotoInput onSubmit={onSubmit} />
+            </TabsContent>
+          </fieldset>
         </div>
       </Tabs>
     </div>

@@ -10,6 +10,7 @@ import { analyzeText, analyzeUrl, analyzeImage } from '@/services/ai-analyzer';
 import { generateObject } from 'ai';
 import { AI_MODEL_ID } from '@/lib/ai/models';
 import { RATE_LIMIT_MESSAGE } from '@/lib/ai/errors';
+import { EXTRACTION_ERROR_MESSAGES } from '@/lib/ai/extraction-errors';
 
 const mockGenerateObject = vi.mocked(generateObject);
 
@@ -191,12 +192,12 @@ describe('AIAnalyzerService', () => {
       });
     });
 
-    it('should not attach a message to an ordinary AI failure', async () => {
+    it('should distinguish an ordinary AI failure from no offers', async () => {
       mockGenerateObject.mockRejectedValueOnce(new Error('API error'));
 
       const result = await analyzeText('Some text');
 
-      expect(result.message).toBeUndefined();
+      expect(result.message).toBe(EXTRACTION_ERROR_MESSAGES.unavailable);
     });
 
     it('should call the pinned Google model with thinking off', async () => {
@@ -224,6 +225,7 @@ describe('AIAnalyzerService', () => {
         sourceType: 'text',
         confidence: 0,
         missingFields: ['restaurantName', 'dishName', 'price'],
+        message: EXTRACTION_ERROR_MESSAGES.unavailable,
       });
     });
   });
@@ -262,6 +264,7 @@ describe('AIAnalyzerService', () => {
         sourceType: 'link',
         confidence: 0,
         missingFields: ['restaurantName', 'dishName', 'price'],
+        message: EXTRACTION_ERROR_MESSAGES.unavailable,
       });
     });
   });
@@ -324,6 +327,7 @@ describe('AIAnalyzerService', () => {
         sourceType: 'photo',
         confidence: 0,
         missingFields: ['restaurantName', 'dishName', 'price'],
+        message: EXTRACTION_ERROR_MESSAGES.unavailable,
       });
     });
 

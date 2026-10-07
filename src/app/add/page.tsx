@@ -433,21 +433,13 @@ export default function AddOfferPage() {
         </div>
       )}
 
-      {/* Step: Input */}
-      {state.step === "input" && (
+      {/* Keep the same selector mounted while analysis runs so retries retain input. */}
+      <div hidden={state.step !== "input" && state.step !== "analyzing"}>
         <InputSelector
           onSubmit={handleInputSubmit}
-          isLoading={false}
+          isLoading={state.step === "analyzing"}
         />
-      )}
-
-      {/* Step: Analyzing (loading) */}
-      {state.step === "analyzing" && (
-        <InputSelector
-          onSubmit={handleInputSubmit}
-          isLoading={true}
-        />
-      )}
+      </div>
 
       {/* Step: Restaurant assignment (Req 8.1) */}
       {state.step === "assignment" && (
