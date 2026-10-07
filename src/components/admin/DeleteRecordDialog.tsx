@@ -40,6 +40,9 @@ export interface DeleteRecordDialogProps {
    * rejection that leaves the reader staring at a spinner.
    */
   onConfirm: () => Promise<{ success: true } | { success: false; error: string }>;
+  /** Allows a caller to load deletion consequences before enabling confirmation. */
+  onOpenChange?: (open: boolean) => void;
+  confirmDisabled?: boolean;
 
   /**
    * Where to go once the record is gone. Omitted on a list the operator is
@@ -79,6 +82,8 @@ export function DeleteRecordDialog({
   warning,
   confirmLabel,
   onConfirm,
+  onOpenChange,
+  confirmDisabled = false,
   redirectTo,
   className,
 }: DeleteRecordDialogProps) {
@@ -88,6 +93,7 @@ export function DeleteRecordDialog({
   const [error, setError] = React.useState<string | null>(null);
 
   async function handleDelete() {
+    if (confirmDisabled || isDeleting) return;
     setIsDeleting(true);
     setError(null);
 
@@ -104,6 +110,7 @@ export function DeleteRecordDialog({
 
   /** Leaving the dialog is what applies the change to the page behind it. */
   function handleOpenChange(open: boolean) {
+    onOpenChange?.(open);
     if (open) {
       setError(null);
       return;
@@ -174,7 +181,7 @@ export function DeleteRecordDialog({
                 type="button"
                 variant="destructive"
                 onClick={handleDelete}
-                disabled={isDeleting}
+                disabled={isDeleting || confirmDisabled}
               >
                 {isDeleting ? "Usuwanie..." : confirmLabel}
               </Button>

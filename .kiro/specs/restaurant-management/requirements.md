@@ -2,18 +2,18 @@
 
 ## Introduction
 
-Funkcjonalność zarządzania restauracjami jako samodzielnymi encjami w aplikacji Lunch Agregator. Obecnie dane restauracji (nazwa, adres, lokalizacja) są zduplikowane w każdej ofercie lunchowej. Nowa funkcjonalność wprowadza osobną tabelę restauracji z pełnym zestawem metadanych (lokalizacja, poziom cenowy, godziny lunchowe, typ kuchni) oraz umożliwia powiązanie ofert lunchowych z restauracjami zamiast osadzania danych restauracji w każdej ofercie. Użytkownicy mogą tworzyć, edytować i usuwać restauracje w ramach swojej sesji anonimowej.
+Restauracje są samodzielnymi encjami z metadanymi (adres, lokalizacja, poziom cenowy, godziny lunchowe, typ kuchni). Nowe oferty wymagają przypisania restauracji, a jej dane są kopiowane do oferty jako snapshot. Historyczne oferty bez powiązania nadal działają. Zalogowani użytkownicy zarządzają własnymi restauracjami; administrator ma dodatkowe uprawnienia. Własność chronią niezależnie autoryzacja aplikacji i RLS.
 
 ## Glossary
 
 - **System**: Aplikacja webowa agregująca oferty lunchowe (Lunch Agregator)
-- **User**: Osoba korzystająca z aplikacji — może przeglądać restauracje, dodawać nowe oraz zarządzać nimi
+- **User**: Zalogowane konto zarządzające własnymi restauracjami; Visitor może przeglądać. Pełne definicje w `GLOSSARY.md`.
 - **Restaurant**: Samodzielna encja reprezentująca restaurację z metadanymi (nazwa, adres, lokalizacja, poziom cenowy, godziny lunchowe, typ kuchni)
 - **Lunch_Offer**: Pojedyncza oferta lunchowa powiązana z Restaurant
 - **Location_Service**: Moduł odpowiedzialny za geokodowanie adresów i obliczanie odległości
 - **Price_Level**: Kategoria cenowa restauracji (budżetowa, średnia, premium) określająca ogólny poziom cen
 - **Lunch_Hours**: Przedział czasowy w którym restauracja serwuje lunch (np. 12:00-16:00)
-- **Session_Token**: Anonimowy identyfikator sesji użytkownika przechowywany w cookie/localStorage, służący do identyfikacji właściciela restauracji
+- **Session_Token**: Historyczny identyfikator anonimowych danych, zachowany na okres migracji; bieżąca własność wynika z `user_id`.
 
 ## Requirements
 
@@ -28,7 +28,7 @@ Funkcjonalność zarządzania restauracjami jako samodzielnymi encjami w aplikac
 3. THE System SHALL allow optional fields for each Restaurant: description (maximum 500 characters), Price_Level (one selection from: budżetowa, średnia, premium), Lunch_Hours (start time and end time in HH:MM format, where start time is earlier than end time), cuisine type (one or more selections from the predefined list), phone number (maximum 20 characters), and website URL (maximum 500 characters)
 4. WHEN a User provides a restaurant address, THE Location_Service SHALL geocode the address to obtain geographic coordinates within 10 seconds
 5. IF the Location_Service cannot geocode a provided address, THEN THE System SHALL store the Restaurant without coordinates and display a message indicating that distance-based features will not be available for this restaurant
-6. THE System SHALL associate each created Restaurant with the User's Session_Token to establish ownership
+6. THE System SHALL associate each created Restaurant with the authenticated User's user_id to establish ownership
 7. IF a User submits a Restaurant with missing or invalid required fields, THEN THE System SHALL reject the submission, highlight the invalid fields, and display a specific message indicating what correction is needed
 
 ### Requirement 2: Edycja restauracji
@@ -37,9 +37,9 @@ Funkcjonalność zarządzania restauracjami jako samodzielnymi encjami w aplikac
 
 #### Acceptance Criteria
 
-1. WHEN a User selects a Restaurant they own (identified by matching Session_Token), THE System SHALL display an edit form pre-filled with the current Restaurant data
+1. WHEN a User selects a Restaurant they own (identified by matching authenticated user_id), THE System SHALL display an edit form pre-filled with the current Restaurant data
 2. WHEN a User submits valid changes to a Restaurant, THE System SHALL update the Restaurant entity in the database and reflect the changes within 3 seconds
-3. IF a User attempts to edit a Restaurant with a non-matching Session_Token, THEN THE System SHALL deny the operation and display a message indicating the User does not have permission to edit this restaurant
+3. IF a User attempts to edit a Restaurant owned by another user, unless acting with administrator permissions, THEN THE System SHALL deny the operation and display a message indicating the User does not have permission to edit this restaurant
 4. WHEN a User changes the address of a Restaurant, THE Location_Service SHALL re-geocode the new address to update geographic coordinates
 5. THE System SHALL validate all edited fields using the same constraints as during creation (name 2-100 characters, description maximum 500 characters, Lunch_Hours start before end)
 
@@ -49,11 +49,11 @@ Funkcjonalność zarządzania restauracjami jako samodzielnymi encjami w aplikac
 
 #### Acceptance Criteria
 
-1. WHEN a User requests deletion of a Restaurant they own (identified by matching Session_Token), THE System SHALL display a confirmation prompt before proceeding
+1. WHEN a User requests deletion of a Restaurant they own (identified by matching authenticated user_id), THE System SHALL display a confirmation prompt before proceeding
 2. WHEN a User confirms deletion of a Restaurant, THE System SHALL remove the Restaurant entity from the database within 3 seconds
 3. IF a Restaurant has associated Lunch_Offers, THEN THE System SHALL inform the User about the number of associated offers and require explicit confirmation before deletion
-4. WHEN a Restaurant with associated Lunch_Offers is deleted, THE System SHALL retain the Lunch_Offers with embedded restaurant data (name, address, location copied from the Restaurant at the time of deletion) to preserve offer integrity
-5. IF a User attempts to delete a Restaurant with a non-matching Session_Token, THEN THE System SHALL deny the operation and display a message indicating the User does not have permission to delete this restaurant
+4. WHEN a Restaurant with associated Lunch_Offers is deleted, THE System SHALL detach all linked offers (restaurant_id becomes NULL) while preserving their existing publication snapshots (name, address, location), regardless of subsequent changes to the Restaurant or the offer owner. Failed database deletion SHALL leave the Restaurant and its linked offers unchanged. Decision: #105, confirmed 2026-10-07.
+5. IF a User attempts to delete a Restaurant owned by another user, unless acting with administrator permissions, THEN THE System SHALL deny the operation and display a message indicating the User does not have permission to delete this restaurant
 
 ### Requirement 4: Przeglądanie restauracji
 
@@ -89,9 +89,20 @@ Funkcjonalność zarządzania restauracjami jako samodzielnymi encjami w aplikac
 
 1. WHEN a User creates a new Lunch_Offer, THE System SHALL provide an option to select an existing Restaurant from a searchable dropdown list
 2. WHEN a User selects an existing Restaurant for a Lunch_Offer, THE System SHALL automatically populate the offer's restaurant name, address, and location fields from the selected Restaurant entity
-3. WHEN a User creates a Lunch_Offer without selecting an existing Restaurant, THE System SHALL allow manual entry of restaurant data as in the current behavior (embedded restaurant name, address, location)
+3. WHEN a User creates a new Lunch_Offer, THE System SHALL require assignment to an existing or newly created Restaurant before opening the offer form. Existing unlinked offers remain readable and retain their snapshots.
 4. WHEN a Restaurant's data is updated, THE System SHALL NOT retroactively change the restaurant data embedded in previously created Lunch_Offers (offers retain a snapshot of restaurant data at creation time)
 5. THE System SHALL display on the Restaurant detail page a list of all active Lunch_Offers associated with that Restaurant
+
+### Requirement 8: Review and publication in restaurant context
+
+1. WHEN creation starts from a Restaurant detail page, THE System SHALL resolve the requested Restaurant on the server and preserve its assignment through manual entry, extraction, preview and publication. The User may explicitly change that assignment before publication.
+2. IF the requested Restaurant identifier is invalid or no longer exists, THE System SHALL explain the problem and allow the normal assignment flow.
+3. THE User SHALL be able to correct each weekly-menu offer's name, price, set components and availability date, and exclude individual offers before publication without excluding the whole day.
+4. THE System SHALL validate every selected offer against the publication schema, visibly report invalid entries and block publication until they are corrected or excluded. It SHALL NOT silently discard selected incomplete dishes. Unedited metadata and draft corrections SHALL survive rejected submission.
+5. THE System SHALL count selected offers rather than selected days and accept at most 50 offers per publication batch. Oversized requests SHALL be rejected on the server before any offer is written; the preview SHALL explain the limit.
+6. Before deleting a Restaurant, THE System SHALL show the total number of linked offers, including expired offers, and explain that they will be detached rather than deleted. Failure to obtain the count SHALL be visible and SHALL block confirmation rather than appear as zero.
+
+These requirements cover #101–#104. Import source fetching, explicit source-week interpretation, idempotency and safe retries belong to #94. GPS reverse geocoding is deferred; a date filter on the Restaurant catalog is outside this scope.
 
 ### Requirement 7: Walidacja godzin lunchowych
 

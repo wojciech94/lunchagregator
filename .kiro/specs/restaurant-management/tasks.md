@@ -24,7 +24,7 @@
 
 - [x] 4.1 Create `src/actions/restaurants.ts` with `createRestaurant` server action: validate input with Zod, geocode address if provided, insert into Supabase, return ActionResult
 - [x] 4.2 Add `updateRestaurant` server action: verify ownership (session token match), validate input, re-geocode if address changed, update in Supabase
-- [x] 4.3 Add `deleteRestaurant` server action: verify ownership, check for associated offers, snapshot restaurant data into offers if needed (copy name/address/location to offer fields where restaurant_id matches), then delete restaurant
+- [x] 4.3 Add `deleteRestaurant` server action: verify authorization, delete the Restaurant, detach linked offers through the FK without rewriting their published snapshots (contract clarified in #105).
 - [x] 4.4 Add `listRestaurants` server action: query with filters (distance, price level, cuisine, lunch hours, text search), sort alphabetically, paginate (max 50)
 - [x] 4.5 Add `getRestaurant` server action: fetch single restaurant with active offers count
 - [x] 4.6 Add `searchRestaurants` server action: lightweight search returning RestaurantSummary[] for the dropdown in offer form
@@ -119,10 +119,21 @@
 - [x] 17.1 Strona edycji restauracji `src/app/restaurants/[id]/edit/page.tsx` — formularz pre-filled, wywołanie `updateRestaurant`. RestaurantForm rozszerzony o tryb edycji (`restaurantId` prop + UpdateRestaurantInput).
 - [x] 17.2 Edycja oferty `src/app/offers/[id]/edit/page.tsx` — dedykowany formularz (pre-filled, `updateOfferAction`). Usuwanie oferty: `src/components/offers/DeleteOfferButton.tsx` — dialog potwierdzenia w miejscu (`deleteOfferAction`), zamiast osobnej strony `/delete`, która kosztowała dwie nawigacje i kończyła przekierowaniem na publiczną listę
 - [x] 17.3 Lista aktywnych ofert na stronie restauracji (Req 6.5) — `getOffersByRestaurant` + sekcja na stronie szczegółów z linkami do ofert
-- [ ] 17.4 Reverse geocoding dla lokalizacji GPS — zamienić „Bieżąca lokalizacja" na czytelny adres (np. dzielnica/miasto) w `LocationIndicator`
-- [ ] 17.5 Link „Dodaj ofertę" z pre-wybraną restauracją na stronie szczegółów restauracji — przekazać `restaurantId` jako query param do `/add?restaurantId=...` i auto-populate `RestaurantSelect` w formularzu
-- [ ] 17.6 Potwierdzenie usunięcia restauracji z informacją o liczbie powiązanych ofert — zastąpić `window.confirm` dedykowanym dialogiem pokazującym liczbę ofert, które zostaną odłączone
-- [ ] 17.7 Edycja/usuwanie pojedynczych dań w `WeeklyMenuPreview` przed publikacją — inline edycja nazwy i ceny dania, przycisk usunięcia dania z listy
-- [ ] 17.8 Testy property-based/integ. dla nowych funkcji: `nextDateForDay`, batch creation, filtr daty ofert
-- [ ] 17.9 Filtr daty również na stronie restauracji (spójność z selektorem dni na ofertach)
-- [ ] 17.10 Walidacja/limit liczby ofert w batchu (ochrona przed nadużyciem przy dużych menu)
+- **17.4 Odłożone:** czytelna dzielnica/miasto dla GPS jest opcjonalnym usprawnieniem wspólnej lokalizacji, poza zakresem tej specyfikacji.
+- [x] 17.5 Zachować kontekst restauracji z `/add?restaurantId=...` przez ekstrakcję i publikację; walidować wybór na serwerze, umożliwić świadomą zmianę oraz obsłużyć nieaktualny link. [#102](https://github.com/wojciech94/lunchagregator/issues/102)
+- [x] 17.6 Podstawowy dialog usuwania restauracji już istnieje (`DeleteRestaurantButton`).
+  - [x] 17.6.1 Pokazywać liczbę **wszystkich** odłączanych ofert, również wygasłych; nie przedstawiać błędu liczenia jako zera. [#104](https://github.com/wojciech94/lunchagregator/issues/104)
+- [x] 17.7 Przegląd i korekta menu przed publikacją: nazwa, cena, skład zestawu, data i wykluczanie pojedynczych ofert; wybrane niepoprawne oferty blokują publikację, licznik liczy oferty zamiast dni. Zachować metadane i wybór restauracji. [#101](https://github.com/wojciech94/lunchagregator/issues/101)
+- **17.8 Zastąpione konkretnymi kryteriami testowymi #101–#104:** istnieją testy dat formularza, częściowych batchy i filtra daty na prawdziwej bazie; nie dublować ich ogólnym zadaniem property tests.
+- **17.9 Wycofane:** ogólny filtr daty katalogu restauracji nie ma zdefiniowanej wartości. Dostępność restauracji w danym dniu wymaga osobnego wymagania; szczegóły pokazują już daty ofert.
+- [x] 17.10 Limit 50 ofert na batch, współdzielony przez podgląd i serwer; przekroczenie odrzucane przed pierwszym zapisem. Limit nie zastępuje idempotencji importera. [#103](https://github.com/wojciech94/lunchagregator/issues/103)
+
+### Kolejność i zakres (2026-10-07)
+
+#101 → #102 → #103 → #104. Korekta menu ma służyć obecnemu `/add` i stanowić podstawę do ponownego wykorzystania w pilotażu #94, bez implementowania importera.
+
+Decyzja #105 (2026-10-07): po usunięciu restauracji oferty zachowują dane z chwili publikacji. Zastępuje pierwotne kopiowanie danych przy usunięciu z Req 3.4.
+
+- [x] 17.11 Usuwanie restauracji bez przepisywania snapshotów; test rzeczywistej akcji oraz lokalne testy FK/RLS dla wielu właścicieli i błędów usunięcia. [#105](https://github.com/wojciech94/lunchagregator/issues/105)
+
+Implementacja #101–#105 znajduje się w bieżącym workspace. Reverse geocoding pozostaje odłożony, filtr daty katalogu wycofany, importer #94 jest oddzielną pracą. #105 zweryfikowano na rzeczywistej lokalnej bazie (FK/RLS) oraz testami akcji; naprawa historycznych danych na produkcji pozostaje poza zakresem.

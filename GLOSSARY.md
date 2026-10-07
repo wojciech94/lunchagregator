@@ -12,7 +12,7 @@ Słownik domeny lunch-aggregatora. Format i konsumpcja: `docs/agents/domain.md`.
 
 - **Lunch_Offer** — pojedyncza oferta lunchowa: danie, cena, opis, snapshot restauracji, `available_date` (pojedyncza data, dziś..30 dni w przód; trigger waliduje na `INSERT`).
 - **Restaurant** — encja restauracji z metadanymi (adres, `location` GEOGRAPHY, poziom cenowy, godziny lunchowe, kuchnia). Semantyka powiązania oferta↔restauracja należy do spec `restaurant-management`.
-- **Snapshot** — pola restauracji zduplikowane na ofercie (nazwa, adres, lokalizacja) w chwili publikacji. **Źródło prawdy dla wyświetlania** — zmiana w `restaurants` nie przepisuje opublikowanych ofert; inwariant Req 6.2. `restaurant_id` jest opcjonalne i służy śledzeniu, nie wyświetlaniu.
+- **Snapshot** — dane restauracji (nazwa, adres, lokalizacja) zachowane na ofercie w chwili publikacji. Źródło prawdy dla wyświetlania oferty; edycja ani usunięcie restauracji nie zmieniają tych danych. Po usunięciu restauracji oferta pozostaje niepowiązana z restauracją. Decyzja: #105, Req 3.4 i 6.4 specyfikacji `restaurant-management`.
 - **Orphan Offer** — oferta bez właściciela (`user_id IS NULL`). Odzyskuje ją admin w panelu (`get_orphan_offers`, #55). **Nie** nazywamy tak oferty bez `restaurant_id` — ta to zwykła oferta ze snapshotem, tylko niepowiązana.
 
 ## Ekstrakcja i menu

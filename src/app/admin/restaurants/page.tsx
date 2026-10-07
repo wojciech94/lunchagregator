@@ -118,8 +118,6 @@ export default async function AdminRestaurantsPage({
                     id: restaurant.id,
                     name: restaurant.name,
                     address: restaurant.address ?? null,
-                    hasOwner: restaurant.userId !== null && restaurant.userId !== undefined,
-                    activeOffersCount: restaurant.activeOffersCount ?? 0,
                   }}
                 />
               </div>

@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 
 const mocks = vi.hoisted(() => ({ analyzeTextAction: vi.fn() }));
 vi.mock('@/actions/analyze', () => ({ analyzeTextAction: mocks.analyzeTextAction, analyzeUrlAction: vi.fn(), analyzeImageAction: vi.fn() }));
-import AddOfferPage from './page';
+import AddOfferPage from '@/components/add-offer/AddOfferWizard';
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 

@@ -130,3 +130,23 @@ describe('createOffersBatchAction', () => {
     expect(result.data.failed[0].fieldErrors).toMatchObject({ price: expect.any(String) });
   });
 });
+it('rejects an oversized batch before calling auth or the database', async () => {
+  vi.mocked(getUser).mockClear();
+  vi.mocked(createClient).mockClear();
+  const result = await createOffersBatchAction(Array.from({ length: 51 }, () => payloads('Bar')[0]));
+  expect(result).toMatchObject({ success: false, error: expect.stringContaining('50') });
+  expect(getUser).not.toHaveBeenCalled();
+  expect(createClient).not.toHaveBeenCalled();
+});
+
+it('accepts exactly 50 offers', async () => {
+  const result = await createOffersBatchAction(Array.from({ length: 50 }, () => payloads('Bar')[0]));
+  expect(result.success).toBe(true);
+  if (result.success) expect(result.data.created).toHaveLength(50);
+});
+
+it('rejects an empty batch without writes', async () => {
+  vi.mocked(createClient).mockClear();
+  expect(await createOffersBatchAction([])).toMatchObject({ success: false });
+  expect(createClient).not.toHaveBeenCalled();
+});

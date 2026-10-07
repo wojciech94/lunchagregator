@@ -1,7 +1,8 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
-import { deleteRestaurant } from "@/actions/restaurants";
+import { useRef, useState } from "react";
+import { countRestaurantLinkedOffers, deleteRestaurant } from "@/actions/restaurants";
 import { DeleteRecordDialog } from "@/components/admin/DeleteRecordDialog";
 import { Button } from "@/components/ui/button";
 
@@ -9,18 +10,6 @@ export interface DeletableRestaurant {
   id: string;
   name: string;
   address: string | null;
-  /** False when the record has no owner. */
-  hasOwner: boolean;
-  /**
-   * How many offers point here.
-   *
-   * Deleting a restaurant does not delete its offers -- `restaurant_id` is set
-   * to null, so the offers stay on the public list with the name they were
-   * filed under. An operator deciding to delete should be told that, because
-   * "delete the restaurant" reasonably reads as removing everything named
-   * after it.
-   */
-  activeOffersCount: number;
 }
 
 interface DeleteRestaurantButtonProps {
@@ -43,8 +32,28 @@ export function DeleteRestaurantButton({
   redirectTo,
   className,
 }: DeleteRestaurantButtonProps) {
+  const [linkedOffersCount, setLinkedOffersCount] = useState<number | null>(null);
+  const [countError, setCountError] = useState<string | null>(null);
+  const requestId = useRef(0);
+
+  async function handleOpenChange(open: boolean) {
+    const currentRequest = ++requestId.current;
+    setLinkedOffersCount(null);
+    setCountError(null);
+    if (!open) return;
+    try {
+      const result = await countRestaurantLinkedOffers(restaurant.id);
+      if (currentRequest !== requestId.current) return;
+      if (result.success) setLinkedOffersCount(result.data);
+      else setCountError(result.error);
+    } catch {
+      if (currentRequest === requestId.current) setCountError('Nie udało się policzyć powiązanych ofert. Zamknij dialog i spróbuj ponownie.');
+    }
+  }
   return (
     <DeleteRecordDialog
+      onOpenChange={handleOpenChange}
+      confirmDisabled={linkedOffersCount === null}
       redirectTo={redirectTo}
       className={className}
       title="Usuń restaurację"
@@ -84,31 +93,31 @@ export function DeleteRestaurantButton({
               <dd className="text-foreground">{restaurant.address}</dd>
             </div>
           )}
-          {restaurant.activeOffersCount > 0 && (
-            <div>
+          <div>
               <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                Oferty powiązane
+                Wszystkie oferty powiązane (również wygasłe)
               </dt>
               <dd className="text-foreground">
-                {restaurant.activeOffersCount}
+                {linkedOffersCount === null ? 'Sprawdzanie liczby ofert…' : linkedOffersCount}
               </dd>
-            </div>
-          )}
+          </div>
+          {countError && <p role="alert" className="text-destructive">{countError}</p>}
         </dl>
       }
       warning={
-        restaurant.hasOwner ? (
+        (
           <div className="flex items-start gap-3 rounded-[4px] border border-destructive/30 bg-destructive/5 p-4">
             <AlertTriangle
               className="mt-0.5 size-5 shrink-0 text-destructive"
               aria-hidden="true"
             />
             <p className="text-sm text-destructive">
-              Ta restauracja ma właściciela. Usuwasz jego wpis, a oferty przy
-              niej pozostaną na liście pod nazwą z oferty.
+              Usunięcie restauracji odłączy wszystkie jej oferty, także wygasłe.
+              Oferty nie zostaną usunięte. Pozostaną zapisane, a bieżące i przyszłe
+              nadal będą dostępne na liście ofert.
             </p>
           </div>
-        ) : undefined
+        )
       }
       onConfirm={async () => {
         const result = await deleteRestaurant(restaurant.id);
