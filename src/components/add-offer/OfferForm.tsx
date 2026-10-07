@@ -477,7 +477,7 @@ function FormField({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label htmlFor={htmlFor}>
+      <Label htmlFor={htmlFor} className="flex-wrap">
         {label}
         {required && <span className="text-destructive ml-0.5">*</span>}
         {isOptional && (

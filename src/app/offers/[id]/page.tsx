@@ -1,3 +1,4 @@
+import { cuisineLabels, dietaryLabels, allergenLabels } from '@/lib/display-labels';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, Pencil, MapPin, Calendar, Utensils, Tag } from 'lucide-react';
@@ -8,7 +9,7 @@ import { canModify } from '@/lib/ownership';
 import { DeleteOfferButton } from '@/components/offers/DeleteOfferButton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 interface OfferDetailsPageProps {
   params: Promise<{ id: string }>;
@@ -44,7 +45,7 @@ export default async function OfferDetailsPage({ params }: OfferDetailsPageProps
           <CardHeader>
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div className="space-y-1">
-                <CardTitle className="text-2xl md:text-3xl">{offer.dishName}</CardTitle>
+                <h1 className="text-2xl font-semibold md:text-3xl">{offer.dishName}</h1>
                 <p className="text-lg font-semibold text-primary">
                   {offer.price.toFixed(2)} {offer.currency}
                 </p>
@@ -119,7 +120,7 @@ export default async function OfferDetailsPage({ params }: OfferDetailsPageProps
               <section>
                 <h2 className="text-sm font-medium text-muted-foreground mb-1">Typ kuchni</h2>
                 <Badge variant="secondary" className="capitalize">
-                  {offer.cuisineType}
+                  {cuisineLabels[offer.cuisineType]}
                 </Badge>
               </section>
             )}
@@ -132,7 +133,7 @@ export default async function OfferDetailsPage({ params }: OfferDetailsPageProps
                   {offer.dietaryTags.map((tag) => (
                     <Badge key={tag} variant="default">
                       <Tag className="size-3" />
-                      {tag}
+                      {dietaryLabels[tag]}
                     </Badge>
                   ))}
                 </div>
@@ -146,7 +147,7 @@ export default async function OfferDetailsPage({ params }: OfferDetailsPageProps
                 <div className="flex flex-wrap gap-2">
                   {offer.allergens.map((allergen) => (
                     <Badge key={allergen} variant="outline">
-                      {allergen}
+                      {allergenLabels[allergen]}
                     </Badge>
                   ))}
                 </div>

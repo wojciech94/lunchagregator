@@ -54,7 +54,7 @@ function availableDateSchema() {
     },
     {
       message:
-        'Available date must be today or within the next 30 days',
+        'Wybierz datę od dziś do 30 dni w przyszłość.',
     }
   );
 }
@@ -62,90 +62,90 @@ function availableDateSchema() {
 export const createOfferSchema = z.object({
   dishName: z
     .string()
-    .min(1, 'Dish name is required')
-    .max(100, 'Dish name must be at most 100 characters'),
+    .min(1, 'Podaj nazwę dania.')
+    .max(100, 'Nazwa dania może mieć maksymalnie 100 znaków.'),
   price: z
-    .number()
-    .min(0.01, 'Price must be at least 0.01')
-    .max(9999.99, 'Price must be at most 9999.99'),
+    .number({ required_error: 'Podaj cenę w PLN.', invalid_type_error: 'Podaj cenę w PLN.' })
+    .min(0.01, 'Cena musi wynosić co najmniej 0,01 PLN.')
+    .max(9999.99, 'Cena może wynosić maksymalnie 9999,99 PLN.'),
   restaurantName: z
     .string()
-    .min(1, 'Restaurant name is required')
-    .max(100, 'Restaurant name must be at most 100 characters'),
+    .min(1, 'Podaj nazwę restauracji.')
+    .max(100, 'Nazwa restauracji może mieć maksymalnie 100 znaków.'),
   availableDate: availableDateSchema(),
   sourceType: sourceTypeSchema,
 
   // Optional fields
   items: z
-    .array(z.string().max(200, 'Each item must be at most 200 characters'))
-    .max(10, 'Maximum 10 items allowed')
+    .array(z.string().max(200, 'Pozycja zestawu może mieć maksymalnie 200 znaków.'))
+    .max(10, 'Zestaw może zawierać maksymalnie 10 pozycji.')
     .optional()
     .default([]),
   description: z
     .string()
-    .max(500, 'Description must be at most 500 characters')
+    .max(500, 'Opis może mieć maksymalnie 500 znaków.')
     .nullable()
     .optional(),
   cuisineType: cuisineTypeSchema.nullable().optional(),
   dietaryTags: z
     .array(dietaryTagSchema)
-    .max(5, 'Maximum 5 dietary tags allowed')
+    .max(5, 'Wybierz maksymalnie 5 tagów dietetycznych.')
     .optional()
     .default([]),
   allergens: z
     .array(allergenSchema)
-    .max(10, 'Maximum 10 allergens allowed')
+    .max(10, 'Wybierz maksymalnie 10 alergenów.')
     .optional()
     .default([]),
   restaurantAddress: z
     .string()
-    .max(200, 'Restaurant address must be at most 200 characters')
+    .max(200, 'Adres restauracji może mieć maksymalnie 200 znaków.')
     .nullable()
     .optional(),
-  restaurantId: z.string().uuid('Invalid restaurant ID').optional(),
+  restaurantId: z.string().uuid('Nieprawidłowy identyfikator restauracji.').optional(),
 });
 
 export const updateOfferSchema = z.object({
   dishName: z
     .string()
-    .min(1, 'Dish name is required')
-    .max(100, 'Dish name must be at most 100 characters')
+    .min(1, 'Podaj nazwę dania.')
+    .max(100, 'Nazwa dania może mieć maksymalnie 100 znaków.')
     .optional(),
   price: z
-    .number()
-    .min(0.01, 'Price must be at least 0.01')
-    .max(9999.99, 'Price must be at most 9999.99')
+    .number({ required_error: 'Podaj cenę w PLN.', invalid_type_error: 'Podaj cenę w PLN.' })
+    .min(0.01, 'Cena musi wynosić co najmniej 0,01 PLN.')
+    .max(9999.99, 'Cena może wynosić maksymalnie 9999,99 PLN.')
     .optional(),
   restaurantName: z
     .string()
-    .min(1, 'Restaurant name is required')
-    .max(100, 'Restaurant name must be at most 100 characters')
+    .min(1, 'Podaj nazwę restauracji.')
+    .max(100, 'Nazwa restauracji może mieć maksymalnie 100 znaków.')
     .optional(),
   availableDate: availableDateSchema().optional(),
   sourceType: sourceTypeSchema.optional(),
 
   // Optional fields
   items: z
-    .array(z.string().max(200, 'Each item must be at most 200 characters'))
-    .max(10, 'Maximum 10 items allowed')
+    .array(z.string().max(200, 'Pozycja zestawu może mieć maksymalnie 200 znaków.'))
+    .max(10, 'Zestaw może zawierać maksymalnie 10 pozycji.')
     .optional(),
   description: z
     .string()
-    .max(500, 'Description must be at most 500 characters')
+    .max(500, 'Opis może mieć maksymalnie 500 znaków.')
     .nullable()
     .optional(),
   cuisineType: cuisineTypeSchema.nullable().optional(),
   dietaryTags: z
     .array(dietaryTagSchema)
-    .max(5, 'Maximum 5 dietary tags allowed')
+    .max(5, 'Wybierz maksymalnie 5 tagów dietetycznych.')
     .optional(),
   allergens: z
     .array(allergenSchema)
-    .max(10, 'Maximum 10 allergens allowed')
+    .max(10, 'Wybierz maksymalnie 10 alergenów.')
     .optional(),
   restaurantAddress: z
     .string()
-    .max(200, 'Restaurant address must be at most 200 characters')
+    .max(200, 'Adres restauracji może mieć maksymalnie 200 znaków.')
     .nullable()
     .optional(),
   // No restaurantId here, deliberately. This schema used to accept

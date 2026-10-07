@@ -1,3 +1,4 @@
+import { cuisineLabels } from '@/lib/display-labels';
 import Link from "next/link";
 import { Clock, MapPin } from "lucide-react";
 import { formatLunchHours } from "@/utils/lunch-hours-formatter";
@@ -47,7 +48,7 @@ export function RestaurantCard({ restaurant, className }: RestaurantCardProps) {
               key={cuisine}
               className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground"
             >
-              {cuisine}
+              {cuisineLabels[cuisine]}
             </span>
           ))}
         </div>

@@ -38,7 +38,7 @@ export default async function AdminRestaurantsPage({
 
       <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
         {orphanOnly
-          ? "Te restauracje mają wpis w publicznej liście, ale nikt nie nimi nie zarządza. Powstały tak, gdy konto właściciela zostało usunięte."
+          ? "Te restauracje mają wpis w publicznej liście, ale nikt nimi nie zarządza. Powstały tak, gdy konto właściciela zostało usunięte."
           : "Wszystkie restauracje. Włącz filtr, aby zobaczyć tylko te bez właściciela."}
       </p>
 

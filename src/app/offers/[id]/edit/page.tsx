@@ -184,7 +184,7 @@ function EditOfferForm({
   const [allergens, setAllergens] = React.useState<Allergen[]>(
     offer.allergens ?? []
   );
-  const [itemsText, setItemsText] = React.useState((offer.items ?? []).join(", "));
+  const [items, setItems] = React.useState<string[]>([...(offer.items ?? [])]);
 
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
@@ -211,20 +211,15 @@ function EditOfferForm({
     setFieldErrors({});
     setFormError(null);
 
-    const items = itemsText
-      .split(",")
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
-
     const parsedPrice = Number.parseFloat(price);
 
     const data = {
       dishName: dishName.trim(),
-      price: Number.isNaN(parsedPrice) ? undefined : parsedPrice,
+      price: parsedPrice,
       restaurantName: restaurantName.trim(),
       availableDate,
       sourceType: offer.sourceType,
-      items,
+      items: items.filter((item) => item.trim().length > 0),
       description: description.trim() ? description.trim() : null,
       cuisineType: cuisineType ?? null,
       dietaryTags,
@@ -278,6 +273,7 @@ function EditOfferForm({
           maxLength={100}
           className="bg-card border-border focus:border-primary"
           aria-invalid={!!fieldErrors["dishName"]}
+          aria-describedby={fieldErrors["dishName"] ? "offer-dishName-error" : undefined}
         />
       </FormField>
 
@@ -294,6 +290,7 @@ function EditOfferForm({
           placeholder="np. 25.00"
           className="bg-card border-border focus:border-primary"
           aria-invalid={!!fieldErrors["price"]}
+          aria-describedby={fieldErrors["price"] ? "offer-price-error" : undefined}
         />
       </FormField>
 
@@ -307,6 +304,7 @@ function EditOfferForm({
           maxLength={100}
           className="bg-card border-border focus:border-primary"
           aria-invalid={!!fieldErrors["restaurantName"]}
+          aria-describedby={fieldErrors["restaurantName"] ? "offer-restaurantName-error" : undefined}
         />
       </FormField>
 
@@ -319,6 +317,7 @@ function EditOfferForm({
           onChange={(e) => setAvailableDate(e.target.value)}
           className="bg-card border-border focus:border-primary"
           aria-invalid={!!fieldErrors["availableDate"]}
+          aria-describedby={fieldErrors["availableDate"] ? "offer-availableDate-error" : undefined}
         />
       </FormField>
 
@@ -333,21 +332,32 @@ function EditOfferForm({
           rows={3}
           className="bg-card border-border focus:border-primary resize-none"
           aria-invalid={!!fieldErrors["description"]}
+          aria-describedby={fieldErrors["description"] ? "offer-description-error" : undefined}
         />
       </FormField>
 
       {/* Items */}
-      <FormField label="Skład zestawu" htmlFor="offer-items" error={fieldErrors["items"]} isOptional>
-        <Input
-          id="offer-items"
-          value={itemsText}
-          onChange={(e) => setItemsText(e.target.value)}
-          placeholder="np. zupa, drugie danie, deser (oddziel przecinkami)"
-          className="bg-card border-border focus:border-primary"
-          aria-invalid={!!fieldErrors["items"]}
-        />
+      <FormField label="Skład zestawu" error={fieldErrors["items"]} isOptional>
+        {items.map((item, index) => (
+          <div key={index} className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <Label htmlFor={`offer-item-${index}`}>Pozycja zestawu {index + 1}</Label>
+              <Input
+                id={`offer-item-${index}`}
+                value={item}
+                maxLength={200}
+                onChange={(event) => setItems(items.map((value, i) => i === index ? event.target.value : value))}
+                aria-invalid={!!fieldErrors[`items.${index}`]}
+                aria-describedby={fieldErrors[`items.${index}`] ? `offer-item-${index}-error` : undefined}
+              />
+              {fieldErrors[`items.${index}`] && <p id={`offer-item-${index}-error`} role="alert" className="text-xs text-destructive">{fieldErrors[`items.${index}`]}</p>}
+            </div>
+            <Button type="button" variant="outline" aria-label={`Usuń pozycję ${index + 1}`} onClick={() => setItems(items.filter((_, i) => i !== index))}>Usuń</Button>
+          </div>
+        ))}
+        <Button type="button" variant="outline" className="self-start" disabled={items.length >= 10} onClick={() => setItems([...items, ''])}>Dodaj pozycję</Button>
         <p className="text-xs text-muted-foreground/60">
-          Oddziel poszczególne pozycje przecinkami.
+          Wpisz każdą pozycję osobno. Przecinki i cudzysłowy pozostają częścią pozycji.
         </p>
       </FormField>
 
@@ -382,6 +392,7 @@ function EditOfferForm({
           maxLength={200}
           className="bg-card border-border focus:border-primary"
           aria-invalid={!!fieldErrors["restaurantAddress"]}
+          aria-describedby={fieldErrors["restaurantAddress"] ? "offer-restaurantAddress-error" : undefined}
         />
       </FormField>
 
@@ -460,7 +471,7 @@ function FormField({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <Label htmlFor={htmlFor} className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      <Label htmlFor={htmlFor} className="flex-wrap text-xs font-medium uppercase tracking-wider text-muted-foreground">
         {label}
         {required && <span className="text-destructive ml-0.5">*</span>}
         {isOptional && (
