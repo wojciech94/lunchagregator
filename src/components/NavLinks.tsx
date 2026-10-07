@@ -3,46 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { linksFor } from "@/lib/nav-links";
+import { navLinks, isNavActive } from "@/lib/nav-links";
 
-interface NavLinksProps {
-  /**
-   * Whether the viewer is an admin, decided in `NavHeader`.
-   *
-   * A boolean rather than the user, so this component never has an identity to
-   * hold and cannot accidentally render something from it.
-   */
-  isAdmin?: boolean;
-  /**
-   * Whether the viewer is signed in: the User's own links (`Moje oferty`)
-   * appear only then. Same courtesy-not-guard rule as the admin's.
-   */
-  isAuthenticated?: boolean;
-}
-
-export function NavLinks({
-  isAdmin = false,
-  isAuthenticated = false,
-}: NavLinksProps) {
+export function NavLinks() {
   const pathname = usePathname();
-
-  const isActive = (href: string) =>
-    pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
-
   return (
     <nav aria-label="Nawigacja główna" className="hidden shrink-0 xl:flex xl:items-center xl:gap-1">
-      {linksFor(isAdmin, isAuthenticated).map((link) => (
-        <Link
-          key={link.href}
-          href={link.href}
-          aria-current={isActive(link.href) ? "page" : undefined}
-          className={cn(
-            "rounded-[4px] px-2 py-2 text-sm font-medium transition-colors min-h-[44px] flex items-center",
-            isActive(link.href)
-              ? "text-[#f7f8f8] bg-white/5"
-              : "text-[#62666d] hover:text-primary"
-          )}
-        >
+      {navLinks.map((link) => (
+        <Link key={link.href} href={link.href} aria-current={isNavActive(pathname, link.href) ? "page" : undefined}
+          className={cn("rounded-[4px] px-3 py-2 text-sm font-medium transition-colors min-h-[44px] flex items-center",
+            isNavActive(pathname, link.href) ? "text-[#f7f8f8] bg-white/5" : "text-[#a1a5ad] hover:text-primary")}>
           {link.label}
         </Link>
       ))}

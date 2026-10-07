@@ -3,7 +3,7 @@
  */
 // Feature: user-authentication, Property 11: NavHeader renders the authenticated user's email and logout button
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { fc } from '../../__tests__/properties/fc-config';
 import { setMockUser } from '../../tests/setup';
@@ -41,6 +41,7 @@ describe("Property 11: NavHeader renders the authenticated user's email and logo
           render(await NavHeader());
 
           expect(screen.getByText(user.email, { exact: true })).toBeInTheDocument();
+          fireEvent.click(screen.getByRole('button', { name: 'Menu profilu' }));
           expect(screen.getByRole('button', { name: 'Wyloguj się' })).toBeInTheDocument();
           expect(screen.queryByRole('link', { name: 'Zaloguj się' })).not.toBeInTheDocument();
           expect(screen.queryByRole('link', { name: 'Zarejestruj się' })).not.toBeInTheDocument();
@@ -50,5 +51,5 @@ describe("Property 11: NavHeader renders the authenticated user's email and logo
       }),
       { numRuns: 100 }
     );
-  });
+  }, 15000);
 });

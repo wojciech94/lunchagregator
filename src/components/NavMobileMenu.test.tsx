@@ -7,6 +7,13 @@ import { NavMobileMenu } from './NavMobileMenu';
 vi.mock('@/components/location/LocationIndicator', () => ({ LocationIndicator: () => <button>Location</button> }));
 afterEach(cleanup);
 
+it('marks the add-offer destination active in the mobile menu', () => {
+  setMockPathname('/add');
+  render(<NavMobileMenu isAuthenticated />);
+  fireEvent.click(screen.getByRole('button', { name: 'Otwórz menu' }));
+  expect(screen.getByRole('link', { name: 'Dodaj ofertę' })).toHaveAttribute('aria-current', 'page');
+});
+
 it('offers anonymous account links with the complete return address', () => {
   setMockSearchParams('date=2026-10-08&diets=vegetarian');
   render(<NavMobileMenu />);

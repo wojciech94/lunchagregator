@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { geocodeAddressAction } from "@/actions/geocode";
@@ -11,6 +11,8 @@ interface AddressInputProps {
 }
 
 export function AddressInput({ onLocationResolved }: AddressInputProps) {
+  const inputId = useId();
+  const hintId = useId();
   const [address, setAddress] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,31 +49,39 @@ export function AddressInput({ onLocationResolved }: AddressInputProps) {
   return (
     <div className="flex flex-col gap-3">
       <label
-        htmlFor="address-input"
+        htmlFor={inputId}
         className="text-sm font-medium text-foreground"
       >
         Wpisz swój adres
       </label>
       <div className="flex gap-2">
         <Input
-          id="address-input"
+          id={inputId}
           type="text"
+          className="min-w-0 min-h-[44px]"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
           placeholder="np. ul. Marszałkowska 1, Warszawa"
           maxLength={200}
           disabled={loading || success}
-          aria-describedby="address-hint"
+          aria-describedby={hintId}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !loading && !success) {
+              event.preventDefault();
+              void handleSubmit();
+            }
+          }}
         />
         <Button
           onClick={handleSubmit}
           disabled={loading || !address.trim() || success}
           size="default"
+          className="min-h-[44px]"
         >
           {loading ? "Szukam..." : "Znajdź"}
         </Button>
       </div>
-      <p id="address-hint" className="text-xs text-muted-foreground">
+      <p id={hintId} className="text-xs text-muted-foreground">
         Maksymalnie 200 znaków
       </p>
       {error && (

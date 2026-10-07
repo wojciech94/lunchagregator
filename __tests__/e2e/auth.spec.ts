@@ -81,6 +81,7 @@ test.describe('Supabase authentication journeys', () => {
 
     await page.waitForURL('/');
     await expect(page.getByText(testEmail, { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Menu profilu' }).click();
     await expect(
       page.getByRole('button', { name: 'Wyloguj się', exact: true })
     ).toBeVisible();
@@ -102,6 +103,7 @@ test.describe('Supabase authentication journeys', () => {
     await expect(page.getByText(testEmail, { exact: true })).toBeVisible();
     await expectAuthenticatedSessionCookie(context);
 
+    await page.getByRole('button', { name: 'Menu profilu' }).click();
     await page.getByRole('button', { name: 'Wyloguj się', exact: true }).click();
     await page.waitForURL('/');
     await expect(
