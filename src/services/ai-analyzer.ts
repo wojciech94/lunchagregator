@@ -1,6 +1,5 @@
 import { generateObject } from 'ai';
-import { google } from '@ai-sdk/google';
-import { AI_MODEL_ID } from '@/lib/ai/models';
+import { modelWithRateLimitFallback } from '@/lib/ai/model-with-fallback';
 import { ExtractionTimeoutError, reportExtractionFailure } from '@/lib/ai/extraction-errors';
 import { AI_TIMEOUT_MS, GEMINI_PROVIDER_OPTIONS } from '@/lib/ai/constants';
 import { z } from 'zod';
@@ -287,7 +286,7 @@ export async function analyzeUrl(url: string): Promise<ExtractedOffers> {
       const { object } = await generateObject({
         abortSignal,
         maxRetries: 0,
-        model: google(AI_MODEL_ID),
+        model: modelWithRateLimitFallback(),
         providerOptions: GEMINI_PROVIDER_OPTIONS,
         schema: extractionResultSchema,
         system: EXTRACTION_SYSTEM_PROMPT,
@@ -331,7 +330,7 @@ export async function analyzeText(text: string): Promise<ExtractedOffers> {
       const { object } = await generateObject({
         abortSignal,
         maxRetries: 0,
-        model: google(AI_MODEL_ID),
+        model: modelWithRateLimitFallback(),
         providerOptions: GEMINI_PROVIDER_OPTIONS,
         schema: extractionResultSchema,
         system: EXTRACTION_SYSTEM_PROMPT,
@@ -361,7 +360,7 @@ export async function analyzeImage(imageUrl: string): Promise<ExtractedOffers> {
       const { object } = await generateObject({
         abortSignal,
         maxRetries: 0,
-        model: google(AI_MODEL_ID),
+        model: modelWithRateLimitFallback(),
         providerOptions: GEMINI_PROVIDER_OPTIONS,
         schema: extractionResultSchema,
         system: EXTRACTION_SYSTEM_PROMPT,

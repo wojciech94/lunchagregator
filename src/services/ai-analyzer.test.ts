@@ -20,7 +20,7 @@ describe('extraction provider boundary', () => {
     const pending = analyzeText('Restauracja: Pizza Si. Lunch: Margherita, 34 zł.');
     await vi.advanceTimersByTimeAsync(10000);
     expect((await pending).message).toBe(message);
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledTimes(status === 429 ? 2 : 1);
   });
 
   it('aborts the provider request at the ten-second deadline', async () => {
@@ -42,6 +42,35 @@ describe('extraction provider boundary', () => {
   function providerResponse(value: unknown) {
     return new Response(JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ text: JSON.stringify(value) }] }, finishReason: 'STOP' }], usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 10 } }), { headers: { 'content-type': 'application/json' } });
   }
+
+  it('uses 3.1 once after a primary 429 and preserves the extraction input', async () => {
+    const fetch = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: 429, message: 'Rate limit', status: 'RESOURCE_EXHAUSTED' } }), { status: 429, headers: { 'content-type': 'application/json' } }))
+      .mockResolvedValueOnce(providerResponse({ offers: [{ restaurantName: 'Pizza Si', dishes: [{ name: 'Margherita', price: 34 }] }], confidence: 0.9 }));
+    const result = await analyzeText('Pizza Si. Margherita 34 PLN.');
+    expect(result.message).toBeUndefined();
+    expect(result.offers[0].dishes[0].price).toBe(34);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(String(fetch.mock.calls[0][0])).toContain('gemini-3.5-flash-lite');
+    expect(String(fetch.mock.calls[1][0])).toContain('gemini-3.1-flash-lite');
+    expect(fetch.mock.calls[1][1]?.body).toEqual(fetch.mock.calls[0][1]?.body);
+  });
+
+  it('does not give the fallback a new ten-second deadline', async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    let fallbackSignal: AbortSignal | null | undefined;
+    const fetch = vi.spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(() => new Promise(resolve => setTimeout(() => resolve(new Response(JSON.stringify({ error: { code: 429 } }), { status: 429, headers: { 'content-type': 'application/json' } })), 9000)))
+      .mockImplementationOnce((_url, options) => { fallbackSignal = options?.signal; return new Promise(() => {}); });
+    const pending = analyzeText('Lunch: Margherita 34 PLN.');
+    await vi.advanceTimersByTimeAsync(9000);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fallbackSignal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect((await pending).message).toBe(EXTRACTION_ERROR_MESSAGES.timeout);
+    expect(fallbackSignal?.aborted).toBe(true);
+  });
 
   it('distinguishes invalid structured output from a successful empty analysis', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});

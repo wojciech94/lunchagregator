@@ -1,6 +1,5 @@
 import { streamText, type CoreMessage } from 'ai';
-import { google } from '@ai-sdk/google';
-import { AI_MODEL_ID } from '@/lib/ai/models';
+import { modelWithRateLimitFallback } from '@/lib/ai/model-with-fallback';
 import { AI_TIMEOUT_MS, GEMINI_PROVIDER_OPTIONS } from '@/lib/ai/constants';
 import type { Coordinates, LunchOffer } from '@/types/offers';
 
@@ -84,7 +83,8 @@ export function createAIRecommenderService(): AIRecommenderService {
       }));
 
       return streamText({
-        model: google(AI_MODEL_ID),
+        maxRetries: 0,
+        model: modelWithRateLimitFallback(),
         providerOptions: GEMINI_PROVIDER_OPTIONS,
         system: systemPrompt,
         messages: coreMessages,
