@@ -120,7 +120,7 @@ test.describe("audit #88 offer filters", () => {
     await page.getByRole("button", { name: "Wyczyść filtry" }).click();
     await expect(page).toHaveURL(`${origin}/?date=${date}`);
     await expect(page.getByLabel("Cena minimalna")).toHaveValue("");
-    expect(requests.at(-1)).toMatchObject({ p_date: date, p_price_min: null, p_price_max: null, p_radius_km: null, p_sort_by: "distance" });
+    expect(requests.filter(request => request.p_date === date).at(-1)).toMatchObject({ p_date: date, p_price_min: null, p_price_max: null, p_radius_km: null, p_sort_by: "distance" });
   });
 
   test("invalid prices stay visible and cannot broaden a linked search", async ({ page, context }) => {
@@ -130,7 +130,10 @@ test.describe("audit #88 offer filters", () => {
     await expect(page.getByLabel("Cena minimalna")).toHaveValue("50");
     await expect(page.getByLabel("Cena maksymalna")).toHaveValue("30");
     await expect(page.locator("main").getByRole("alert")).toContainText(/minimalna.*maksymalnej/i);
-    expect(requests).toHaveLength(0);
+    // Navigation links may prefetch today's unfiltered page. They must not
+    // be mistaken for a query for this invalid, selected-day search.
+    expect(requests.filter(request => request.p_date === date)).toHaveLength(0);
+    await expect(page.locator("main").getByRole("list")).toHaveCount(0);
     await page.getByLabel("Cena maksymalna").fill("60");
     await expect(page).toHaveURL(/priceMax=60/);
     await expect(page.locator("main").getByRole("alert")).toHaveCount(0);
