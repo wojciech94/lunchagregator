@@ -262,7 +262,7 @@ export async function getOffersByRestaurant(
 export async function createOffer(
   data: unknown,
   userId: string,
-  options?: { presetLocation?: string | null }
+  options?: { presetLocation?: string | null; inferCuisine?: boolean }
 ): Promise<ActionResultWithLocationWarning<LunchOffer>> {
   // Validate input with Zod
   const parsed = createOfferSchema.safeParse(data);
@@ -317,7 +317,9 @@ export async function createOffer(
 
     // Dish cuisine wins. A single valid restaurant cuisine is an unambiguous
     // publication default; multiple cuisines do not identify this dish.
-    if (parsed.data.cuisineType == null && restaurant.cuisine_types?.length === 1) {
+    // Renewal disables inference to preserve source dish fields verbatim,
+    // including unknown cuisine, while still taking the current place.
+    if (options?.inferCuisine !== false && parsed.data.cuisineType == null && restaurant.cuisine_types?.length === 1) {
       const cuisine = cuisineTypeSchema.safeParse(restaurant.cuisine_types[0]);
       if (cuisine.success) dbRow.cuisine_type = cuisine.data;
     }
@@ -533,7 +535,7 @@ export async function renewRestaurantMenu(
         restaurantAddress: (restaurant.address as string | null) ?? undefined,
         availableDate: item.targetDate,
         sourceType: source.source_type as CreateOfferInput['sourceType'],
-        cuisineType: (source.cuisine_type as CreateOfferInput['cuisineType']) ?? undefined,
+        cuisineType: (source.cuisine_type as CreateOfferInput['cuisineType']) ?? null,
         description: (source.description as string | null) ?? undefined,
         items: (source.items as string[]) ?? [],
         dietaryTags: (source.dietary_tags as string[]) ?? [],
@@ -541,7 +543,7 @@ export async function renewRestaurantMenu(
         restaurantId,
       },
       userId,
-      { presetLocation: (restaurant.location as string | null) ?? null }
+      { presetLocation: (restaurant.location as string | null) ?? null, inferCuisine: false }
     );
 
     if (result.success) {

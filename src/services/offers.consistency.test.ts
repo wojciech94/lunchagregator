@@ -62,4 +62,10 @@ describe('linked offer consistency', () => {
     expect(rows[0]).toMatchObject({ cuisine_type: 'polska', restaurant_address: 'Wroclaw', restaurant_location: restaurant.location });
     expect(mocks.geocode).not.toHaveBeenCalled();
   });
+  it('preserves unknown cuisine on renewal even if the restaurant now has one cuisine', async () => {
+    const rows = fixture(restaurant, null);
+    expect(await renewRestaurantMenu(restaurantId, userId)).toMatchObject({ success: true, data: { created: 1 } });
+    expect(rows[0]).toMatchObject({ cuisine_type: null, restaurant_address: 'Wroclaw', restaurant_location: restaurant.location });
+    expect(mocks.geocode).not.toHaveBeenCalled();
+  });
 });

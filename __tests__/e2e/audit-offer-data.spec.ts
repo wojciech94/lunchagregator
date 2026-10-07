@@ -54,17 +54,26 @@ test.describe('audit #91 linked offer data', () => {
       const yesterday = new Date(); yesterday.setUTCDate(yesterday.getUTCDate() - 1);
       const override = await client.from('lunch_offers').update({ cuisine_type: 'polska', available_date: yesterday.toISOString().slice(0, 10) }).eq('id', saved.data.id);
       expect(override.error).toBeNull();
+      // An unknown source cuisine must stay unknown even when this branch's
+      // current cuisine would supply a default for a new publication.
+      const unknown = await client.from('lunch_offers').insert({ dish_name: `${token}-unknown`, price: 25, restaurant_id: restaurantId, restaurant_name: token, restaurant_address: saved.data.restaurant_address, restaurant_location: saved.data.restaurant_location, cuisine_type: null, available_date: saved.data.available_date, source_type: 'text', user_id: userId }).select('id').single();
+      if (unknown.error) throw unknown.error;
+      const expireUnknown = await client.from('lunch_offers').update({ available_date: yesterday.toISOString().slice(0, 10) }).eq('id', unknown.data.id);
+      expect(expireUnknown.error).toBeNull();
       const moved = await client.from('restaurants').update({ name: `${token}-moved`, address: 'New branch address', location: 'POINT(17.04 51.11)' }).eq('id', restaurantId);
       expect(moved.error).toBeNull();
       await page.goto(`${appUrl}/offers/${saved.data.id}`);
       await expect(page.getByText('Original branch address', { exact: true })).toBeVisible();
       await page.goto(`${appUrl}/my-offers?tab=expired`);
       await page.getByRole('button', { name: 'Wznów na kolejny tydzień' }).click();
-      await expect.poll(async () => (await client.from('lunch_offers').select('id').eq('restaurant_id', restaurantId!)).data?.length).toBe(2);
-      const renewed = await client.from('lunch_offers').select('*').eq('restaurant_id', restaurantId).neq('id', saved.data.id).single();
+      await expect.poll(async () => (await client.from('lunch_offers').select('id').eq('restaurant_id', restaurantId!)).data?.length).toBe(4);
+      const renewed = await client.from('lunch_offers').select('*').eq('restaurant_id', restaurantId).eq('dish_name', saved.data.dish_name).neq('id', saved.data.id).single();
       expect(renewed.error).toBeNull();
       expect(renewed.data).toMatchObject({ cuisine_type: 'polska', restaurant_name: `${token}-moved`, restaurant_address: 'New branch address' });
       expect(renewed.data.restaurant_location).not.toBe(saved.data.restaurant_location);
+      const renewedUnknown = await client.from('lunch_offers').select('*').eq('restaurant_id', restaurantId).eq('dish_name', `${token}-unknown`).neq('id', unknown.data.id).single();
+      expect(renewedUnknown.error).toBeNull();
+      expect(renewedUnknown.data).toMatchObject({ cuisine_type: null, restaurant_address: 'New branch address', restaurant_location: renewed.data.restaurant_location });
       const original = await client.from('lunch_offers').select('*').eq('id', saved.data.id).single();
       expect(original.data).toMatchObject({ restaurant_name: token, restaurant_address: 'Original branch address', restaurant_location: saved.data.restaurant_location, cuisine_type: 'polska' });
     } finally {
