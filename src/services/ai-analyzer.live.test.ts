@@ -13,10 +13,14 @@ describe.skipIf(process.env.RUN_AI_LIVE !== '1')('live extraction regression (#8
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const extraction = await analyzeText(text);
     const result = validateExtraction(extraction);
+    if (process.env.AI_SOURCE_DIAGNOSTICS === '1') console.info(JSON.stringify({ source: 'pizza-si', offers: extraction.offers }));
     expect(result.prefilledData.length, extraction.message ?? 'No usable offers').toBeGreaterThan(0);
     expect(result.prefilledData[0].restaurantName).toMatch(/Pizza Si/i);
     expect(result.prefilledData[0].dishes.some((dish) => dish.price === 34)).toBe(true);
-    expect(result.prefilledData[0].dishes.some((dish) => /margherita/i.test(dish.name ?? ''))).toBe(true);
+    // A set may have a generic title; its named component must survive.
+    expect(result.prefilledData[0].dishes.some((dish) =>
+      dish.price === 34 && /margherita/i.test([dish.name, dish.description, ...dish.items].join(' '))
+    )).toBe(true);
   }, 20000);
 
   it('extracts separate days from a weekly menu', async () => {

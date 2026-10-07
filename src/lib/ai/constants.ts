@@ -1,3 +1,5 @@
+import { AI_MODEL_ID } from './models';
+
 /**
  * Requirement 4.2 puts the AI response budget at 10 seconds, and both AI
  * services have to honour it. The constant lives here so the analyzer and
@@ -5,17 +7,10 @@
  */
 export const AI_TIMEOUT_MS = 10000;
 
-/**
- * Thinking off, on every call.
- *
- * Structured extraction against a Zod schema and recommendation from a
- * pre-built list of offers have nothing to reason over, so thinking only adds
- * latency against a budget that is already 10 seconds. `minimal` is rejected
- * by the API as an error, so the budget is zeroed outright.
- *
- * Provider-specific options are namespaced under `providerOptions.google` in
- * this SDK version; there is no top-level `thinkingConfig` setting.
- */
-export const GEMINI_THINKING_OFF = {
-  google: { thinkingConfig: { thinkingBudget: 0 } },
-} as const;
+// The legacy numeric budget works for 2.5 Flash, but 3.5 Flash-Lite rejects
+// zero with HTTP 400. Use model defaults for other models. This SDK version
+// does not support the newer thinkingLevel option; do not silently pass it.
+export const GEMINI_PROVIDER_OPTIONS =
+  AI_MODEL_ID === 'gemini-2.5-flash' || AI_MODEL_ID === 'gemini-2.5-flash-lite'
+    ? { google: { thinkingConfig: { thinkingBudget: 0 } } }
+    : undefined;

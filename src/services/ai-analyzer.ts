@@ -2,7 +2,7 @@ import { generateObject } from 'ai';
 import { google } from '@ai-sdk/google';
 import { AI_MODEL_ID } from '@/lib/ai/models';
 import { ExtractionTimeoutError, reportExtractionFailure } from '@/lib/ai/extraction-errors';
-import { AI_TIMEOUT_MS, GEMINI_THINKING_OFF } from '@/lib/ai/constants';
+import { AI_TIMEOUT_MS, GEMINI_PROVIDER_OPTIONS } from '@/lib/ai/constants';
 import { z } from 'zod';
 import type { DietaryTag, Allergen } from '@/types/offers';
 
@@ -288,7 +288,7 @@ export async function analyzeUrl(url: string): Promise<ExtractedOffers> {
         abortSignal,
         maxRetries: 0,
         model: google(AI_MODEL_ID),
-        providerOptions: GEMINI_THINKING_OFF,
+        providerOptions: GEMINI_PROVIDER_OPTIONS,
         schema: extractionResultSchema,
         system: EXTRACTION_SYSTEM_PROMPT,
         prompt: `Extract lunch offer information from the following URL. Analyze the content at this URL and extract all lunch offers you can find:\n\nURL: ${url}`,
@@ -332,7 +332,7 @@ export async function analyzeText(text: string): Promise<ExtractedOffers> {
         abortSignal,
         maxRetries: 0,
         model: google(AI_MODEL_ID),
-        providerOptions: GEMINI_THINKING_OFF,
+        providerOptions: GEMINI_PROVIDER_OPTIONS,
         schema: extractionResultSchema,
         system: EXTRACTION_SYSTEM_PROMPT,
         prompt: `Extract lunch offer information from the following text:\n\n${text}`,
@@ -362,7 +362,7 @@ export async function analyzeImage(imageUrl: string): Promise<ExtractedOffers> {
         abortSignal,
         maxRetries: 0,
         model: google(AI_MODEL_ID),
-        providerOptions: GEMINI_THINKING_OFF,
+        providerOptions: GEMINI_PROVIDER_OPTIONS,
         schema: extractionResultSchema,
         system: EXTRACTION_SYSTEM_PROMPT,
         messages: [
