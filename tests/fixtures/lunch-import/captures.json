@@ -1,0 +1,26 @@
+[
+  {
+    "id": "sofa",
+    "capturedAt": "2026-10-07T16:31:32.291Z",
+    "responseSha256": "6367cde0947a8f19f9de20dc9f3dd3e377f0637ee07d5d18b97ba8ec0ed9d988",
+    "excerptSha256": "bc1e84b5d8d1f7b6d7f65e3e9ac2c84993b0a92b691949b3d2a4b6553b392080",
+    "textSha256": "6e71390fc3b637afd6a4b28f64e4904f8edfd205e97e537eca48a8442f3d0723",
+    "responseBytes": 343467
+  },
+  {
+    "id": "prost",
+    "capturedAt": "2026-10-07T16:31:32.660Z",
+    "responseSha256": "1c335c1eb84e2bff36bfe27a5e0a08d6cbbbce10235626158502831db5333ad7",
+    "excerptSha256": "debb3b53c9704a3a614e8b981138b0898a3f333cd57c32745d70368f0783c542",
+    "textSha256": "f46932407c0b21a53e85ea8e79dc70bbfc0fc44c04dc78352fbac2c6e0c92c1e",
+    "responseBytes": 1106636
+  },
+  {
+    "id": "sushi",
+    "capturedAt": "2026-10-07T16:31:34.244Z",
+    "responseSha256": "46644e2e80605f67a9f7f86cc0ef5d1a109fa73a88bebe2d4800c2683725e4ef",
+    "excerptSha256": "b7720bf00f3d8498bf960ac957d4dee8864b298444c4cd4f8a57ab7e2317759d",
+    "textSha256": "7bff87c93c699feb190f58b3ebb81e42895f75d11ecf8c2b88ba3bed016e9729",
+    "responseBytes": 64153
+  }
+]

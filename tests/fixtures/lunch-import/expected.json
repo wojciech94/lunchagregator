@@ -1,0 +1,49 @@
+[
+  {
+    "id": "sofa",
+    "url": "https://www.sofa.wroclaw.pl/restauracja/sofa-lounge-restaurant",
+    "restaurantName": "Sofa Lounge & Restaurant",
+    "branchAddress": "al. Paderewskiego 35, 51-612 Wrocław",
+    "restaurantId": null,
+    "currency": "PLN",
+    "dates": null,
+    "conditions": ["Weekdays except holidays, 12:00–17:00, while supplies last", "Operator must confirm date", "Soup of the day is unnamed", "Keep goulash/sour-cream and Kozacka/Classic alternatives"],
+    "dishes": [
+      {"label": "Zestaw 1", "price": 40.31, "dayOfWeek": null, "terms": ["placki", "gulasz", "śmietan", "zup"]},
+      {"label": "Zestaw 2", "price": 40.31, "dayOfWeek": null, "terms": ["ryb", "ryż", "zup"]},
+      {"label": "Zestaw 3", "price": 40.31, "dayOfWeek": null, "terms": ["kozack", "classic", "zup"]}
+    ]
+  },
+  {
+    "id": "prost",
+    "url": "https://www.browarprost.pl/lunch-wroclaw",
+    "restaurantName": "Browar PROST",
+    "branchAddress": "Paprotna 4, 51-117 Wrocław",
+    "restaurantId": null,
+    "currency": "PLN",
+    "dates": {"monday": "2026-10-05", "tuesday": "2026-10-06", "wednesday": "2026-10-07", "thursday": "2026-10-08", "friday": "2026-10-09"},
+    "conditions": ["Takeaway only for these prices", "12:00–15:00", "Add 1.25 PLN packaging per dish; listed base prices are not final payable prices", "Juice is separate at 18 PLN", "Monday soup wording is truncated", "Wednesday–Friday dish mappings remain unreviewed; text fixture covers Monday–Tuesday only", "Captured Monday–Tuesday dates are already past on assessment date"],
+    "dishes": [
+      {"label": "Jarzynowa z fasolką szparagow", "price": 16, "dayOfWeek": "monday", "terms": ["jarzynow", "fasolk"]},
+      {"label": "Kurczak w panko", "price": 30, "dayOfWeek": "monday", "terms": ["kurczak", "panko", "puree", "chrzan"]},
+      {"label": "Kwaśnica", "price": 16, "dayOfWeek": "tuesday", "terms": ["kwaśnic"]},
+      {"label": "Schab w cieście", "price": 30, "dayOfWeek": "tuesday", "terms": ["schab", "cieś", "ziemniak", "pomidor"]}
+    ]
+  },
+  {
+    "id": "sushi",
+    "url": "https://sushifriendswroclaw.pl/",
+    "restaurantName": "Sushi Friends Bar & Resto",
+    "branchAddress": "Marca Polo 9e, 51-504 Wrocław (literal website spelling)",
+    "restaurantId": null,
+    "currency": "PLN",
+    "dates": null,
+    "conditions": ["Monday–Friday 11:00–16:00", "Operator must confirm date", "Each lunch includes miso soup OR wakame salad with sesame sauce", "Delivery section says packaging 1 PLN already added; confirm channel before publication"],
+    "dishes": [
+      {"label": "Lunch I", "price": 31, "dayOfWeek": null, "terms": ["kurczak", "tempur", "ryż", "miso", "wakame"]},
+      {"label": "Lunch II", "price": 36, "dayOfWeek": null, "terms": ["uramaki", "hosomaki", "tuńczy", "miso", "wakame"]},
+      {"label": "Lunch III", "price": 41, "dayOfWeek": null, "terms": ["futomaki", "łososi", "awokado", "miso", "wakame"]},
+      {"label": "Lunch IV", "price": 31, "dayOfWeek": null, "terms": ["boczniak", "kanpyo", "miso", "wakame"]}
+    ]
+  }
+]
