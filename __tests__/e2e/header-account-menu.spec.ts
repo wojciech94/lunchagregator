@@ -67,6 +67,45 @@ async function openNavigation(page: Page, width: number, authenticated: boolean)
 test.beforeEach(async ({}, info) => {
   test.skip(info.project.name !== "chromium", "Matrix runs once in Chromium");
 });
+
+test("guest header location closes across the desktop breakpoint and restores visible focus", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.locator("header").getByRole("button", { name: "Ustaw lokalizację" }).click();
+  const dialog = page.getByRole("dialog", { name: "Ustawienia lokalizacji" });
+  await expect(dialog).toBeVisible();
+  await page.setViewportSize({ width: 1439, height: 900 });
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Otwórz menu" })).toBeFocused();
+
+  // Browsing controls stay visible across the breakpoint; their dialog can stay open.
+  await page.locator("main").getByRole("button", { name: "Ustaw lokalizację" }).click();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("main").getByRole("button", { name: "Ustaw lokalizację" })).toBeFocused();
+});
+
+test("add-offer action is active on desktop and mobile and clears after navigation", async ({ page, context }) => {
+  test.skip(!local || !service, "Requires local Supabase");
+  const account = await signIn(context, "user");
+  try {
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/add");
+      if (width < 1440) await page.getByRole("button", { name: "Otwórz menu" }).click();
+      const action = page.locator("header").getByRole("link", { name: "Dodaj ofertę", exact: true });
+      await expect(action).toHaveAttribute("aria-current", "page");
+      await expect(action).toHaveClass(/ring-2/);
+      await page.locator("header").getByRole("link", { name: "Restauracje", exact: true }).click();
+      await page.waitForURL("/restaurants");
+      if (width < 1440) await page.getByRole("button", { name: "Otwórz menu" }).click();
+      await expect(action).not.toHaveAttribute("aria-current");
+      await expect(action).not.toHaveClass(/ring-2/);
+    }
+  } finally { await account.cleanup(); }
+});
+
 for (const role of ["guest", "user", "admin"] as const) {
   test(role + " has grouped navigation without overflow at every breakpoint", async ({ page, context }) => {
     test.skip(role !== "guest" && (!local || !service), "Authenticated roles require local Supabase");

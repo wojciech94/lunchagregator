@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { Menu, X, Plus } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { navLinks, accountLinksFor, contributionLink, isNavActive } from "@/lib/nav-links";
+import { navLinks, accountLinksFor, isNavActive } from "@/lib/nav-links";
+import { AddOfferLink } from "@/components/AddOfferLink";
 import { LocationDialog } from "@/components/location/LocationDialog";
 import { AuthNavLinks } from "@/components/auth/AuthNavLinks";
 import { useGeolocation } from "@/hooks/useGeolocation";
@@ -64,7 +65,7 @@ export function NavMobileMenu({ isAdmin = false, isAuthenticated = false, email,
       onBlur={(event) => {
         if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node)) setOpen(false);
       }}>
-      <button ref={toggleRef} type="button" aria-expanded={open} aria-controls={menuId}
+      <button ref={toggleRef} type="button" data-mobile-nav-trigger aria-expanded={open} aria-controls={menuId}
         onClick={() => setOpen(!open)}
         className="xl:hidden min-h-[44px] min-w-[44px] flex items-center justify-center text-[#f7f8f8]"
         aria-label={open ? "Zamknij menu" : "Otwórz menu"}>
@@ -78,9 +79,7 @@ export function NavMobileMenu({ isAdmin = false, isAuthenticated = false, email,
           <div className="flex flex-col gap-2">
             <p className="px-3 text-xs text-[#a1a5ad]">Przeglądaj</p>
             {navLinks.map(renderLink)}
-            <Button asChild className="my-2 min-h-[44px] justify-start">
-              <Link href={contributionLink.href}><Plus className="size-4" />{contributionLink.label}</Link>
-            </Button>
+            <AddOfferLink className="my-2 justify-start" />
           </div>
           <div className="flex flex-col gap-2 pt-3 mt-2 border-t border-border">
             <p className="px-3 text-xs text-[#a1a5ad]">Konto</p>

@@ -14,6 +14,15 @@ export function LocationIndicator({ compact = false }: { compact?: boolean }) {
   const pathname = usePathname();
   const query = useSearchParams().toString();
   useEffect(() => { setOpen(false); }, [pathname, query]);
+  useEffect(() => {
+    if (!compact) return;
+    const desktop = window.matchMedia?.("(min-width: 1440px)");
+    const closeWhenHidden = () => {
+      if (!desktop?.matches) setOpen(false);
+    };
+    desktop?.addEventListener("change", closeWhenHidden);
+    return () => desktop?.removeEventListener("change", closeWhenHidden);
+  }, [compact]);
   const trigger = useRef<HTMLButtonElement>(null);
   return (
     <div className={compact ? "flex min-w-0 max-w-[220px] items-center gap-2" : "flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1"}>
@@ -26,7 +35,11 @@ export function LocationIndicator({ compact = false }: { compact?: boolean }) {
       </Button>
       <LocationDialog open={open} onOpenChange={setOpen} onCloseAutoFocus={(event) => {
         event.preventDefault();
-        trigger.current?.focus();
+        // The compact header trigger disappears when switching to mobile.
+        const returnTarget = compact && !window.matchMedia?.("(min-width: 1440px)").matches
+          ? trigger.current?.closest("header")?.querySelector<HTMLButtonElement>("[data-mobile-nav-trigger]")
+          : trigger.current;
+        returnTarget?.focus();
       }} />
     </div>
   );

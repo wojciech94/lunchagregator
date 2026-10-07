@@ -12,16 +12,18 @@ The account popup is a navigation disclosure with ordinary links/buttons, Tab na
 
 ## Checks
 
-- Focused unit/property tests: **28 passed** across 9 files, including the navigation regressions from #87 and 100 generated SSR/hydration cases.
-- Dedicated Chromium E2E: **6 passed**, with real local User/Admin sessions and fixture cleanup.
+- Initial focused unit/property tests: **28 passed** across 9 files, including the navigation regressions from #87 and 100 generated SSR/hydration cases. Review follow-up: **18 passed** across the header, account, contribution and location components, including two new active-destination regressions.
+- Dedicated Chromium E2E after review fixes: **8 passed**, with real local User/Admin sessions and fixture cleanup. Added coverage checks guest dialog dismissal/focus at 1440 → 1439px, preservation of the browsing dialog across that boundary, and active add-offer state in both layouts.
 - Widths: **320, 390, 768, 1000, 1023, 1024, 1280, 1440, 1920 CSS px** for Visitor, User and Admin. Long emails/location labels and open navigation/location dialogs had no horizontal document overflow.
 - E2E covers unset location, role-specific links, authentication return URLs, keyboard focus/shortcuts, outside profile dismissal, navigation and resize dismissal, mobile logout, GPS persistence, clearing and cross-page synchronization.
 - Unit tests additionally cover manual address resolution, cross-control synchronization, failed geocoding and GPS denial.
 - `npm run typecheck`: passed.
 - `npm run build`: passed, with existing unused-variable warnings outside the changed components.
-- Full `npm test`: **857 passed, 3 skipped, 1 failed**. The unchanged `src/actions/offers.batch.test.ts:79` expects `/restaurant name/i`, while the unchanged validator returns `Podaj nazwę restauracji.`. Both expectations/messages exist in `origin/main`; this PR does not change batch publication or its validation.
+- Full `npm test` on the initial implementation (`b5fc8c7`): **857 passed, 3 skipped, 1 failed**. The unchanged `src/actions/offers.batch.test.ts:79` expects `/restaurant name/i`, while the unchanged validator returns `Podaj nazwę restauracji.`. Both expectations/messages exist in `origin/main`; this PR does not change batch publication or its validation.
 
 Browser automation was also used to inspect the Visitor's mobile menu and location dialog, Escape/focus restoration at 320px, and desktop navigation at 1440px.
+
+Review fixes were also checked in the collaborative browser: resizing the Visitor's open header dialog from 1440px to 1439px removes the modal and focuses the visible hamburger. A shared contribution link restores `aria-current="page"` and a visible ring on `/add` in desktop and mobile navigation.
 
 No Restaurant or Lunch_Offer fixtures were written. Temporary authentication fixtures were deleted. No production writes or deployment were performed.
 
@@ -51,7 +53,7 @@ Start the app and local Supabase with `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1
 Expose the local anon key as `NEXT_PUBLIC_SUPABASE_ANON_KEY` and service-role key as `TEST_SUPABASE_SERVICE_ROLE_KEY` to the test process.
 
 ```text
-npm test -- src/components/Nav src/components/AccountMenu src/components/location __tests__/unit/components/offers/OffersPage
+npm test -- src/components/Nav src/components/AddOfferLink src/components/AccountMenu src/components/location
 npx playwright test __tests__/e2e/header-account-menu.spec.ts --project=chromium --workers=1
 npm run typecheck
 npm run build

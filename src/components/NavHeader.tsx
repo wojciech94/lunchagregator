@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, UtensilsCrossed } from "lucide-react";
+import { UtensilsCrossed } from "lucide-react";
 import { getUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/ownership";
 import { LocationIndicator } from "@/components/location/LocationIndicator";
@@ -8,7 +8,7 @@ import { NavMobileMenu } from "@/components/NavMobileMenu";
 import { AccountMenu } from "@/components/AccountMenu";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { AuthNavLinks } from "@/components/auth/AuthNavLinks";
-import { Button } from "@/components/ui/button";
+import { AddOfferLink } from "@/components/AddOfferLink";
 
 export async function NavHeader() {
   const user = await getUser();
@@ -24,7 +24,7 @@ export async function NavHeader() {
         <NavLinks />
         <div className="flex min-w-0 items-center gap-2">
           <div className="hidden xl:flex xl:items-center xl:gap-3">
-            <Button asChild className="min-h-[44px]"><Link href="/add"><Plus className="size-4" />Dodaj ofertę</Link></Button>
+            <AddOfferLink />
             {user ? <AccountMenu key={user.id} email={user.email ?? "Twoje konto"} isAdmin={viewerIsAdmin} logout={<LogoutButton />} /> :
               <><AuthNavLinks /><div className="text-[#f7f8f8]"><LocationIndicator compact /></div></>}
           </div>
