@@ -12,6 +12,7 @@ import { createRestaurantSchema } from "@/schemas/restaurant.schema";
 import { geocodeAddressAction } from "@/actions/geocode";
 import { createRestaurant, updateRestaurant } from "@/actions/restaurants";
 import { LunchHoursInput } from "./LunchHoursInput";
+import { normalizeLunchHours } from "@/utils/lunch-hours-formatter";
 import type { Restaurant, LunchHours, PriceLevel, CreateRestaurantInput, UpdateRestaurantInput } from "@/types/restaurants";
 import type { CuisineType, Coordinates } from "@/types/offers";
 
@@ -63,7 +64,7 @@ export function RestaurantForm({
   const [description, setDescription] = React.useState(initialData?.description ?? "");
   const [address, setAddress] = React.useState(initialData?.address ?? "");
   const [priceLevel, setPriceLevel] = React.useState<PriceLevel | "">(initialData?.priceLevel ?? "");
-  const [lunchHours, setLunchHours] = React.useState<LunchHours | null>(initialData?.lunchHours ?? null);
+  const [lunchHours, setLunchHours] = React.useState<LunchHours | null>(initialData?.lunchHours ? normalizeLunchHours(initialData.lunchHours) : null);
   const [cuisineTypes, setCuisineTypes] = React.useState<CuisineType[]>(initialData?.cuisineTypes ?? []);
   const [phoneNumber, setPhoneNumber] = React.useState(initialData?.phoneNumber ?? "");
   const [websiteUrl, setWebsiteUrl] = React.useState(initialData?.websiteUrl ?? "");
@@ -80,7 +81,12 @@ export function RestaurantForm({
 
   async function handleAddressBlur() {
     const trimmedAddress = address.trim();
-    if (!trimmedAddress) { setLocation(null); setGeocodeMessage(null); return; }
+    if (!trimmedAddress) {
+      // Keep the existing coordinate-only location when no address was loaded.
+      setLocation(initialData?.address?.trim() ? null : initialData?.location ?? null);
+      setGeocodeMessage(null);
+      return;
+    }
     setIsGeocoding(true);
     setGeocodeMessage(null);
     const result = await geocodeAddressAction(trimmedAddress);
@@ -122,7 +128,10 @@ export function RestaurantForm({
         if (!errors[path]) errors[path] = issue.message;
       }
       const rootErrors = validation.error.issues.filter((i) => i.path.length === 0);
-      if (rootErrors.length > 0) setFormError(rootErrors[0].message);
+      if (rootErrors.length > 0) {
+        setFormError(rootErrors[0].message);
+        if (!address.trim() && !location) errors.address = rootErrors[0].message;
+      }
       setFieldErrors(errors);
       return;
     }
@@ -187,6 +196,7 @@ export function RestaurantForm({
           maxLength={100}
           className="bg-card border-border focus:border-primary"
           aria-invalid={!!fieldErrors["name"]}
+          aria-describedby={fieldErrors["name"] ? "restaurant-name-error" : undefined}
         />
       </FormField>
 
@@ -201,11 +211,12 @@ export function RestaurantForm({
           rows={3}
           className="bg-card border-border focus:border-primary resize-none"
           aria-invalid={!!fieldErrors["description"]}
+          aria-describedby={fieldErrors["description"] ? "restaurant-description-error" : undefined}
         />
       </FormField>
 
       {/* Address */}
-      <FormField label="Adres" htmlFor="restaurant-address" error={fieldErrors["address"]} isOptional>
+      <FormField label="Adres" htmlFor="restaurant-address" error={fieldErrors["address"]} required={!location} isOptional={!!location}>
         <Input
           id="restaurant-address"
           value={address}
@@ -215,7 +226,11 @@ export function RestaurantForm({
           maxLength={200}
           className="bg-card border-border focus:border-primary"
           aria-invalid={!!fieldErrors["address"]}
+          aria-describedby={`restaurant-address-hint${fieldErrors["address"] ? ' restaurant-address-error' : ''}`}
         />
+        <p id="restaurant-address-hint" className="text-xs text-muted-foreground">
+          Podaj adres restauracji. Można go pominąć, jeśli lokalizacja restauracji jest już ustawiona.
+        </p>
         {isGeocoding && <p className="text-xs text-muted-foreground mt-1 animate-pulse">Geokodowanie...</p>}
         {geocodeMessage && <p className="text-xs text-amber-400 mt-1">{geocodeMessage}</p>}
       </FormField>
@@ -274,6 +289,7 @@ export function RestaurantForm({
           type="tel"
           className="bg-card border-border focus:border-primary"
           aria-invalid={!!fieldErrors["phoneNumber"]}
+          aria-describedby={fieldErrors["phoneNumber"] ? "restaurant-phone-error" : undefined}
         />
       </FormField>
 
@@ -288,6 +304,7 @@ export function RestaurantForm({
           type="url"
           className="bg-card border-border focus:border-primary"
           aria-invalid={!!fieldErrors["websiteUrl"]}
+          aria-describedby={fieldErrors["websiteUrl"] ? "restaurant-url-error" : undefined}
         />
       </FormField>
 
@@ -352,7 +369,7 @@ function FormField({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <Label htmlFor={htmlFor} className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+      <Label htmlFor={htmlFor} className="flex-wrap text-xs font-medium uppercase tracking-wider text-muted-foreground">
         {label}
         {required && <span className="text-destructive ml-0.5">*</span>}
         {isOptional && <span className="font-normal normal-case tracking-normal ml-1.5 text-muted-foreground/60">(opcjonalne)</span>}

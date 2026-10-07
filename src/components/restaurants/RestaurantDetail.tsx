@@ -1,5 +1,6 @@
 'use client';
 
+import { cuisineLabels } from '@/lib/display-labels';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -165,7 +166,7 @@ export function RestaurantDetail({ restaurant, canEdit, canDelete, offers = [] }
                       key={cuisine}
                       className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-2.5 py-0.5 text-xs font-medium text-primary"
                     >
-                      {cuisine}
+                      {cuisineLabels[cuisine]}
                     </span>
                   ))}
                 </div>

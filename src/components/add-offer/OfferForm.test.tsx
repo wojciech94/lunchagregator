@@ -84,6 +84,18 @@ function freezeAt(localDate: [number, number, number], hour = 12) {
   });
 }
 
+it('associates actionable Polish errors with empty manual dish and price fields', async () => {
+  const submit = vi.fn();
+  render(<OfferForm prefilledData={offer(null)} sourceType="text" assignedRestaurant={ASSIGNED} onSubmit={submit} />);
+  fireEvent.change(screen.getByLabelText(/Nazwa dania/), { target: { value: '' } });
+  fireEvent.change(screen.getByLabelText(/Cena/), { target: { value: '' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Opublikuj ofertę' }));
+  expect(await screen.findByText('Podaj nazwę dania.')).toBeVisible();
+  expect(await screen.findByText('Podaj cenę w PLN.')).toBeVisible();
+  expect(screen.getByLabelText(/Cena/)).toHaveAccessibleDescription('Podaj cenę w PLN.');
+  expect(submit).not.toHaveBeenCalled();
+});
+
 function availableDateInput(): HTMLInputElement {
   return screen.getByLabelText(/Data dostępności/) as HTMLInputElement;
 }
@@ -210,7 +222,7 @@ describe('OfferForm: preservation (spec properties 3 & 4)', () => {
     fireEvent.change(availableDateInput(), { target: { value: '2026-07-01' } });
     fireEvent.click(screen.getByRole('button', { name: /Opublikuj ofertę/ }));
 
-    await screen.findByText('Available date must be today or within the next 30 days');
+    await screen.findByText('Wybierz datę od dziś do 30 dni w przyszłość.');
     expect(onSubmit).not.toHaveBeenCalled();
     expect(availableDateInput().value).toBe('2026-07-01');
   });
@@ -223,7 +235,7 @@ describe('OfferForm: preservation (spec properties 3 & 4)', () => {
     fireEvent.change(availableDateInput(), { target: { value: '2026-09-15' } });
     fireEvent.click(screen.getByRole('button', { name: /Opublikuj ofertę/ }));
 
-    await screen.findByText('Available date must be today or within the next 30 days');
+    await screen.findByText('Wybierz datę od dziś do 30 dni w przyszłość.');
     expect(onSubmit).not.toHaveBeenCalled();
     expect(availableDateInput().value).toBe('2026-09-15');
   });
@@ -236,7 +248,7 @@ describe('OfferForm: preservation (spec properties 3 & 4)', () => {
     fireEvent.change(availableDateInput(), { target: { value: '' } });
     fireEvent.click(screen.getByRole('button', { name: /Opublikuj ofertę/ }));
 
-    await screen.findByText('Available date must be today or within the next 30 days');
+    await screen.findByText('Wybierz datę od dziś do 30 dni w przyszłość.');
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
@@ -247,7 +259,7 @@ describe('OfferForm: preservation (spec properties 3 & 4)', () => {
 
     fireEvent.change(availableDateInput(), { target: { value: '2026-07-01' } });
     fireEvent.click(screen.getByRole('button', { name: /Opublikuj ofertę/ }));
-    await screen.findByText('Available date must be today or within the next 30 days');
+    await screen.findByText('Wybierz datę od dziś do 30 dni w przyszłość.');
     expect(onSubmit).not.toHaveBeenCalled();
 
     fireEvent.change(availableDateInput(), { target: { value: '2026-07-31' } });

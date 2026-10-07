@@ -29,9 +29,9 @@ interface MyOfferRow {
   available_date: string;
 }
 
-/** 1 → ofertę, 2–4 → oferty, 5+ → ofert (z wyjątkami 12–14). */
+/** Nominative counts: 1 oferta, 2–4 oferty, 5+ ofert (except 12–14). */
 function offersPlural(count: number): string {
-  if (count === 1) return "ofertę";
+  if (count === 1) return "oferta";
   const lastDigit = count % 10;
   const lastTwo = count % 100;
   if (lastDigit >= 2 && lastDigit <= 4 && !(lastTwo >= 12 && lastTwo <= 14)) {
@@ -247,11 +247,6 @@ export default async function MyOffersPage({
                   </h2>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {group.offers.length} {offersPlural(group.offers.length)}
-                    {isFlagged && (
-                      <span className="ml-2 inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-primary">
-                        menu tygodniowe
-                      </span>
-                    )}
                   </p>
                 </div>
                 {tab === "expired" && group.restaurantId !== null && (
