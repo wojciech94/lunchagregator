@@ -15,13 +15,16 @@ Lunch Agregator to aplikacja webowa zbudowana w Next.js (App Router) z TypeScrip
 
 ## Ustalone decyzje
 
-### Dostawca AI
+### AI provider and model policy
 
-Oba serwisy — `AIAnalyzerService` i `AIRecommenderService` — używają **jednego** dostawcy i **jednego** modelu: Google Gemini `gemini-3.8-flash`, przypiętego jako jedna stała `AI_MODEL_ID` w `src/lib/ai/models.ts` z opcjonalnym nadpisaniem przez `AI_MODEL`. Jedna stała, nie jedna na serwis — dwie stałe o tej samej wartości to martwa abstrakcja.
+`AIAnalyzerService` and `AIRecommenderService` share the Google Gemini provider and a single model policy. `AI_MODEL_ID` defaults to `gemini-3.5-flash-lite`; `AI_FALLBACK_MODEL_ID` defaults to `gemini-3.1-flash-lite`. Both live in `src/lib/ai/models.ts` and can be overridden through `AI_MODEL` and `AI_FALLBACK_MODEL`. The shared SDK middleware is in `src/lib/ai/model-with-fallback.ts`; services do not implement separate switching policies.
 
-- **Thinking wyłączony** (`thinkingBudget: 0`) na wszystkich czterech ścieżkach. Ekstrakcja strukturalna na schemacie Zod nie ma czego rozumować, a rekomendacja operuje na gotowej liście ofert. Thinking tylko wydłuża czas przy budżecie 10 sekund.
-- **Timeout 10 sekund**, zgodnie z Requirement 4.2. Jedna wartość w `src/lib/ai/constants.ts`, żeby oba serwisy nie rozjechały się.
-- **429 jest oczekiwanym stanem, nie wyjątkiem.** Limity darmowego tiera (RPM/TPM/RPD) nie są publikowane, liczone są per projekt, nie per klucz, i dzielone między deweloperów. Brak obsługi sprawiałby, że odrzucenie wygląda identycznie jak „model nic nie znalazł". Analyzer zwraca pustą ekstrakcję z komunikatem, który `/add` pokazuje zamiast swojego ogólnego tekstu; okno czatu pokazuje go zamiast ogólnego błędu.
+- **One alternate attempt on initial HTTP 429.** After the primary model rejects a request with 429, try the alternate model once. An aborted request, equal model IDs, non-429 errors and errors after a stream opens do not trigger switching. Never replay or concatenate a partially delivered answer. The alternate is not wrapped recursively; its errors propagate through existing service error handling. SDK retries are disabled.
+- **Provider-default thinking for Flash-Lite.** The legacy `thinkingBudget: 0` option is sent only for primary Gemini 2.5 Flash/Flash-Lite overrides. Gemini 3.5 Flash-Lite rejected it with HTTP 400. The alternate uses its own provider defaults, not the primary's options. The installed Google SDK does not support the newer `thinkingLevel` field; it is not passed as an unsupported setting.
+- **A shared 25-second total response budget**, consistent with Requirement 4.2. `AI_TIMEOUT_MS` in `src/lib/ai/constants.ts` applies to both services and includes the alternate-model attempt. Switching preserves the original abort signal and never restarts the deadline. Recommendation streams remain subject to the total response deadline.
+- **Rate limits remain a service failure, not an empty menu.** Quotas apply per project and model; inspect active RPM/TPM/RPD in AI Studio rather than assuming that creating another key increases capacity. Alternate-model capacity is not guaranteed. If both attempts fail with 429, the analyzer returns an empty Extraction with the rate-limit message; `/add` and chat present the existing failure state. A successful analysis finding no offers is distinct from a provider error.
+
+The captured text corpus and opt-in live checks are documented in `tests/fixtures/lunch-import/README.md`. They do not establish image/recommendation accuracy or authorize publication. Calendar dates, pricing conditions, inferred labels and source ambiguity require independent operator review for the importer in #94.
 
 ### Geokodowanie po stronie serwera, przed `INSERT`
 

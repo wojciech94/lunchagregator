@@ -1,11 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { LunchOffer, Coordinates } from '@/types/offers';
 
-// Mock the ai module. The Google provider is deliberately not mocked: the
-// live google() factory builds a real model object whose modelId can be
-// asserted directly, which is a sharper contract than asserting that a mock
-// was called with a string.
-vi.mock('ai', () => ({
+// Keep the real model wrapper; mock only the streaming entry point.
+// The colocated tests cover the actual SDK transport and fallback policy.
+vi.mock('ai', async (importOriginal) => ({
+  ...await importOriginal<typeof import('ai')>(),
   streamText: vi.fn(),
 }));
 
@@ -14,6 +13,7 @@ import { createAIRecommenderService, type ChatMessage } from '@/services/ai-reco
 import { AI_MODEL_ID } from '@/lib/ai/models';
 
 const mockedStreamText = vi.mocked(streamText);
+afterEach(() => vi.restoreAllMocks());
 
 function createMockOffer(overrides: Partial<LunchOffer> = {}): LunchOffer {
   return {
@@ -210,7 +210,7 @@ describe('AIRecommenderService', () => {
       expect(callArgs.model.provider).toBe('google.generative-ai');
     });
 
-    it('turns thinking off', () => {
+    it('uses provider-default thinking without SDK retries', () => {
       const messages: ChatMessage[] = [
         { role: 'user', content: 'Polecisz coś?' },
       ];
@@ -218,12 +218,12 @@ describe('AIRecommenderService', () => {
       service.getRecommendations(messages, [createMockOffer()]);
 
       const callArgs = mockedStreamText.mock.calls[0][0];
-      expect(callArgs.providerOptions).toEqual({
-        google: { thinkingConfig: { thinkingBudget: 0 } },
-      });
+      expect(callArgs.providerOptions).toBeUndefined();
+      expect(callArgs.maxRetries).toBe(0);
     });
 
-    it('aborts the provider call after the 10 second budget', () => {
+    it('applies the shared 25-second deadline to the provider call', () => {
+      const timeout = vi.spyOn(AbortSignal, 'timeout');
       const messages: ChatMessage[] = [
         { role: 'user', content: 'Polecisz coś?' },
       ];
@@ -233,6 +233,7 @@ describe('AIRecommenderService', () => {
       const callArgs = mockedStreamText.mock.calls[0][0];
       expect(callArgs.abortSignal).toBeInstanceOf(AbortSignal);
       expect(callArgs.abortSignal?.aborted).toBe(false);
+      expect(timeout).toHaveBeenCalledWith(25000);
     });
   });
 });

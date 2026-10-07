@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock the ai module before importing the service. The Google provider is
-// left unmocked so the live model object can be asserted on modelId.
-vi.mock('ai', () => ({
+// Keep the SDK wrapper and Google model real; mock only the generation call.
+// Transport/fallback behavior is exercised by the colocated HTTP-boundary tests.
+vi.mock('ai', async (importOriginal) => ({
+  ...await importOriginal<typeof import('ai')>(),
   generateObject: vi.fn(),
 }));
 
@@ -124,15 +125,7 @@ describe('AIAnalyzerService', () => {
     it('should return fallback on AI timeout', async () => {
       vi.useFakeTimers();
       try {
-        mockGenerateObject.mockImplementationOnce(
-          () =>
-            new Promise((resolve) => {
-              setTimeout(
-                () => resolve({ object: { offers: [], confidence: 0 } } as never),
-                10000
-              );
-            })
-        );
+        mockGenerateObject.mockImplementationOnce(() => new Promise(() => {}));
 
         let settled = false;
         const pending = analyzeText('Some text').then((r) => {
@@ -140,9 +133,9 @@ describe('AIAnalyzerService', () => {
           return r;
         });
 
-        // Requirement 4.2 budgets the response at 10 seconds, so the call
+        // The shared response budget is 25 seconds, so the call
         // must still be in flight one tick earlier.
-        await vi.advanceTimersByTimeAsync(9999);
+        await vi.advanceTimersByTimeAsync(24999);
         expect(settled).toBe(false);
 
         await vi.advanceTimersByTimeAsync(1);
@@ -153,6 +146,7 @@ describe('AIAnalyzerService', () => {
           sourceType: 'text',
           confidence: 0,
           missingFields: ['restaurantName', 'dishName', 'price'],
+          message: EXTRACTION_ERROR_MESSAGES.timeout,
         });
       } finally {
         vi.useRealTimers();
@@ -200,7 +194,7 @@ describe('AIAnalyzerService', () => {
       expect(result.message).toBe(EXTRACTION_ERROR_MESSAGES.unavailable);
     });
 
-    it('should call the pinned Google model with thinking off', async () => {
+    it('should call the primary Google model with provider defaults', async () => {
       mockGenerateObject.mockResolvedValueOnce({
         object: { offers: [], confidence: 0 },
       } as never);
@@ -210,9 +204,8 @@ describe('AIAnalyzerService', () => {
       const callArgs = mockGenerateObject.mock.calls[0][0];
       expect(callArgs.model.modelId).toBe(AI_MODEL_ID);
       expect(callArgs.model.provider).toBe('google.generative-ai');
-      expect(callArgs.providerOptions).toEqual({
-        google: { thinkingConfig: { thinkingBudget: 0 } },
-      });
+      expect(callArgs.providerOptions).toBeUndefined();
+      expect(callArgs.maxRetries).toBe(0);
     });
 
     it('should return fallback on AI error', async () => {
@@ -303,7 +296,7 @@ describe('AIAnalyzerService', () => {
       });
     });
 
-    it('should call the pinned Google model with thinking off', async () => {
+    it('should call the primary Google model with provider defaults', async () => {
       mockGenerateObject.mockResolvedValueOnce({
         object: { offers: [], confidence: 0 },
       } as never);
@@ -312,9 +305,8 @@ describe('AIAnalyzerService', () => {
 
       const callArgs = mockGenerateObject.mock.calls[0][0];
       expect(callArgs.model.modelId).toBe(AI_MODEL_ID);
-      expect(callArgs.providerOptions).toEqual({
-        google: { thinkingConfig: { thinkingBudget: 0 } },
-      });
+      expect(callArgs.providerOptions).toBeUndefined();
+      expect(callArgs.maxRetries).toBe(0);
     });
 
     it('should return fallback on AI failure', async () => {
