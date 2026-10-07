@@ -1,4 +1,4 @@
-﻿import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { expect as baseExpect, test, type BrowserContext, type Page } from "@playwright/test";
 import { createServer, type Server } from "node:http";
 
 // No database or real credentials: run a fresh app with these two variables,
@@ -6,6 +6,9 @@ import { createServer, type Server } from "node:http";
 // NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54330
 // NEXT_PUBLIC_SUPABASE_ANON_KEY=offer-filter-test-key
 const origin = "http://localhost:3000";
+// Cold Next.js development compilations can exceed Playwright's default 5 s.
+// Keep this allowance local; geometry is still asserted during the transition.
+const expect = baseExpect.configure({ timeout: 15_000 });
 let backend: Server;
 let delay = 0;
 const requests: Record<string, unknown>[] = [];
@@ -33,6 +36,7 @@ async function geometry(page: Page) {
 }
 
 test.describe("audit #88 offer filters", () => {
+  test.setTimeout(60_000);
   test.skip(process.env.NEXT_PUBLIC_SUPABASE_URL !== "http://127.0.0.1:54330", "requires isolated HTTP fixture; see file header");
   test.describe.configure({ mode: "serial" });
   test.beforeAll(async () => {
@@ -175,4 +179,3 @@ test.describe("audit #88 offer filters", () => {
     expect(new URL(page.url()).searchParams.get("date")).toBe(date);
   });
 });
-
