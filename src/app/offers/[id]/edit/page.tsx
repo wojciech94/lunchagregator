@@ -219,7 +219,7 @@ function EditOfferForm({
       restaurantName: restaurantName.trim(),
       availableDate,
       sourceType: offer.sourceType,
-      items,
+      items: items.filter((item) => item.trim().length > 0),
       description: description.trim() ? description.trim() : null,
       cuisineType: cuisineType ?? null,
       dietaryTags,

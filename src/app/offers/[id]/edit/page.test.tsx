@@ -37,3 +37,18 @@ it('requires a price in the complete edit form rather than silently retaining an
   expect(await screen.findByText('Podaj cenę w PLN.')).toBeVisible();
   expect(actions.updateOfferAction).not.toHaveBeenCalled();
 });
+
+it('omits added and cleared blank rows while preserving nonblank item text exactly', async () => {
+  const preservedItem = '  Napój (kawa, oranżada lub woda), "duży"  ';
+  const loadedOffer = { ...offer, items: ['Pizza Margherita', preservedItem, 'Deser'] };
+  actions.getOfferWithAccessAction.mockResolvedValue({ success: true, data: { offer: loadedOffer, canModify: true } });
+  actions.updateOfferAction.mockClear();
+  actions.updateOfferAction.mockResolvedValue({ success: true, data: loadedOffer });
+  render(<EditOfferPage params={Promise.resolve({ id: offer.id })} />);
+  fireEvent.change(await screen.findByLabelText('Pozycja zestawu 1'), { target: { value: '' } });
+  fireEvent.change(screen.getByLabelText('Pozycja zestawu 3'), { target: { value: ' \t ' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Dodaj pozycję' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Zapisz zmiany' }));
+  await waitFor(() => expect(actions.updateOfferAction).toHaveBeenCalled());
+  expect(actions.updateOfferAction.mock.calls[0][1].items).toEqual([preservedItem]);
+});

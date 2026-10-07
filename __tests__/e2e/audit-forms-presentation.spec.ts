@@ -78,6 +78,8 @@ test.describe('audit #90 forms and presentation', () => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(`/offers/${offerId}/edit`);
       await expect(page.getByLabel('Pozycja zestawu 2')).toHaveValue(originalItems[1]);
+      await page.getByRole('button', { name: 'Dodaj pozycję' }).click();
+      await page.getByLabel('Pozycja zestawu 4').fill('   ');
       await page.getByLabel(/Opis/).fill('Nowy opis');
       await page.getByLabel(/Cena/).fill('');
       await page.getByRole('button', { name: 'Zapisz zmiany' }).click();
