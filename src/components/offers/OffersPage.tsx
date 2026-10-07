@@ -3,6 +3,7 @@
 import * as React from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useGeolocation } from "@/hooks/useGeolocation";
+import { LocationIndicator } from "@/components/location/LocationIndicator";
 import { AddressInput } from "@/components/location/AddressInput";
 import { MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -256,6 +257,7 @@ export function OffersPage({ initialData }: OffersPageProps) {
         })}
       </div>
 
+      <LocationIndicator />
       {/* Filters */}
       <OfferFilters
         onChange={handleFiltersChange}

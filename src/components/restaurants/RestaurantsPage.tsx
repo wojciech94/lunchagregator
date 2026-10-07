@@ -4,6 +4,7 @@ import * as React from "react";
 import { MapPin } from "lucide-react";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { listRestaurants } from "@/actions/restaurants";
+import { LocationIndicator } from "@/components/location/LocationIndicator";
 import { AddressInput } from "@/components/location/AddressInput";
 import { RestaurantFilters } from "./RestaurantFilters";
 import { RestaurantList } from "./RestaurantList";
@@ -130,6 +131,7 @@ export function RestaurantsPage({ initialData }: RestaurantsPageProps) {
         </div>
       )}
 
+      <LocationIndicator />
       {/* Filters */}
       <RestaurantFilters
         filters={filters}

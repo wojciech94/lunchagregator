@@ -3,7 +3,7 @@
  * Validates: Requirements 3.3, 7.2, 7.3, 7.5
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 
 const getUser = vi.hoisted(() => vi.fn());
 
@@ -50,6 +50,7 @@ describe('NavHeader auth-state transitions', () => {
       view.rerender(await NavHeader());
       expect(performance.now() - loggedInAt).toBeLessThan(1_000);
       expect(screen.getByText(authenticatedUser.email)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Menu profilu' }));
       expect(screen.getByRole('button', { name: 'Wyloguj się' })).toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'Zaloguj się' })).not.toBeInTheDocument();
 

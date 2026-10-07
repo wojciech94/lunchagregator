@@ -1,71 +1,35 @@
 import Link from "next/link";
-import { UtensilsCrossed } from "lucide-react";
+import { Plus, UtensilsCrossed } from "lucide-react";
 import { getUser } from "@/lib/auth";
 import { isAdmin } from "@/lib/ownership";
 import { LocationIndicator } from "@/components/location/LocationIndicator";
 import { NavLinks } from "@/components/NavLinks";
 import { NavMobileMenu } from "@/components/NavMobileMenu";
+import { AccountMenu } from "@/components/AccountMenu";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { AuthNavLinks } from "@/components/auth/AuthNavLinks";
+import { Button } from "@/components/ui/button";
 
 export async function NavHeader() {
   const user = await getUser();
-
-  // The role lives in `app_metadata`, which only the server sees without a
-  // round trip. Decided here, once, and handed to both nav renderers as a
-  // boolean: hiding the panel link is a courtesy, not the guard -- `/admin/offers`
-  // refuses a non-admin with `notFound()` on its own.
+  // Server-derived role: presentation is not a substitute for authorization.
   const viewerIsAdmin = isAdmin(user);
-
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-[#0f1011]">
       <div className="mx-auto flex h-14 max-w-[1440px] items-center justify-between gap-3 px-4 md:px-6">
-        {/* Logo */}
-        <Link
-          href="/"
-          className="flex shrink-0 items-center gap-2 text-[#f7f8f8] font-semibold min-h-[44px]"
-        >
+        <Link href="/" className="flex shrink-0 items-center gap-2 text-[#f7f8f8] font-semibold min-h-[44px]">
           <UtensilsCrossed className="size-5 text-primary" />
-          <span className="hidden sm:inline text-base">Lunch Agregator</span>
-          <span className="sm:hidden text-base">🍽️ Lunch</span>
+          <span className="text-base">Lunch Agregator</span>
         </Link>
-
-        {/* Desktop navigation */}
-        <NavLinks isAdmin={viewerIsAdmin} isAuthenticated={!!user} />
-
-        {/* Right side: auth + location + mobile toggle */}
+        <NavLinks />
         <div className="flex min-w-0 items-center gap-2">
-          {/* Auth controls (desktop) */}
-          <div className="hidden xl:flex xl:items-center xl:gap-2">
-            {user ? (
-              <>
-                <span className="text-sm text-[#62666d] truncate max-w-[120px]" title={user.email}>
-                  {user.email}
-                </span>
-                <LogoutButton />
-              </>
-            ) : (
-              <AuthNavLinks />
-            )}
+          <div className="hidden xl:flex xl:items-center xl:gap-3">
+            <Button asChild className="min-h-[44px]"><Link href="/add"><Plus className="size-4" />Dodaj ofertę</Link></Button>
+            {user ? <AccountMenu key={user.id} email={user.email ?? "Twoje konto"} isAdmin={viewerIsAdmin} logout={<LogoutButton />} /> :
+              <><AuthNavLinks /><div className="text-[#f7f8f8]"><LocationIndicator compact /></div></>}
           </div>
-
-          <div className="hidden min-w-0 xl:block">
-            <LocationIndicator />
-          </div>
-
-          {/* Mobile hamburger + dropdown */}
-          <NavMobileMenu
-            isAdmin={viewerIsAdmin}
-            isAuthenticated={!!user}
-            accountControls={user ? (
-              <>
-                <span className="px-3 text-sm text-[#62666d] [overflow-wrap:anywhere]">
-                  {user.email}
-                </span>
-                <LogoutButton />
-              </>
-            ) : <AuthNavLinks />}
-          />
+          <NavMobileMenu isAdmin={viewerIsAdmin} isAuthenticated={!!user} email={user?.email}
+            accountControls={user ? <LogoutButton /> : <AuthNavLinks />} />
         </div>
       </div>
     </header>
