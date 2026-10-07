@@ -94,6 +94,21 @@ describe("real filter form and page URL integration", () => {
     expect(pushed().get("q")).toBe("zupa");
   });
 
+  it("keeps newer search text and its timer when an older search navigation completes", () => {
+    vi.useFakeTimers();
+    setMockSearchParams("date=2026-10-08&cuisines=polska");
+    const view = render(<OffersPage initialData={empty} />);
+    fireEvent.change(screen.getByLabelText("Szukaj ofert"), { target: { value: "zu" } });
+    act(() => vi.advanceTimersByTime(300));
+    fireEvent.change(screen.getByLabelText("Szukaj ofert"), { target: { value: "zupa" } });
+    setMockSearchParams("date=2026-10-08&cuisines=polska&q=zu");
+    view.rerender(<OffersPage initialData={empty} />);
+    expect(screen.getByLabelText("Szukaj ofert")).toHaveValue("zupa");
+    act(() => vi.advanceTimersByTime(300));
+    expect(mockRouter.replace).toHaveBeenCalledTimes(2);
+    expect(mockRouter.replace.mock.calls[1][0]).toContain("q=zupa");
+  });
+
   it("follows navigation to a different day even when the filter values are unchanged", () => {
     vi.useFakeTimers();
     setMockSearchParams("date=2026-10-08&cuisines=polska");
@@ -104,5 +119,36 @@ describe("real filter form and page URL integration", () => {
     act(() => vi.advanceTimersByTime(350));
     expect(mockRouter.replace).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Szukaj ofert")).toHaveValue("");
+  });
+
+  it("keeps the newest already-emitted search while older responses settle", () => {
+    vi.useFakeTimers();
+    setMockSearchParams("date=2026-10-08");
+    const view = render(<OffersPage initialData={empty} />);
+    for (const value of ["zu", "zupa"]) {
+      fireEvent.change(screen.getByLabelText("Szukaj ofert"), { target: { value } });
+      act(() => vi.advanceTimersByTime(300));
+    }
+    setMockSearchParams("date=2026-10-08&q=zu");
+    view.rerender(<OffersPage initialData={empty} />);
+    expect(screen.getByLabelText("Szukaj ofert")).toHaveValue("zupa");
+    setMockSearchParams("date=2026-10-08&q=zupa");
+    view.rerender(<OffersPage initialData={empty} />);
+    expect(screen.getByLabelText("Szukaj ofert")).toHaveValue("zupa");
+  });
+
+  it("lets Back override a newer draft even when its query matches an outstanding search", () => {
+    vi.useFakeTimers();
+    setMockSearchParams("date=2026-10-08");
+    const view = render(<OffersPage initialData={empty} />);
+    fireEvent.change(screen.getByLabelText("Szukaj ofert"), { target: { value: "zu" } });
+    act(() => vi.advanceTimersByTime(300));
+    fireEvent.change(screen.getByLabelText("Szukaj ofert"), { target: { value: "zupa" } });
+    fireEvent(window, new PopStateEvent("popstate"));
+    setMockSearchParams("date=2026-10-08&q=zu");
+    view.rerender(<OffersPage initialData={empty} />);
+    act(() => vi.advanceTimersByTime(300));
+    expect(screen.getByLabelText("Szukaj ofert")).toHaveValue("zu");
+    expect(mockRouter.replace).toHaveBeenCalledTimes(1);
   });
 });

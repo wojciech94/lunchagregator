@@ -110,6 +110,8 @@ export function OfferFilters({
   const debounceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const searchRevision = React.useRef(0);
+  const searchNavigations = React.useRef<{ query: string | null; context: string; revision: number }[]>([]);
 
   // Follow the URL. Without this the form keeps whatever was typed while the
   // list changes underneath it, and Back moves the list without moving the
@@ -129,9 +131,9 @@ export function OfferFilters({
     date: initialFilters?.date ?? null,
     page: initialFilters?.page ?? null,
   });
+  const searchContext = JSON.stringify({ ...JSON.parse(incoming), q: null, page: null });
 
   React.useEffect(() => {
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     const next = JSON.parse(incoming) as {
       q: string | null;
       d: number | null;
@@ -141,8 +143,19 @@ export function OfferFilters({
       dt: DietaryTag[];
       sort: OfferFiltersType["sortBy"];
     };
+    const context = JSON.stringify({ ...JSON.parse(incoming), q: null, page: null });
+    const acknowledged = searchNavigations.current.findIndex(request =>
+      request.query === next.q && request.context === context
+    );
+    const preserveDraft = acknowledged >= 0 &&
+      searchNavigations.current[acknowledged].revision < searchRevision.current;
+    if (acknowledged >= 0) searchNavigations.current.splice(0, acknowledged + 1);
+    else searchNavigations.current = [];
 
-    setSearchQuery(next.q ?? "");
+    if (!preserveDraft) {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      setSearchQuery(next.q ?? "");
+    }
     setDistance(next.d ?? 10);
     setPriceMin(next.min?.toString() ?? "");
     setPriceMax(next.max?.toString() ?? "");
@@ -150,6 +163,17 @@ export function OfferFilters({
     setDietaryTags(next.dt);
     setSortBy(next.sort ?? DEFAULT_SORT);
   }, [incoming]);
+
+  React.useEffect(() => {
+    // Back/Forward is authoritative, even if it visits a query that is also
+    // awaiting an acknowledgement from one of our own search navigations.
+    const onPopState = () => {
+      searchNavigations.current = [];
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   const buildFilters = React.useCallback(
     (overrides?: Partial<{
@@ -210,6 +234,7 @@ export function OfferFilters({
   const emitChange = React.useCallback(
     (overrides?: Parameters<typeof buildFilters>[0]) => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      searchNavigations.current = [];
       onChange(buildFilters(overrides));
     },
     [onChange, buildFilters]
@@ -218,18 +243,21 @@ export function OfferFilters({
   // Debounced search
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
+    const revision = ++searchRevision.current;
 
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
 
     debounceTimerRef.current = setTimeout(() => {
+      const nextFilters = buildFilters({ searchQuery: value });
+      searchNavigations.current.push({ query: nextFilters.searchQuery ?? null, context: searchContext, revision });
       // On its own channel when the caller provides one: typing replaces the
       // URL, it does not push a history entry per keystroke.
       if (onSearchChange) {
-        onSearchChange(buildFilters({ searchQuery: value }));
+        onSearchChange(nextFilters);
       } else {
-        emitChange({ searchQuery: value });
+        onChange(nextFilters);
       }
     }, 300);
   };
@@ -293,6 +321,7 @@ export function OfferFilters({
 
   const handleClearFilters = () => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    searchNavigations.current = [];
     setSearchQuery("");
     setDistance(10);
     setPriceMin("");

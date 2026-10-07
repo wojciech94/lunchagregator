@@ -11,6 +11,8 @@ const origin = "http://localhost:3000";
 const expect = baseExpect.configure({ timeout: 15_000 });
 let backend: Server;
 let delay = 0;
+let heldSearch: string | null = null;
+let releaseSearch: (() => void) | undefined;
 const requests: Record<string, unknown>[] = [];
 function dateAfter(days: number) {
   const date = new Date();
@@ -55,7 +57,9 @@ test.describe("audit #88 offer filters", () => {
             available_date: params.p_date, cuisine_type: "polska", dietary_tags: ["vegetarian"], allergens: [],
             source_type: "manual", user_id: null, session_token: "fixture", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", distance_km: params.p_user_lat ? 1 : null,
           }));
-          setTimeout(() => res.end(JSON.stringify(rows.slice(params.p_offset, params.p_offset + params.p_limit))), delay);
+          const respond = () => res.end(JSON.stringify(rows.slice(params.p_offset, params.p_offset + params.p_limit)));
+          if (heldSearch !== null && params.p_search_query === heldSearch) releaseSearch = respond;
+          else setTimeout(respond, delay);
         });
       } else if (req.method === "HEAD") {
         res.setHeader("Content-Range", "0-50/51"); res.end();
@@ -64,7 +68,8 @@ test.describe("audit #88 offer filters", () => {
     await new Promise<void>(resolve => backend.listen(54330, "127.0.0.1", resolve));
   });
   test.afterAll(async () => { if (backend) await new Promise<void>(resolve => backend.close(() => resolve())); });
-  test.beforeEach(() => { delay = 0; requests.length = 0; });
+  test.beforeEach(() => { delay = 0; requests.length = 0; heldSearch = null; releaseSearch = undefined; });
+  test.afterEach(() => { releaseSearch?.(); releaseSearch = undefined; });
 
   for (const width of [1280, 390]) {
     test(`stable filter and results geometry at ${width}px, including pending navigation`, async ({ page, context }) => {
@@ -165,6 +170,21 @@ test.describe("audit #88 offer filters", () => {
     await page.waitForTimeout(400);
     await expect(page.getByLabel("Szukaj ofert")).toHaveValue("");
     await expect(page).toHaveURL(`${origin}/?date=${date}`);
+  });
+
+  test("an older search response preserves a newer draft and its debounce", async ({ page, context }) => {
+    await seedLocation(context);
+    await page.goto(`${origin}/?date=${dateAfter(1)}`);
+    await ready(page);
+    heldSearch = "zu";
+    await page.getByLabel("Szukaj ofert").fill("zu");
+    await expect.poll(() => !!releaseSearch).toBe(true);
+    await page.getByLabel("Szukaj ofert").fill("zupa");
+    releaseSearch!();
+    releaseSearch = undefined;
+    await expect(page.getByLabel("Szukaj ofert")).toHaveValue("zupa");
+    await expect(page).toHaveURL(/q=zupa/);
+    await expect(page.getByLabel("Szukaj ofert")).toHaveValue("zupa");
   });
 
   test("out-of-strip heading and distance link without location remain informative", async ({ page }) => {

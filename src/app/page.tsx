@@ -2,7 +2,7 @@ import { getOffers } from "@/actions/offers";
 import { OffersPage } from "@/components/offers/OffersPage";
 import { parseFiltersFromSearchParams, withDistanceFilter } from "@/lib/filter-url";
 import { readStoredLocationCookie } from "@/lib/location";
-import { todayISO, upcomingDays } from "@/utils/day-of-week";
+import { todayISO } from "@/utils/day-of-week";
 
 interface HomeProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -34,9 +34,11 @@ export default async function Home({ searchParams }: HomeProps) {
     : { offers: [], total: 0, page: 1, limit: 50, hasMore: false };
 
   const date = filters.date ?? todayISO();
-  const dayLabel = date === todayISO() ? "dziś"
-    : date === upcomingDays(2)[1].date ? "jutro"
-    : new Date(`${date}T12:00:00`).toLocaleDateString("pl-PL", { day: "numeric", month: "long", year: "numeric" });
+  // The server does not know the visitor's timezone. An absolute calendar date
+  // stays truthful even when "today" differs between the browser and server.
+  const dayLabel = new Date(`${date}T12:00:00Z`).toLocaleDateString("pl-PL", {
+    day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
+  });
 
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
