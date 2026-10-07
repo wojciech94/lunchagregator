@@ -1,7 +1,7 @@
 import { generateObject } from 'ai';
 import { google } from '@ai-sdk/google';
 import { AI_MODEL_ID } from '@/lib/ai/models';
-import { RATE_LIMIT_MESSAGE, isRateLimitError } from '@/lib/ai/errors';
+import { ExtractionTimeoutError, reportExtractionFailure } from '@/lib/ai/extraction-errors';
 import { AI_TIMEOUT_MS, GEMINI_THINKING_OFF } from '@/lib/ai/constants';
 import { z } from 'zod';
 import type { DietaryTag, Allergen } from '@/types/offers';
@@ -41,9 +41,8 @@ export interface ExtractedOffers {
   confidence: number;
   missingFields: string[];
   /**
-   * Set when the AI call failed for a reason the User should hear about,
-   * such as a rate limit. Absent means either a successful extraction or an
-   * ordinary failure with nothing useful to add.
+   * Set when analysis failed. An empty result without a message means the
+   * provider successfully analyzed the input but found no offers.
    */
   message?: string;
 }
@@ -145,30 +144,29 @@ const extractionResultSchema = z.object({
  * pending timer until it fires.
  */
 async function withAIFallback<T>(
-  aiCall: () => Promise<T>,
+  aiCall: (signal: AbortSignal) => Promise<T>,
   fallback: (message?: string) => T,
   timeoutMs: number = AI_TIMEOUT_MS
 ): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const controller = new AbortController();
 
   try {
     const result = await Promise.race([
-      aiCall(),
+      aiCall(controller.signal),
       new Promise<never>((_, reject) => {
         timer = setTimeout(
-          () => reject(new Error('AI service timeout')),
+          () => {
+            reject(new ExtractionTimeoutError());
+            controller.abort();
+          },
           timeoutMs
         );
       }),
     ]);
     return result;
   } catch (error) {
-    console.error('AI service error:', error);
-    // A rate limit is not the same as "nothing found": say so rather than
-    // returning a silently empty result the User reads as a real answer.
-    return isRateLimitError(error)
-      ? fallback(RATE_LIMIT_MESSAGE)
-      : fallback();
+    return fallback(reportExtractionFailure(error));
   } finally {
     if (timer !== undefined) {
       clearTimeout(timer);
@@ -281,12 +279,14 @@ Rules:
 
 /**
  * Analyzes a URL to extract lunch offer details.
- * Fetches the URL content and uses AI to extract structured data.
+ * Passes the URL to the model. Explicit URL retrieval is a separate integration.
  */
 export async function analyzeUrl(url: string): Promise<ExtractedOffers> {
   return withAIFallback<ExtractedOffers>(
-    async () => {
+    async (abortSignal) => {
       const { object } = await generateObject({
+        abortSignal,
+        maxRetries: 0,
         model: google(AI_MODEL_ID),
         providerOptions: GEMINI_THINKING_OFF,
         schema: extractionResultSchema,
@@ -327,8 +327,10 @@ export async function analyzeText(text: string): Promise<ExtractedOffers> {
   }
 
   return withAIFallback<ExtractedOffers>(
-    async () => {
+    async (abortSignal) => {
       const { object } = await generateObject({
+        abortSignal,
+        maxRetries: 0,
         model: google(AI_MODEL_ID),
         providerOptions: GEMINI_THINKING_OFF,
         schema: extractionResultSchema,
@@ -355,8 +357,10 @@ export async function analyzeText(text: string): Promise<ExtractedOffers> {
  */
 export async function analyzeImage(imageUrl: string): Promise<ExtractedOffers> {
   return withAIFallback<ExtractedOffers>(
-    async () => {
+    async (abortSignal) => {
       const { object } = await generateObject({
+        abortSignal,
+        maxRetries: 0,
         model: google(AI_MODEL_ID),
         providerOptions: GEMINI_THINKING_OFF,
         schema: extractionResultSchema,
