@@ -83,7 +83,7 @@ Anonimowe dodawanie ofert zostało **świadomie wycofane**. Pierwotna wersja teg
 #### Acceptance Criteria
 
 1. WHEN a User opens the recommendation chat, THE System SHALL display a chat interface where the User can describe preferences in natural language
-2. WHEN a User sends a message describing preferences (e.g., "chcę coś lekkiego i taniego"), THE AI_Recommender SHALL respond within 10 seconds with 1 to 5 Lunch_Offers from today's available offers that match the stated preferences
+2. WHEN a User sends a message describing preferences (e.g., "chcę coś lekkiego i taniego"), THE AI_Recommender SHALL respond within a total budget of 25 seconds with 1 to 5 Lunch_Offers from today's available offers that match the stated preferences. The budget includes an optional alternate-model attempt after HTTP 429 and SHALL NOT reset when switching models.
 3. WHEN the AI_Recommender returns recommendations, THE AI_Recommender SHALL provide a natural language explanation for each recommended Lunch_Offer stating why it matches the User's preferences
 4. THE AI_Recommender SHALL filter and prioritize recommendations based on dietary restrictions, price preferences, and location when these are stated by the User in the conversation
 5. THE AI_Recommender SHALL maintain conversation context within the current session only, supporting up to 50 messages per session, without persisting history between sessions

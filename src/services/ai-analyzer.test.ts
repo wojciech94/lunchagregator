@@ -23,7 +23,7 @@ describe('extraction provider boundary', () => {
     expect(fetch).toHaveBeenCalledTimes(status === 429 ? 2 : 1);
   });
 
-  it('aborts the provider request at the ten-second deadline', async () => {
+  it('aborts the provider request at the shared 25-second deadline', async () => {
     vi.useFakeTimers();
     vi.spyOn(console, 'error').mockImplementation(() => {});
     let signal: AbortSignal | null | undefined;
@@ -32,7 +32,7 @@ describe('extraction provider boundary', () => {
       return new Promise(() => {});
     });
     const pending = analyzeText('Lunch: Margherita, 34 zł.');
-    await vi.advanceTimersByTimeAsync(9999);
+    await vi.advanceTimersByTimeAsync(24999);
     expect(signal?.aborted).toBe(false);
     await vi.advanceTimersByTimeAsync(1);
     expect((await pending).message).toBe(EXTRACTION_ERROR_MESSAGES.timeout);
@@ -56,7 +56,7 @@ describe('extraction provider boundary', () => {
     expect(fetch.mock.calls[1][1]?.body).toEqual(fetch.mock.calls[0][1]?.body);
   });
 
-  it('does not give the fallback a new ten-second deadline', async () => {
+  it('does not give the fallback a new 25-second deadline', async () => {
     vi.useFakeTimers();
     vi.spyOn(console, 'error').mockImplementation(() => {});
     let fallbackSignal: AbortSignal | null | undefined;
@@ -67,9 +67,26 @@ describe('extraction provider boundary', () => {
     await vi.advanceTimersByTimeAsync(9000);
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(fallbackSignal?.aborted).toBe(false);
-    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(15999);
+    expect(fallbackSignal?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
     expect((await pending).message).toBe(EXTRACTION_ERROR_MESSAGES.timeout);
     expect(fallbackSignal?.aborted).toBe(true);
+  });
+
+  it('allows fallback extraction to complete after the former ten-second cutoff', async () => {
+    vi.useFakeTimers();
+    const fetch = vi.spyOn(globalThis, 'fetch')
+      .mockImplementationOnce(() => new Promise(resolve => setTimeout(() => resolve(new Response(JSON.stringify({ error: { code: 429 } }), { status: 429, headers: { 'content-type': 'application/json' } })), 9000)))
+      .mockImplementationOnce(() => new Promise(resolve => setTimeout(() => resolve(providerResponse({
+        offers: [{ restaurantName: 'Pizza Si', dishes: [{ name: 'Margherita', price: 34 }] }], confidence: 0.9,
+      })), 6000)));
+    const pending = analyzeText('Pizza Si. Margherita 34 PLN.');
+    await vi.advanceTimersByTimeAsync(15000);
+    const result = await pending;
+    expect(result.message).toBeUndefined();
+    expect(result.offers[0].dishes[0].price).toBe(34);
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it('distinguishes invalid structured output from a successful empty analysis', async () => {

@@ -40,5 +40,5 @@ describe.skipIf(process.env.RUN_AI_LIVE !== '1')('issue #94 captured source extr
     }
     // Dates, surcharges and source conditions have no fields in the current
     // Extraction contract. Passing this test does not authorize publication.
-  }, 20000);
+  }, 35000);
 });

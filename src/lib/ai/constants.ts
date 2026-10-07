@@ -1,11 +1,11 @@
 import { AI_MODEL_ID } from './models';
 
 /**
- * Requirement 4.2 puts the AI response budget at 10 seconds, and both AI
- * services have to honour it. The constant lives here so the analyzer and
- * the recommender cannot drift apart.
+ * Total AI response budget, shared by the primary and alternate model.
+ * Keep it common to extraction and recommendation so a rate-limit fallback
+ * has room to finish without resetting the deadline.
  */
-export const AI_TIMEOUT_MS = 10000;
+export const AI_TIMEOUT_MS = 25000;
 
 // The legacy numeric budget works for 2.5 Flash, but 3.5 Flash-Lite rejects
 // zero with HTTP 400. Use model defaults for other models. This SDK version
