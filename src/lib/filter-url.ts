@@ -1,8 +1,8 @@
-import { offerFiltersSchema } from "@/lib/validations/filters";
+import { distanceFilterSchema, offerFiltersSchema } from "@/lib/validations/filters";
 import type { OfferFilters } from "@/types/filters";
 
 export interface ParsedUrlFilters {
-  /** Filters the schema accepts on their own. */
+  /** Parsed criteria, including numeric price drafts rejected by validation. */
   filters: OfferFilters;
   /**
    * Radius from the URL, kept separate.
@@ -23,8 +23,10 @@ export interface ParsedUrlFilters {
  * exactly what the server accepts, so a second schema here would be one more
  * thing to keep in sync and one more thing to eventually let drift.
  *
- * An unparseable value drops the whole filter set rather than failing the
- * render -- a hand-edited or truncated link should still show offers.
+ * Validate criteria independently: one malformed value must not erase the
+ * selected day or unrelated criteria. Numeric price drafts stay intact even
+ * when invalid, so the form can explain them and the server action rejects
+ * them instead of silently broadening the query.
  */
 export function parseFiltersFromSearchParams(params: URLSearchParams): ParsedUrlFilters {
   const raw: Record<string, string | string[]> = {};
@@ -51,23 +53,21 @@ export function parseFiltersFromSearchParams(params: URLSearchParams): ParsedUrl
     raw.date = date;
   }
 
-  const radiusValue = toNumber(raw.radius);
-  const parsed = offerFiltersSchema.safeParse(coerceQuery(raw));
-
-  if (!parsed.success) {
-    return radiusValue === undefined ? { filters: {} } : { filters: {}, radius: radiusValue };
+  const candidateRadius = toNumber(raw.radius);
+  const radiusValue = candidateRadius !== undefined &&
+    distanceFilterSchema.shape.radius.safeParse(candidateRadius).success
+    ? candidateRadius : undefined;
+  const query = coerceQuery(raw);
+  const filters: OfferFilters = {};
+  for (const key of ["date", "page", "sortBy", "searchQuery", "cuisineTypes", "dietaryTags"] as const) {
+    if (query[key] === undefined) continue;
+    const parsed = offerFiltersSchema.shape[key].safeParse(query[key]);
+    if (parsed.success) Object.assign(filters, { [key]: parsed.data });
   }
-
-  // The schema applies defaults for `page` and `limit`, which would make the
-  // page send its own values when the URL says nothing. Absent means absent,
-  // so the service defaults are what apply -- and `limit` is not User-chosen
-  // state at all (Requirement 2.9), so it is never read back from the URL.
-  const filters = { ...(parsed.data as OfferFilters) } as Record<string, unknown>;
-  if (raw.page === undefined) delete filters.page;
-  delete filters.limit;
+  if (query.price) filters.price = query.price;
 
   return {
-    filters: filters as OfferFilters,
+    filters,
     ...(radiusValue === undefined ? {} : { radius: radiusValue }),
   };
 }
@@ -79,13 +79,13 @@ function toNumber(value: string | string[] | undefined): number | undefined {
 }
 
 /** Query strings carry strings; the schema wants numbers and enums. */
-function coerceQuery(raw: Record<string, string | string[]>): unknown {
-  const result: Record<string, unknown> = {};
+function coerceQuery(raw: Record<string, string | string[]>): Record<string, unknown> & { price?: OfferFilters["price"] } {
+  const result: Record<string, unknown> & { price?: OfferFilters["price"] } = {};
 
   const min = toNumber(raw.priceMin);
   const max = toNumber(raw.priceMax);
   if (min !== undefined || max !== undefined) {
-    result.price = { ...(min !== undefined ? { min } : {}), ...(max !== undefined ? { max } : {}) };
+    result.price = { min: min ?? 0.01, max: max ?? 999.99 };
   }
 
   const page = toNumber(raw.page);

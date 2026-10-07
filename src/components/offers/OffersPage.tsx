@@ -10,12 +10,13 @@ import { OfferFilters } from "./OfferFilters";
 import { OfferList } from "./OfferList";
 import { upcomingDays, todayISO } from "@/utils/day-of-week";
 import { cn } from "@/lib/utils";
+import { priceFilterSchema } from "@/lib/validations/filters";
 import {
   filtersToSearchParams,
   parseFiltersFromSearchParams,
 } from "@/lib/filter-url";
 import type { OfferFilters as OfferFiltersType } from "@/types/filters";
-import type { LunchOfferWithDistance, PaginatedOffers } from "@/types/offers";
+import type { PaginatedOffers } from "@/types/offers";
 import type { Coordinates } from "@/types/offers";
 
 interface OffersPageProps {
@@ -94,13 +95,20 @@ export function OffersPage({ initialData }: OffersPageProps) {
 
   const handleFiltersChange = React.useCallback(
     (next: OfferFiltersType) =>
-      applyFilters(next, next.distance?.radius ?? radius, "push"),
-    [applyFilters, radius]
+      applyFilters({ date: filters.date, ...next }, next.distance?.radius ?? radius, "push"),
+    [applyFilters, filters.date, radius]
   );
 
   const handleSearchChange = React.useCallback(
-    (next: OfferFiltersType) => applyFilters(next, radius, "replace"),
-    [applyFilters, radius]
+    (next: OfferFiltersType) => applyFilters({ date: filters.date, ...next }, radius, "replace"),
+    [applyFilters, filters.date, radius]
+  );
+
+  // Reset browsing criteria, not the day being browsed. Removing radius and
+  // explicit sort restores the server's location-aware default ordering.
+  const handleReset = React.useCallback(
+    () => applyFilters({ date: filters.date }, undefined, "push"),
+    [applyFilters, filters.date]
   );
 
   const handleDayChange = React.useCallback(
@@ -252,6 +260,8 @@ export function OffersPage({ initialData }: OffersPageProps) {
       <OfferFilters
         onChange={handleFiltersChange}
         onSearchChange={handleSearchChange}
+        onReset={handleReset}
+        initialRadius={radius}
         userLocation={coordinates}
         // From the URL, not from what this component thinks. Passing a
         // sortBy derived from whether a location exists -- which is what this
@@ -260,39 +270,43 @@ export function OffersPage({ initialData }: OffersPageProps) {
         // guarantees they do.
         initialFilters={{
           ...filters,
-          ...(coordinates && !filters.sortBy ? { sortBy: "distance" as const } : {}),
           ...(radius !== undefined && coordinates
             ? { distance: { radius, from: coordinates } }
             : {}),
         }}
       />
 
-      {/* Loading indicator */}
-      {isLoading && (
-        <div className="flex justify-center py-8">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" role="status" aria-label="Ładowanie ofert" />
-        </div>
-      )}
+      {/* Keep the current results in place while the server renders the next
+          query. Replacing the list with a spinner collapsed its layout. */}
+      <div className="relative min-h-24" data-testid="offer-results" aria-busy={isLoading}>
+        {isLoading && (
+          <div className="absolute inset-0 z-10 flex items-start justify-center bg-background/60 pt-8">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" role="status" aria-label="Ładowanie ofert" />
+          </div>
+        )}
 
-      {/* Single empty state — context-aware */}
-      {!isLoading && offers.length === 0 && (
-        <div className="rounded-lg border border-border bg-muted/50 p-6 text-center">
-          <p className="text-muted-foreground">
-            {Object.keys(filters).length > 0
-              ? "Brak ofert spełniających wybrane kryteria. Spróbuj zmienić filtry."
-              : "Brak ofert lunchowych na dziś. Sprawdź później lub dodaj własną ofertę!"}
-          </p>
-        </div>
-      )}
+        {/* Single empty state — context-aware */}
+        {offers.length === 0 && (
+          <div className="rounded-lg border border-border bg-muted/50 p-6 text-center">
+            <p className="text-muted-foreground">
+              {filters.price && !priceFilterSchema.safeParse(filters.price).success
+                ? "Popraw zakres cen, aby wyświetlić oferty."
+                : Object.keys(filters).length > 0
+                ? "Brak ofert spełniających wybrane kryteria. Spróbuj zmienić filtry."
+                : "Brak ofert lunchowych na dziś. Sprawdź później lub dodaj własną ofertę!"}
+            </p>
+          </div>
+        )}
 
-      {/* Offer list */}
-      {!isLoading && offers.length > 0 && (
-        <OfferList
-          offers={offers}
-          pagination={pagination}
-          onPageChange={handlePageChange}
-        />
-      )}
+        {/* Offer list */}
+        {offers.length > 0 && (
+          <OfferList
+            offers={offers}
+            pagination={pagination}
+            onPageChange={handlePageChange}
+          />
+        )}
+      </div>
     </div>
   );
 }

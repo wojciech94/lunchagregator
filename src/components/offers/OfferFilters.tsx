@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { priceFilterSchema } from "@/lib/validations/filters";
 import type { OfferFilters as OfferFiltersType } from "@/types/filters";
 import type { Coordinates, CuisineType, DietaryTag } from "@/types/offers";
 
@@ -61,6 +62,8 @@ const DEFAULT_SORT: OfferFiltersType["sortBy"] = undefined;
 
 interface OfferFiltersProps {
   onChange: (filters: OfferFiltersType) => void;
+  onReset?: () => void;
+  initialRadius?: number;
   /**
    * Search text, on its own channel and on its own clock.
    *
@@ -75,6 +78,8 @@ interface OfferFiltersProps {
 
 export function OfferFilters({
   onChange,
+  onReset,
+  initialRadius,
   onSearchChange,
   userLocation,
   initialFilters,
@@ -84,7 +89,7 @@ export function OfferFilters({
     initialFilters?.searchQuery ?? ""
   );
   const [distance, setDistance] = React.useState(
-    initialFilters?.distance?.radius ?? 10
+    initialFilters?.distance?.radius ?? initialRadius ?? 10
   );
   const [priceMin, setPriceMin] = React.useState(
     initialFilters?.price?.min?.toString() ?? ""
@@ -105,6 +110,8 @@ export function OfferFilters({
   const debounceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const searchRevision = React.useRef(0);
+  const searchNavigations = React.useRef<{ query: string | null; context: string; revision: number }[]>([]);
 
   // Follow the URL. Without this the form keeps whatever was typed while the
   // list changes underneath it, and Back moves the list without moving the
@@ -115,13 +122,16 @@ export function OfferFilters({
   // object is rebuilt on every navigation.
   const incoming = JSON.stringify({
     q: initialFilters?.searchQuery ?? null,
-    d: initialFilters?.distance?.radius ?? null,
+    d: initialFilters?.distance?.radius ?? initialRadius ?? null,
     min: initialFilters?.price?.min ?? null,
     max: initialFilters?.price?.max ?? null,
     ct: initialFilters?.cuisineTypes ?? [],
     dt: initialFilters?.dietaryTags ?? [],
     sort: initialFilters?.sortBy ?? null,
+    date: initialFilters?.date ?? null,
+    page: initialFilters?.page ?? null,
   });
+  const searchContext = JSON.stringify({ ...JSON.parse(incoming), q: null, page: null });
 
   React.useEffect(() => {
     const next = JSON.parse(incoming) as {
@@ -133,8 +143,19 @@ export function OfferFilters({
       dt: DietaryTag[];
       sort: OfferFiltersType["sortBy"];
     };
+    const context = JSON.stringify({ ...JSON.parse(incoming), q: null, page: null });
+    const acknowledged = searchNavigations.current.findIndex(request =>
+      request.query === next.q && request.context === context
+    );
+    const preserveDraft = acknowledged >= 0 &&
+      searchNavigations.current[acknowledged].revision < searchRevision.current;
+    if (acknowledged >= 0) searchNavigations.current.splice(0, acknowledged + 1);
+    else searchNavigations.current = [];
 
-    setSearchQuery(next.q ?? "");
+    if (!preserveDraft) {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      setSearchQuery(next.q ?? "");
+    }
     setDistance(next.d ?? 10);
     setPriceMin(next.min?.toString() ?? "");
     setPriceMax(next.max?.toString() ?? "");
@@ -142,6 +163,17 @@ export function OfferFilters({
     setDietaryTags(next.dt);
     setSortBy(next.sort ?? DEFAULT_SORT);
   }, [incoming]);
+
+  React.useEffect(() => {
+    // Back/Forward is authoritative, even if it visits a query that is also
+    // awaiting an acknowledgement from one of our own search navigations.
+    const onPopState = () => {
+      searchNavigations.current = [];
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   const buildFilters = React.useCallback(
     (overrides?: Partial<{
@@ -159,7 +191,7 @@ export function OfferFilters({
       const pMax = overrides?.priceMax ?? priceMax;
       const ct = overrides?.cuisineTypes ?? cuisineTypes;
       const dt = overrides?.dietaryTags ?? dietaryTags;
-      const sb = overrides?.sortBy ?? sortBy;
+      const sb = overrides && "sortBy" in overrides ? overrides.sortBy : sortBy;
 
       const filters: OfferFiltersType = {};
 
@@ -167,7 +199,9 @@ export function OfferFilters({
         filters.searchQuery = q;
       }
 
-      if (userLocation && d > 0) {
+      const distanceChosen = initialRadius !== undefined || initialFilters?.distance ||
+        overrides?.distance !== undefined || d !== 10;
+      if (userLocation && d > 0 && distanceChosen) {
         filters.distance = { radius: d, from: userLocation };
       }
 
@@ -175,8 +209,8 @@ export function OfferFilters({
       const maxVal = parseFloat(pMax);
       if (!isNaN(minVal) || !isNaN(maxVal)) {
         filters.price = {
-          min: !isNaN(minVal) ? Math.max(0.01, Math.min(999.99, minVal)) : 0.01,
-          max: !isNaN(maxVal) ? Math.max(0.01, Math.min(999.99, maxVal)) : 999.99,
+          min: !isNaN(minVal) ? minVal : 0.01,
+          max: !isNaN(maxVal) ? maxVal : 999.99,
         };
       }
 
@@ -194,11 +228,13 @@ export function OfferFilters({
 
       return filters;
     },
-    [searchQuery, distance, priceMin, priceMax, cuisineTypes, dietaryTags, sortBy, userLocation]
+    [searchQuery, distance, priceMin, priceMax, cuisineTypes, dietaryTags, sortBy, userLocation, initialRadius, initialFilters?.distance]
   );
 
   const emitChange = React.useCallback(
     (overrides?: Parameters<typeof buildFilters>[0]) => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      searchNavigations.current = [];
       onChange(buildFilters(overrides));
     },
     [onChange, buildFilters]
@@ -207,18 +243,21 @@ export function OfferFilters({
   // Debounced search
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
+    const revision = ++searchRevision.current;
 
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
 
     debounceTimerRef.current = setTimeout(() => {
+      const nextFilters = buildFilters({ searchQuery: value });
+      searchNavigations.current.push({ query: nextFilters.searchQuery ?? null, context: searchContext, revision });
       // On its own channel when the caller provides one: typing replaces the
       // URL, it does not push a history entry per keystroke.
       if (onSearchChange) {
-        onSearchChange(buildFilters({ searchQuery: value }));
+        onSearchChange(nextFilters);
       } else {
-        emitChange({ searchQuery: value });
+        onChange(nextFilters);
       }
     }, 300);
   };
@@ -265,13 +304,15 @@ export function OfferFilters({
   };
 
   const handleSortChange = (value: string) => {
-    const newSort = value as OfferFiltersType["sortBy"];
+    const newSort = value === "default" ? undefined : value as OfferFiltersType["sortBy"];
     setSortBy(newSort);
     emitChange({ sortBy: newSort });
   };
 
   const hasActiveFilters =
     searchQuery.length >= 2 ||
+    sortBy !== undefined ||
+    initialRadius !== undefined ||
     (userLocation && distance !== 10) ||
     priceMin !== "" ||
     priceMax !== "" ||
@@ -279,6 +320,8 @@ export function OfferFilters({
     dietaryTags.length > 0;
 
   const handleClearFilters = () => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    searchNavigations.current = [];
     setSearchQuery("");
     setDistance(10);
     setPriceMin("");
@@ -289,8 +332,15 @@ export function OfferFilters({
     // No sortBy key at all, rather than an explicit value: `listOffers` only
     // applies the alphabetical fallback when none was requested, so sending
     // "newest" here would restore a newest-first list on a filter reset.
-    onChange({});
+    if (onReset) onReset();
+    else onChange({});
   };
+
+  const parsedPrice = priceFilterSchema.safeParse({
+    min: priceMin === "" ? 0.01 : Number(priceMin),
+    max: priceMax === "" ? 999.99 : Number(priceMax),
+  });
+  const priceError = parsedPrice.success ? undefined : parsedPrice.error.issues[0].message;
 
   return (
     <div className="w-full space-y-4">
@@ -309,11 +359,14 @@ export function OfferFilters({
         </div>
 
         <div className="flex items-center gap-2">
-          <Select value={sortBy} onValueChange={handleSortChange}>
+          <Select value={sortBy ?? "default"} onValueChange={handleSortChange}>
             <SelectTrigger className="w-[180px]" aria-label="Sortowanie">
               <SelectValue placeholder="Sortuj" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="default">
+                {userLocation ? "Domyślnie (odległość)" : "Domyślnie (restauracja)"}
+              </SelectItem>
               {SORT_OPTIONS.map((option) => (
                 <SelectItem key={option.value} value={option.value!}>
                   {option.label}
@@ -346,15 +399,13 @@ export function OfferFilters({
           isOpen ? "block" : "hidden md:block"
         )}
       >
-        {/* Clear filters button */}
-        {hasActiveFilters && (
-          <div className="flex justify-end">
-            <Button variant="ghost" size="sm" onClick={handleClearFilters}>
-              <X className="size-3.5" />
-              Wyczyść filtry
-            </Button>
-          </div>
-        )}
+        {/* Reserve the reset row even when inactive, so controls stay put. */}
+        <div className="flex justify-end">
+          <Button variant="ghost" size="sm" onClick={handleClearFilters} disabled={!hasActiveFilters}>
+            <X className="size-3.5" />
+            Wyczyść filtry
+          </Button>
+        </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {/* Distance slider - only shown when user location is available */}
@@ -395,6 +446,8 @@ export function OfferFilters({
                 step={0.01}
                 className="w-full bg-card border-border focus:border-primary"
                 aria-label="Cena minimalna"
+                aria-invalid={!!priceError}
+                aria-describedby={priceError ? "offer-price-error" : undefined}
               />
               <span className="text-muted-foreground">—</span>
               <Input
@@ -407,8 +460,11 @@ export function OfferFilters({
                 step={0.01}
                 className="w-full bg-card border-border focus:border-primary"
                 aria-label="Cena maksymalna"
+                aria-invalid={!!priceError}
+                aria-describedby={priceError ? "offer-price-error" : undefined}
               />
             </div>
+            {priceError && <p id="offer-price-error" role="alert" className="text-sm text-destructive">{priceError}</p>}
           </div>
 
           {/* Cuisine type multi-select */}
