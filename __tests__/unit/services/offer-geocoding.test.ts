@@ -38,7 +38,7 @@ function stubClient(opts: { restaurantLocation?: string | null } = {}) {
       chain.select = () => chain;
       chain.eq = () => chain;
       chain.single = async () => ({
-        data: { location: opts.restaurantLocation },
+        data: { location: opts.restaurantLocation, name: 'Bar Mleko', address: 'Testowa 1' },
         error: null,
       });
       return chain;

@@ -143,7 +143,7 @@ describe('a linked offer snapshots the restaurant entity, not the client values'
     if (result.success) expect(result.locationWarning).toBeUndefined();
   });
 
-  it('falls back to the client address when the entity carries none', async () => {
+  it('keeps a null entity address instead of using the client address', async () => {
     stubClient({ restaurant: { name: 'Bar Mleko', address: null } });
 
     await createOffer(
@@ -154,14 +154,14 @@ describe('a linked offer snapshots the restaurant entity, not the client values'
       USER_ID
     );
 
-    expect(geocodeCalls).toEqual(['Adres od użytkownika']);
-    expect(insertedRow?.restaurant_address).toBe('Adres od użytkownika');
+    expect(geocodeCalls).toEqual([]);
+    expect(insertedRow?.restaurant_address).toBeNull();
   });
 
-  it('keeps the client values when the linked restaurant cannot be found', async () => {
+  it('refuses creation when the linked restaurant cannot be found', async () => {
     stubClient({ restaurant: null });
 
-    await createOffer(
+    const result = await createOffer(
       offerInput({
         restaurantId: RESTAURANT_ID,
         restaurantName: 'Bar Mleko',
@@ -170,9 +170,9 @@ describe('a linked offer snapshots the restaurant entity, not the client values'
       USER_ID
     );
 
-    expect(insertedRow?.restaurant_name).toBe('Bar Mleko');
-    expect(insertedRow?.restaurant_address).toBe('Adres od użytkownika');
-    expect(geocodeCalls).toEqual(['Adres od użytkownika']);
+    expect(result.success).toBe(false);
+    expect(insertedRow).toBeUndefined();
+    expect(geocodeCalls).toEqual([]);
   });
 });
 

@@ -10,6 +10,7 @@ import {
 } from '@/lib/offer-renewal';
 import {
   createOfferSchema,
+  cuisineTypeSchema,
   updateOfferSchema,
   type CreateOfferInput,
   type UpdateOfferInput,
@@ -296,22 +297,29 @@ export async function createOffer(
   // 1. The linked restaurant already has coordinates: reuse them rather than
   // paying Nominatim again for an address we have already resolved.
   if (parsed.data.restaurantId) {
-    const { data: restaurant } = await supabase
+    const { data: restaurant, error: restaurantError } = await supabase
       .from('restaurants')
-      .select('location, name, address')
+      .select('location, name, address, cuisine_types')
       .eq('id', parsed.data.restaurantId)
       .single();
 
-    if (restaurant) {
-      if (restaurant.location) {
-        dbRow.restaurant_location = restaurant.location;
-      }
-      if (restaurant.name) {
-        snapshotName = restaurant.name;
-      }
-      if (restaurant.address) {
-        snapshotAddress = restaurant.address;
-      }
+    if (restaurantError || !restaurant) {
+      return { success: false, error: 'Nie znaleziono restauracji' };
+    }
+
+    if (restaurant.location) {
+      dbRow.restaurant_location = restaurant.location;
+    }
+    snapshotName = restaurant.name;
+    // Null is authoritative too: a coordinate-only branch must not acquire
+    // a stale client address. Existing published snapshots are never changed.
+    snapshotAddress = restaurant.address ?? null;
+
+    // Dish cuisine wins. A single valid restaurant cuisine is an unambiguous
+    // publication default; multiple cuisines do not identify this dish.
+    if (parsed.data.cuisineType == null && restaurant.cuisine_types?.length === 1) {
+      const cuisine = cuisineTypeSchema.safeParse(restaurant.cuisine_types[0]);
+      if (cuisine.success) dbRow.cuisine_type = cuisine.data;
     }
   }
 
@@ -323,7 +331,7 @@ export async function createOffer(
   // none was expected" from "an address was given and we could not place it".
   // Computed from the resolved snapshot, not the raw payload: a restaurant
   // that carries its own address still gets placed even when the client sent
-  // none, and an entity without one falls back to what the client sent.
+  // none. A coordinate-only entity keeps a null address.
   const addressRequested =
     typeof snapshotAddress === 'string' && snapshotAddress.trim().length > 0;
 
@@ -455,7 +463,7 @@ export async function renewRestaurantMenu(
   const { data: rows, error: offersError } = await supabase
     .from('lunch_offers')
     .select(
-      'id, dish_name, available_date, price, description, items, dietary_tags, allergens, source_type'
+      'id, dish_name, available_date, price, description, items, dietary_tags, allergens, source_type, cuisine_type'
     )
     .eq('restaurant_id', restaurantId)
     .eq('user_id', userId)
@@ -525,6 +533,7 @@ export async function renewRestaurantMenu(
         restaurantAddress: (restaurant.address as string | null) ?? undefined,
         availableDate: item.targetDate,
         sourceType: source.source_type as CreateOfferInput['sourceType'],
+        cuisineType: (source.cuisine_type as CreateOfferInput['cuisineType']) ?? undefined,
         description: (source.description as string | null) ?? undefined,
         items: (source.items as string[]) ?? [],
         dietaryTags: (source.dietary_tags as string[]) ?? [],
