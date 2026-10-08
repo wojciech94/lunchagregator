@@ -76,7 +76,7 @@ describe('createOffersBatchAction', () => {
     expect(result.success).toBe(false);
     if (result.success) return;
     expect(result.error).not.toBe('Validation failed');
-    expect(result.error).toMatch(/restaurant name/i);
+    expect(result.error).toBe('Podaj nazwę restauracji.');
     expect(result.fieldErrors).toMatchObject({ restaurantName: expect.any(String) });
   });
 

@@ -93,7 +93,7 @@ test.describe('audit #89 extraction', () => {
     `);
     app = spawn(process.execPath, [join(process.cwd(), 'node_modules/next/dist/bin/next'), 'dev', '-p', '3089'], {
       cwd: process.cwd(), windowsHide: true, stdio: 'pipe',
-      env: { ...process.env, NODE_OPTIONS: `--require "${preload.replaceAll('\\', '/')}"`, NEXT_PUBLIC_SUPABASE_URL: fixtureUrl, NEXT_PUBLIC_SUPABASE_ANON_KEY: 'extraction-test-key', GOOGLE_GENERATIVE_AI_API_KEY: 'extraction-test-key' },
+      env: { ...process.env, NODE_OPTIONS: `--require "${preload.replaceAll('\\', '/')}"`, NEXT_PUBLIC_SUPABASE_URL: fixtureUrl, NEXT_PUBLIC_SUPABASE_ANON_KEY: 'extraction-test-key', GOOGLE_GENERATIVE_AI_API_KEY: 'extraction-test-key', AI_MODEL: 'gemini-3.5-flash-lite', AI_FALLBACK_MODEL: 'gemini-3.1-flash-lite' },
     });
     app.stdout?.on('data', chunk => { startupOutput = (startupOutput + chunk).slice(-6000); });
     app.stderr?.on('data', chunk => { startupOutput = (startupOutput + chunk).slice(-6000); });
@@ -140,9 +140,20 @@ test.describe('audit #89 extraction', () => {
     mode = 'weekly';
     await analyze(page, 'Pizza Si. Poniedziałek: Margherita 34 zł. Wtorek: Penne 35 zł. Środa: Risotto 36 zł.');
     await page.getByRole('button', { name: 'To jest ta restauracja' }).click();
-    await expect(page.getByText('Wykryto menu na 3 dni.', { exact: false })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Menu tygodniowe' })).toBeVisible();
     for (const day of ['Poniedziałek', 'Wtorek', 'Środa']) await expect(page.getByText(day, { exact: true })).toBeVisible();
-    await expect(page.getByRole('checkbox')).toHaveCount(3);
+    await expect(page.getByRole('checkbox')).toHaveCount(6);
+    await page.getByRole('textbox', { name: 'Nazwa dania', exact: true }).first().fill('Poprawiona Margherita');
+    await page.getByRole('spinbutton', { name: 'Cena (PLN)' }).first().fill('39.50');
+    await page.getByRole('textbox', { name: 'Skład zestawu (jeden składnik w wierszu)' }).first().fill('Pizza, duża\nLemoniada');
+    await page.getByRole('checkbox', { name: 'Publikuj ofertę 2' }).uncheck();
+    await expect(page.getByRole('button', { name: 'Opublikuj 2 oferty', exact: true })).toBeEnabled();
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.getByRole('spinbutton', { name: 'Cena (PLN)' }).first().fill('');
+    await expect(page.getByRole('button', { name: 'Opublikuj 2 oferty', exact: true })).toBeDisabled();
+    await page.getByRole('spinbutton', { name: 'Cena (PLN)' }).first().fill('39.50');
+    await expect(page.getByRole('button', { name: 'Opublikuj 2 oferty', exact: true })).toBeEnabled();
   });
 
   for (const [failure, message] of [
@@ -157,10 +168,10 @@ test.describe('audit #89 extraction', () => {
       mode = failure;
       await analyze(page, inputs[1]);
       const alert = page.getByRole('alert').filter({ hasText: message });
-      await expect(alert).toBeVisible({ timeout: 15000 });
+      await expect(alert).toBeVisible({ timeout: 30000 });
       await expect(page.getByRole('tab', { name: 'Tekst' })).toHaveAttribute('data-state', 'active');
       await expect(page.getByRole('textbox', { name: /Wklej tekst/ })).toHaveValue(inputs[1]);
-      expect(calls).toBe(1);
+      expect(calls).toBe(failure === 'rateLimit' ? 2 : 1);
       if (failure !== 'empty') await expect(alert).not.toContainText('Nie udało się wyekstrahować');
       // Retry the same input without repasting it.
       mode = 'success';
@@ -170,7 +181,7 @@ test.describe('audit #89 extraction', () => {
       await expect(page.getByRole('textbox', { name: /Wklej tekst/ })).toHaveValue(inputs[1]);
       mode = failure;
       await page.getByRole('button', { name: 'Analizuj', exact: true }).click();
-      await expect(alert).toBeVisible({ timeout: 15000 });
+      await expect(alert).toBeVisible({ timeout: 30000 });
       await page.getByRole('button', { name: 'Wprowadź dane ręcznie', exact: true }).click();
       await expect(page.getByRole('heading', { name: 'Przypisz restaurację' })).toBeVisible();
       await page.getByRole('button', { name: 'Wróć do wprowadzania danych' }).click();

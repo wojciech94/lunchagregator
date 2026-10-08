@@ -2,18 +2,18 @@
 
 ## Introduction
 
-Restauracje są samodzielnymi encjami z metadanymi (adres, lokalizacja, poziom cenowy, godziny lunchowe, typ kuchni). Nowe oferty wymagają przypisania restauracji, a jej dane są kopiowane do oferty jako snapshot. Historyczne oferty bez powiązania nadal działają. Zalogowani użytkownicy zarządzają własnymi restauracjami; administrator ma dodatkowe uprawnienia. Własność chronią niezależnie autoryzacja aplikacji i RLS.
+Restaurants are independent entities with address, location, price level, lunch hours and cuisine metadata. New offers require Restaurant assignment and store its publication Snapshot. Historical unlinked offers remain compatible. Authenticated Users manage their own Restaurants; Admins have additional capabilities. Application authorization and RLS independently protect ownership.
 
 ## Glossary
 
 - **System**: Aplikacja webowa agregująca oferty lunchowe (Lunch Agregator)
-- **User**: Zalogowane konto zarządzające własnymi restauracjami; Visitor może przeglądać. Pełne definicje w `GLOSSARY.md`.
+- **User**: An authenticated account managing its own Restaurants; Visitors may browse. Full definitions live in `GLOSSARY.md`.
 - **Restaurant**: Samodzielna encja reprezentująca restaurację z metadanymi (nazwa, adres, lokalizacja, poziom cenowy, godziny lunchowe, typ kuchni)
 - **Lunch_Offer**: Pojedyncza oferta lunchowa powiązana z Restaurant
 - **Location_Service**: Moduł odpowiedzialny za geokodowanie adresów i obliczanie odległości
 - **Price_Level**: Kategoria cenowa restauracji (budżetowa, średnia, premium) określająca ogólny poziom cen
 - **Lunch_Hours**: Przedział czasowy w którym restauracja serwuje lunch (np. 12:00-16:00)
-- **Session_Token**: Historyczny identyfikator anonimowych danych, zachowany na okres migracji; bieżąca własność wynika z `user_id`.
+- **Session_Token**: Legacy anonymous-data identifier retained for migration; current ownership uses `user_id`.
 
 ## Requirements
 
