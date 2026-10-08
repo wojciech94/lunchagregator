@@ -14,6 +14,22 @@ it('requests an explicit server-side snapshot repair and refreshes the admin row
   fireEvent.click(screen.getByRole('button', { name: 'Pobierz adres restauracji' }));
   await waitFor(() => expect(mocks.refresh).toHaveBeenCalled());
   expect(mocks.update).toHaveBeenCalledWith('offer', { useRestaurantLocation: true });
+  expect(screen.getByRole('status')).toHaveTextContent('Pobrano adres i lokalizację restauracji.');
+});
+
+it('reports coordinates without claiming to restore an absent address', async () => {
+  mocks.update.mockResolvedValue({ success: true, data: { restaurantAddress: null, restaurantLocation: { latitude: 51, longitude: 17 } } });
+  render(<RestoreOfferLocationButton offerId="offer" />);
+  fireEvent.click(screen.getByRole('button', { name: 'Pobierz adres restauracji' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('Pobrano współrzędne restauracji. Restauracja nie ma adresu.');
+  expect(mocks.refresh).toHaveBeenCalled();
+});
+
+it('reports when neither an address nor coordinates can be restored', async () => {
+  mocks.update.mockResolvedValue({ success: true, data: { restaurantAddress: null, restaurantLocation: null } });
+  render(<RestoreOfferLocationButton offerId="offer" />);
+  fireEvent.click(screen.getByRole('button', { name: 'Pobierz adres restauracji' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('Restauracja nie ma adresu ani współrzędnych. Uzupełnij jej dane.');
 });
 
 it('reports that a saved address still has no coordinates', async () => {

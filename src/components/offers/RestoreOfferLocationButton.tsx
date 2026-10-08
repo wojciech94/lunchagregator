@@ -20,11 +20,17 @@ export function RestoreOfferLocationButton({ offerId }: { offerId: string }) {
         setMessage(result.error);
         return;
       }
-      setMessage(result.locationWarning
-        ? 'Adres zapisano, ale nie udało się ustalić współrzędnych. Oferta nie będzie widoczna w wyszukiwaniu po odległości.'
-        : result.data.restaurantAddress || result.data.restaurantLocation
-          ? 'Pobrano adres i lokalizację restauracji.'
-          : 'Restauracja nie ma adresu ani współrzędnych. Uzupełnij jej dane.');
+      const hasAddress = Boolean(result.data.restaurantAddress?.trim());
+      const hasCoordinates = result.data.restaurantLocation !== null;
+      if (hasAddress && hasCoordinates) {
+        setMessage('Pobrano adres i lokalizację restauracji.');
+      } else if (hasAddress) {
+        setMessage('Adres zapisano, ale nie udało się ustalić współrzędnych. Oferta nie będzie widoczna w wyszukiwaniu po odległości.');
+      } else if (hasCoordinates) {
+        setMessage('Pobrano współrzędne restauracji. Restauracja nie ma adresu.');
+      } else {
+        setMessage('Restauracja nie ma adresu ani współrzędnych. Uzupełnij jej dane.');
+      }
       router.refresh();
     } catch {
       setMessage('Nie udało się pobrać adresu restauracji. Spróbuj ponownie.');
