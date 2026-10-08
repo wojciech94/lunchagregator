@@ -22,6 +22,14 @@ Baza testowa: lokalny stos (`npx supabase start`) — patrz `docs/agents/test-da
 - Property tests (fast-check) mieszkają obok kodu jako `*.property.test.ts`; testy jednostkowe w `src/**/*.test.ts`
 - Specyfikacje w `.kiro/specs/<feature>/` — requirements, design, tasks
 
+## Workspace and task lifecycle
+
+Before starting implementation, resuming work, switching tasks, or handing work
+back, read and follow `docs/agents/workspace.md`. One active task owns each
+worktree. Verify the working tree, fetch the actual remote base, and record its
+SHA before editing; keep issue, PR and repository documentation current when
+delivering changes.
+
 ## Agent skills
 
 ### Issue tracker
