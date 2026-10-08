@@ -95,7 +95,7 @@ Restaurants are independent entities with address, location, price level, lunch 
 
 ### Requirement 8: Review and publication in restaurant context
 
-1. WHEN creation starts from a Restaurant detail page, THE System SHALL resolve the requested Restaurant on the server and preserve its assignment through manual entry, extraction, preview and publication. The User may explicitly change that assignment before publication.
+1. WHEN creation starts from a Restaurant detail page, THE System SHALL preserve the requested Restaurant through any required login redirect, resolve it on the server and preserve its assignment through manual entry, extraction, preview and publication. The User may explicitly change that assignment before publication.
 2. IF the requested Restaurant identifier is invalid or no longer exists, THE System SHALL explain the problem and allow the normal assignment flow.
 3. THE User SHALL be able to correct each weekly-menu offer's name, price, set components and availability date, and exclude individual offers before publication without excluding the whole day.
 4. THE System SHALL validate every selected offer against the publication schema, visibly report invalid entries and block publication until they are corrected or excluded. It SHALL NOT silently discard selected incomplete dishes. Unedited metadata and draft corrections SHALL survive rejected submission.

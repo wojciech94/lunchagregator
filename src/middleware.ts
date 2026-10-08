@@ -107,7 +107,9 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   if (!user) {
     const loginUrl = new URL("/auth/login", request.url);
-    loginUrl.searchParams.set("redirectTo", pathname);
+    // Keep Restaurant assignment and other query state through authentication.
+    // The destination is an internal protected path; loginAction also sanitizes it.
+    loginUrl.searchParams.set("redirectTo", `${pathname}${request.nextUrl.search}`);
     const redirectResponse = NextResponse.redirect(loginUrl);
     copySessionMutations(response, redirectResponse);
     return redirectResponse;
