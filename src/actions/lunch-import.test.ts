@@ -1,0 +1,158 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  getAdmin: vi.fn(), single: vi.fn(), from: vi.fn(), fetch: vi.fn(), analyze: vi.fn(),
+}));
+vi.mock('@/lib/auth', () => ({ getAdmin: mocks.getAdmin }));
+vi.mock('@/lib/supabase/server', () => ({ createClient: async () => ({ from: mocks.from }) }));
+vi.mock('@/services/lunch-import/fetch-html', () => ({ fetchMenuHtml: mocks.fetch }));
+vi.mock('@/services/ai-analyzer', () => ({ analyzeText: mocks.analyze }));
+import { previewLunchImport } from './lunch-import';
+import { EXTRACTION_ERROR_MESSAGES } from '@/lib/ai/extraction-errors';
+import { extractSofaMenu } from '@/services/lunch-import/sofa';
+import { extractSushiMenu } from '@/services/lunch-import/sushi';
+
+const restaurant = { id: '1070afce-ff35-4861-b940-f4eb783b9e40', name: 'Sofa Lounge & Restaurant', address: 'al. Paderewskiego 35, Wrocław' };
+beforeEach(() => {
+  vi.stubEnv('SOFA_IMPORT_RESTAURANT_ID', restaurant.id);
+  mocks.getAdmin.mockResolvedValue({ id: 'operator' });
+  mocks.single.mockResolvedValue({ data: restaurant, error: null });
+  mocks.from.mockReturnValue({ select: () => ({ eq: () => ({ single: mocks.single }) }) });
+  mocks.fetch.mockResolvedValue('<div id="menu-zestawy-lunch-owe"><div class="m-list__description">12–17</div><li class="m-list__item"><h4 class="m-item__title">Zestaw 1</h4><button class="add-button">40,31 zł</button></li></div>');
+  mocks.analyze.mockResolvedValue({ offers: [{ restaurantName: 'AI name', dishes: [{ name: 'Zestaw 1', price: 40.31, dietaryTags: ['vegan'], allergens: ['mleko'], dayOfWeek: 'monday' }] }], sourceType: 'text', confidence: 1, missingFields: [] });
+});
+afterEach(() => vi.unstubAllEnvs());
+
+describe('import preview authorization and provenance', () => {
+  describe.each(['sofa', 'sushi'] as const)('%s complete analyzer input length', sourceId => {
+    it.each([4999, 5000, 5001, 6000])('handles %i characters without truncating the source', async inputLength => {
+      const branch = sourceId === 'sofa' ? restaurant : {
+        id: '2070afce-ff35-4861-b940-f4eb783b9e40',
+        name: 'Sushi Friends Bar & Resto', address: 'ul. Marco Polo 9e, Wrocław',
+      };
+      if (sourceId === 'sushi') vi.stubEnv('SUSHI_IMPORT_RESTAURANT_ID', branch.id);
+      mocks.single.mockResolvedValue({ data: branch, error: null });
+      const menuHtml = (description: string) => sourceId === 'sofa'
+        ? `<div id="menu-zestawy-lunch-owe"><li class="m-list__item"><h4 class="m-item__title">Zestaw</h4><p class="m-item__description">${description}</p><button class="add-button">31 zł</button></li></div>`
+        : `<section id="lunch"><div class="lunches__item"><p class="lunches__title">Zestaw</p><p class="lunches__desc">${description}</p><p class="lunches__price">31 zł</p></div></section>`;
+      const adapter = sourceId === 'sofa' ? extractSofaMenu : extractSushiMenu;
+      const prefix = `Restauracja: ${branch.name}\nAdres: ${branch.address}\n\n`;
+      const baselineLength = prefix.length + adapter(menuHtml('x')).excerpt.length;
+      const description = 'x'.repeat(inputLength - baselineLength + 1);
+      const expected = adapter(menuHtml(description));
+      expect((prefix + expected.excerpt).length).toBe(inputLength);
+      mocks.fetch.mockResolvedValue(menuHtml(description));
+
+      const result = await previewLunchImport({ sourceId });
+      if (!result.success) throw new Error(result.error);
+      expect(result.data.excerpt).toBe(expected.excerpt);
+      if (inputLength <= 5000) {
+        expect(mocks.analyze).toHaveBeenCalledExactlyOnceWith(prefix + expected.excerpt);
+        expect(result.data.extractionMethod).toBe('ai');
+      } else {
+        expect(mocks.analyze).not.toHaveBeenCalled();
+        expect(result.data.extractionMethod).toBe('html');
+        expect(result.data.dishes).toEqual(expected.dishes);
+        expect(result.data.dishes[0].description).toBe(description);
+        expect(result.data.warnings).toContain('Menu zbyt długie do analizy AI. Wyświetlamy pełny odczyt HTML.');
+        expect(result.data.warnings).not.toContain(EXTRACTION_ERROR_MESSAGES.unavailable);
+      }
+    });
+  });
+
+  it('binds Sushi to its configured branch and uses its own adapter on AI unavailability', async () => {
+    vi.stubEnv('SUSHI_IMPORT_RESTAURANT_ID', '2070afce-ff35-4861-b940-f4eb783b9e40');
+    mocks.single.mockResolvedValue({ data: { id: '2070afce-ff35-4861-b940-f4eb783b9e40', name: 'Sushi Friends Bar & Resto', address: 'ul. Marco Polo 9e, Wrocław' }, error: null });
+    mocks.fetch.mockResolvedValue('<section id="lunch"><div class="lunches__item"><p class="lunches__title">Lunch I</p><p class="lunches__price">31 zł</p><p class="lunches__desc">Kurczak</p></div></section>');
+    mocks.analyze.mockResolvedValue({ offers: [], message: EXTRACTION_ERROR_MESSAGES.unavailable });
+    const result = await previewLunchImport({ sourceId: 'sushi' });
+    expect(result).toMatchObject({ success: true, data: { sourceUrl: 'https://sushifriendswroclaw.pl/', extractionMethod: 'html', date: null, dishes: [{ name: 'Lunch I', price: 31 }] } });
+    expect(mocks.fetch).toHaveBeenCalledWith('sushi');
+  });
+
+  it('does not fetch an unbound Sushi source or accept an arbitrary source ID', async () => {
+    vi.stubEnv('SUSHI_IMPORT_RESTAURANT_ID', '');
+    expect((await previewLunchImport({ sourceId: 'sushi' })).success).toBe(false);
+    expect((await previewLunchImport({ sourceId: 'other' })).success).toBe(false);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it('checks an explicitly reviewed stored address without weakening the branch guard', async () => {
+    vi.stubEnv('SUSHI_IMPORT_RESTAURANT_ID', '2070afce-ff35-4861-b940-f4eb783b9e40');
+    vi.stubEnv('SUSHI_IMPORT_BRANCH_ADDRESS', 'ul. Marco Polo 9e');
+    mocks.single.mockResolvedValue({ data: { id: '2070afce-ff35-4861-b940-f4eb783b9e40', name: 'Sushi Friends Bar & Resto', address: 'ul. Marco Polo 9e' }, error: null });
+    mocks.fetch.mockResolvedValue('<section id="lunch"><div class="lunches__item"><p class="lunches__title">Lunch I</p><p class="lunches__price">31 zł</p></div></section>');
+    expect((await previewLunchImport({ sourceId: 'sushi' })).success).toBe(true);
+    mocks.fetch.mockClear();
+    mocks.single.mockResolvedValue({ data: { name: 'Sushi Friends Bar & Resto', address: 'Other branch' }, error: null });
+    expect((await previewLunchImport({ sourceId: 'sushi' })).success).toBe(false);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+  it('keeps a source-derived preview available when AI is unavailable', async () => {
+    mocks.analyze.mockResolvedValue({ offers: [], message: EXTRACTION_ERROR_MESSAGES.unavailable });
+    const result = await previewLunchImport({ sourceId: 'sofa' });
+    expect(result).toMatchObject({ success: true, data: {
+      extractionMethod: 'html', date: null,
+      dishes: [{ name: 'Zestaw 1', price: 40.31 }],
+    } });
+    if (!result.success) throw new Error(result.error);
+    expect(result.data.warnings).toContain(EXTRACTION_ERROR_MESSAGES.unavailable);
+    expect(mocks.analyze).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains configuration failures without disguising them as empty menus', async () => {
+    mocks.analyze.mockResolvedValue({ offers: [], message: EXTRACTION_ERROR_MESSAGES.configuration });
+    expect(await previewLunchImport({ sourceId: 'sofa' })).toEqual({ success: false, error: EXTRACTION_ERROR_MESSAGES.configuration });
+  });
+  it('refuses a non-admin before reading the database or calling external services', async () => {
+    mocks.getAdmin.mockResolvedValue(null);
+    expect((await previewLunchImport({ sourceId: 'sofa' })).success).toBe(false);
+    expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.fetch).not.toHaveBeenCalled();
+    expect(mocks.analyze).not.toHaveBeenCalled();
+  });
+
+  it('rejects arbitrary URLs and disabled sources', async () => {
+    expect((await previewLunchImport({ sourceId: 'sofa', url: 'https://evil.test' })).success).toBe(false);
+    vi.stubEnv('SOFA_IMPORT_RESTAURANT_ID', '');
+    expect((await previewLunchImport({ sourceId: 'sofa' })).success).toBe(false);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it('refuses a missing or changed branch before fetching', async () => {
+    mocks.single.mockResolvedValue({ data: null, error: { message: 'missing' } });
+    expect((await previewLunchImport({ sourceId: 'sofa' })).success).toBe(false);
+    mocks.single.mockResolvedValue({ data: { ...restaurant, address: 'Another branch' }, error: null });
+    expect((await previewLunchImport({ sourceId: 'sofa' })).success).toBe(false);
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it('uses authoritative branch identity, keeps date unknown and drops inferred labels', async () => {
+    const result = await previewLunchImport({ sourceId: 'sofa' });
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error(result.error);
+    expect(result.data.restaurant).toEqual(restaurant);
+    expect(result.data.date).toBeNull();
+    expect(result.data.dishes).toEqual([{ name: 'Zestaw 1', price: 40.31 }]);
+    expect(result.data.excerpt).toContain('40,31 zł');
+    expect(result.data.warnings.length).toBeGreaterThan(0);
+    expect(mocks.from).toHaveBeenCalledTimes(1);
+    expect(mocks.from).toHaveBeenCalledWith('restaurants');
+  });
+
+  it('distinguishes provider failure from successfully finding no dishes', async () => {
+    mocks.analyze.mockResolvedValue({ offers: [], message: 'timeout' });
+    expect((await previewLunchImport({ sourceId: 'sofa' })).success).toBe(false);
+    mocks.analyze.mockResolvedValue({ offers: [] });
+    const result = await previewLunchImport({ sourceId: 'sofa' });
+    expect(result.success && result.data.dishes).toEqual([]);
+  });
+
+  it('does not call AI when the source fails or has no lunch category', async () => {
+    mocks.fetch.mockRejectedValueOnce(new Error('HTTP 503'));
+    expect(await previewLunchImport({ sourceId: 'sofa' })).toEqual({ success: false, error: 'HTTP 503' });
+    mocks.fetch.mockResolvedValue('<h1>General menu</h1>');
+    expect((await previewLunchImport({ sourceId: 'sofa' })).success).toBe(false);
+    expect(mocks.analyze).not.toHaveBeenCalled();
+  });
+});
