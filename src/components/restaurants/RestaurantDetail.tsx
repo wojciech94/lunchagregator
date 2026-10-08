@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 
 import { DeleteRestaurantButton } from './DeleteRestaurantButton';
+import { Button } from '@/components/ui/button';
 import { formatLunchHours } from '@/utils/lunch-hours-formatter';
 import type { RestaurantWithDistance } from '@/types/restaurants';
 import type { LunchOffer } from '@/types/offers';
@@ -88,13 +89,17 @@ export function RestaurantDetail({ restaurant, canEdit, canDelete, offers = [] }
           {(canEdit || canDelete) && (
             <div className="flex gap-2">
               {canEdit && (
-                <Link
-                  href={`/restaurants/${restaurant.id}/edit`}
-                  className="inline-flex items-center gap-1.5 rounded-[4px] border border-muted-foreground/30 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="rounded-[4px] border-muted-foreground/30 text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
-                  <Pencil className="size-3.5" />
-                  Edytuj
-                </Link>
+                  <Link href={`/restaurants/${restaurant.id}/edit`}>
+                    <Pencil className="size-3.5" />
+                    Edytuj
+                  </Link>
+                </Button>
               )}
               {canDelete && (
                 <DeleteRestaurantButton
