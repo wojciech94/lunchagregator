@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.0](https://github.com/wojciech94/lunchagregator/compare/v0.3.0...v0.4.0) (2026-10-08)
+
+
+### Features
+
+* **import:** approve and publish menus with atomic idempotency ([e2aa198](https://github.com/wojciech94/lunchagregator/commit/e2aa198613385cca51d9c0fbaec697462dec8c85))
+* **import:** approve menu publication with safe retries ([#94](https://github.com/wojciech94/lunchagregator/issues/94)) ([2f8415a](https://github.com/wojciech94/lunchagregator/commit/2f8415a23b1613a34946b98af04017e970f76955))
+
+
+### Bug Fixes
+
+* **ci:** classify both paths when files are renamed ([304a49e](https://github.com/wojciech94/lunchagregator/commit/304a49e438d1837f2a004a45903c3978b1799ede))
+
 ## [0.3.0](https://github.com/wojciech94/lunchagregator/compare/v0.2.0...v0.3.0) (2026-10-08)
 
 
