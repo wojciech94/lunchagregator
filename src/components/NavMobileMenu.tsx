@@ -11,6 +11,7 @@ import { LocationDialog } from "@/components/location/LocationDialog";
 import { AuthNavLinks } from "@/components/auth/AuthNavLinks";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { Button } from "@/components/ui/button";
+import { AppVersion } from "@/components/AppVersion";
 
 interface NavMobileMenuProps {
   isAdmin?: boolean;
@@ -95,7 +96,10 @@ export function NavMobileMenu({ isAdmin = false, isAuthenticated = false, email,
               {coordinates ? "Zmień lokalizację" : "Ustaw lokalizację"}
             </Button>
           </div>
-          {isAuthenticated && <div className="pt-3 mt-2 border-t border-border">{accountControls}</div>}
+          {isAuthenticated && <div className="flex flex-wrap items-center justify-between gap-2 pt-3 mt-2 border-t border-border">
+            {accountControls}
+            <AppVersion />
+          </div>}
         </nav>
       )}
       <LocationDialog open={locationOpen} onOpenChange={setLocationOpen} onCloseAutoFocus={(event) => {

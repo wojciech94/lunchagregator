@@ -10,6 +10,7 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { accountLinksFor, isNavActive } from "@/lib/nav-links";
 import { LocationDialog } from "@/components/location/LocationDialog";
 import { cn } from "@/lib/utils";
+import { AppVersion } from "@/components/AppVersion";
 
 export function AccountMenu({ email, isAdmin, logout }: { email: string; isAdmin: boolean; logout: ReactNode }) {
   const pathname = usePathname();
@@ -72,7 +73,10 @@ export function AccountMenu({ email, isAdmin, logout }: { email: string; isAdmin
                 {coordinates ? "Zmień lokalizację" : "Ustaw lokalizację"}
               </Button>
             </div>
-            <div className="border-t border-border pt-2" onSubmit={() => setOpen(false)}>{logout}</div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2" onSubmit={() => setOpen(false)}>
+              {logout}
+              <AppVersion />
+            </div>
           </Popover.Content>
         </Popover.Portal>
       </Popover.Root>

@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, expect, it, vi } from "vitest";
 import { setMockPathname, setMockSearchParams } from "../../tests/setup";
 import { AccountMenu } from "./AccountMenu";
+import { appVersionLabel } from "@/lib/app-version";
 
 vi.mock("@/components/location/LocationDialog", () => ({
   LocationDialog: ({ open }: { open: boolean }) => open ? <div role="dialog" aria-label="Ustawienia lokalizacji" /> : null,
@@ -19,6 +20,10 @@ it("keeps personal links and logout inside the profile, including role-appropria
   expect(screen.queryByRole("link", { name: "Panel admina" })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Wyloguj się" })).toBeVisible();
   expect(within(screen.getByRole("dialog", { name: "Menu profilu" })).getByText("long-account@example.test")).toBeVisible();
+  const badge = screen.getByText(appVersionLabel);
+  expect(badge).toBeVisible();
+  expect(within(badge.parentElement!).getByRole('button')).toBeVisible();
+  expect(badge).not.toHaveAttribute('tabindex');
   view.rerender(menu(true));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Menu profilu" }));
