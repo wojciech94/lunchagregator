@@ -73,7 +73,8 @@ export function ChatWindow({ userLocation, className, onMessageCountChange }: Ch
           <div className="flex h-full items-center justify-center text-center">
             <p className="text-sm text-muted-foreground max-w-[280px]">
               Opisz swoje preferencje lunchowe, a pomogę Ci znaleźć idealne
-              danie na dziś.
+              danie na dziś, jutro lub wybrany tydzień. Możesz też podać datę
+              albo zakres dat.
             </p>
           </div>
         )}

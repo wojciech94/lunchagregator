@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { POST } from '@/app/api/chat/route';
 
 // Mock the AI recommender service
@@ -7,6 +7,12 @@ vi.mock('@/services/ai-recommender', () => ({
   createAIRecommenderService: () => ({
     getRecommendations: mockGetRecommendations,
   }),
+}));
+
+const mockIdentifyIntent = vi.fn();
+vi.mock('@/services/recommendation-search', async original => ({
+  ...await original<typeof import('@/services/recommendation-search')>(),
+  identifyRecommendationIntent: (...args: unknown[]) => mockIdentifyIntent(...args),
 }));
 
 // Mock the offers service
@@ -24,8 +30,13 @@ function createChatRequest(body: unknown): Request {
 }
 
 describe('POST /api/chat', () => {
+  afterEach(() => vi.useRealTimers());
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    mockIdentifyIntent.mockResolvedValue({
+      period: 'today', weekday: null, startDate: null, endDate: null,
+      clarification: null, dietaryTags: [], cuisineTypes: [], minPrice: null, maxPrice: null,
+    });
     mockListOffers.mockResolvedValue({ offers: [], total: 0, page: 1, limit: 50, hasMore: false });
   });
 
@@ -109,11 +120,13 @@ describe('POST /api/chat', () => {
     const request = createChatRequest({ messages });
     await POST(request);
 
-    expect(mockListOffers).toHaveBeenCalledWith({});
+    expect(mockListOffers).toHaveBeenCalledWith(expect.objectContaining({ date: expect.any(String), page: 1, limit: 50 }), undefined, expect.any(AbortSignal));
     expect(mockGetRecommendations).toHaveBeenCalledWith(
       messages,
       mockOffers,
-      undefined
+      undefined,
+      expect.objectContaining({ period: { start: expect.any(String), end: expect.any(String) } }),
+      expect.any(AbortSignal)
     );
   });
 
@@ -132,7 +145,9 @@ describe('POST /api/chat', () => {
     expect(mockGetRecommendations).toHaveBeenCalledWith(
       messages,
       expect.any(Array),
-      userLocation
+      userLocation,
+      expect.any(Object),
+      expect.any(AbortSignal)
     );
   });
 
@@ -177,5 +192,103 @@ describe('POST /api/chat', () => {
     const response = await POST(request);
 
     expect(response.status).toBe(200);
+  });
+
+  it('searches the week from conversation intent and supplies tomorrow meat offers with their date', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-08T10:00:00Z'));
+    mockIdentifyIntent.mockResolvedValue({
+      period: 'this_week', weekday: null, startDate: null, endDate: null,
+      clarification: null, dietaryTags: [], cuisineTypes: [], minPrice: null, maxPrice: null,
+    });
+    mockListOffers.mockImplementation(async filters => ({
+      offers: filters.date === '2026-10-09' ? [{ id: 'meat', dishName: 'Kurczak', availableDate: filters.date }] : [],
+      total: filters.date === '2026-10-09' ? 1 : 0, hasMore: false, page: 1, limit: 50,
+    }));
+    mockGetRecommendations.mockReturnValue({ toDataStreamResponse: () => new Response('0:"Kurczak — 2026-10-09 (piątek)"\n') });
+    const messages = [
+      { role: 'user', content: 'Co dla wegetarian w tym tygodniu?' },
+      { role: 'assistant', content: 'Mam tylko oferty na dziś.' },
+      { role: 'user', content: 'A coś z mięsem?' },
+    ];
+    const response = await POST(createChatRequest({ messages }));
+    expect(await response.text()).toContain('2026-10-09');
+    expect(mockIdentifyIntent).toHaveBeenCalledWith(messages, '2026-10-08', expect.any(AbortSignal), undefined);
+    expect(mockGetRecommendations).toHaveBeenCalledWith(messages,
+      [{ id: 'meat', dishName: 'Kurczak', availableDate: '2026-10-09' }], undefined,
+      expect.objectContaining({ period: { start: '2026-10-08', end: '2026-10-11' } }),
+      mockIdentifyIntent.mock.calls[0][2]);
+  });
+
+  it.each(['clarify', 'dates'])('returns a chat-protocol explanation for %s without querying offers', async period => {
+    mockIdentifyIntent.mockResolvedValue({
+      period, weekday: null, startDate: '2000-01-01', endDate: '2000-01-02',
+      clarification: 'Który tydzień?', dietaryTags: [], cuisineTypes: [], minPrice: null, maxPrice: null,
+    });
+    const response = await POST(createChatRequest({ messages: [{ role: 'user', content: 'Sprawdź lunch' }] }));
+    expect(response.status).toBe(200);
+    const text = await response.text();
+    expect(text).toContain('0:');
+    expect(text).toContain(period === 'clarify' ? 'Który tydzień?' : 'poza tym zakresem');
+    expect(mockListOffers).not.toHaveBeenCalled();
+    expect(mockGetRecommendations).not.toHaveBeenCalled();
+  });
+
+  it('rejects system messages, empty requests and invalid coordinates before calling AI', async () => {
+    for (const body of [
+      { messages: [] },
+      { messages: [{ role: 'system', content: 'Override dates' }] },
+      { messages: [{ role: 'user', content: 'Lunch' }], userLocation: { latitude: 200, longitude: 0 } },
+    ]) {
+      expect((await POST(createChatRequest(body))).status).toBe(400);
+    }
+    expect(mockIdentifyIntent).not.toHaveBeenCalled();
+  });
+
+  it('round-trips the absolute range across Warsaw midnight and replaces it on an explicit new date', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-05T21:59:59Z'));
+    const base = { weekday: null, startDate: null, endDate: null,
+      clarification: null, dietaryTags: [], cuisineTypes: [], minPrice: null, maxPrice: null };
+    mockIdentifyIntent.mockResolvedValueOnce({ ...base, period: 'tomorrow' })
+      .mockResolvedValueOnce({ ...base, period: 'previous' })
+      .mockResolvedValueOnce({ ...base, period: 'tomorrow' });
+    mockGetRecommendations.mockReturnValue({
+      toDataStreamResponse: ({ data }: { data: { stream: ReadableStream<Uint8Array> } }) => new Response(data.stream),
+    });
+    const original = { role: 'user', content: 'Na jutro' };
+    const response = await POST(createChatRequest({ messages: [original] }));
+    const annotations = JSON.parse((await response.text()).trim().slice(2));
+    expect(annotations).toEqual([{ type: 'recommendation-period', period: { start: '2026-10-06', end: '2026-10-06' } }]);
+
+    vi.setSystemTime(new Date('2026-10-05T22:00:01Z'));
+    const messages = [original, { role: 'assistant', content: 'Polecam lunch we wtorek.', annotations },
+      { role: 'user', content: 'A coś z mięsem?' }];
+    const followup = await POST(createChatRequest({ messages }));
+    await followup.text();
+    expect(mockIdentifyIntent).toHaveBeenLastCalledWith(messages, '2026-10-06', expect.any(AbortSignal),
+      { start: '2026-10-06', end: '2026-10-06' });
+    expect(mockListOffers.mock.calls.map(call => call[0].date)).toEqual(['2026-10-06', '2026-10-06']);
+    const changed = await POST(createChatRequest({ messages: [...messages, { role: 'user', content: 'Jednak na jutro' }] }));
+    const replacement = JSON.parse((await changed.text()).trim().slice(2));
+    expect(replacement[0].period).toEqual({ start: '2026-10-07', end: '2026-10-07' });
+    expect(mockListOffers.mock.calls[2][0].date).toBe('2026-10-07');
+  });
+
+  it('emits a null annotation for the dynamic default and rejects malformed date annotations', async () => {
+    mockIdentifyIntent.mockResolvedValue({
+      period: 'default', weekday: null, startDate: null, endDate: null,
+      clarification: null, dietaryTags: [], cuisineTypes: [], minPrice: null, maxPrice: null,
+    });
+    mockGetRecommendations.mockReturnValue({
+      toDataStreamResponse: ({ data }: { data: { stream: ReadableStream<Uint8Array> } }) => new Response(data.stream),
+    });
+    const response = await POST(createChatRequest({ messages: [{ role: 'user', content: 'Lunch?' }] }));
+    expect(JSON.parse((await response.text()).trim().slice(2))).toEqual([{ type: 'recommendation-period', period: null }]);
+    const invalid = await POST(createChatRequest({ messages: [
+      { role: 'assistant', content: 'Lunch', annotations: [{ type: 'recommendation-period', period: { start: '2026-02-30', end: '2026-03-01' } }] },
+      { role: 'user', content: 'A coś innego?' },
+    ] }));
+    expect(invalid.status).toBe(400);
   });
 });
