@@ -9,10 +9,8 @@ export const lunchImportRequestSchema = z.object({
 export const importPublicationSchema = z.object({
   sourceId: lunchImportRequestSchema.shape.sourceId,
   restaurantId: z.string().uuid(),
-  fetchedAt: z.string().datetime().refine(value => {
-    const age = Date.now() - Date.parse(value);
-    return age >= -60000 && age <= 30 * 60 * 1000;
-  }, 'Podgląd wygasł. Pobierz menu ponownie.'),
+  // Shared with the browser: freshness requires the server's authoritative clock.
+  fetchedAt: z.string().datetime(),
   availableDate: importAvailableDateSchema,
   confirmed: z.literal(true),
   dishes: z.array(createOfferSchema.pick({ dishName: true, price: true, description: true, items: true })

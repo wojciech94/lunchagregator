@@ -15,6 +15,10 @@ export async function publishLunchImport(input: unknown): Promise<ActionResult<I
   if (!parsed.success) return { success: false, error: parsed.error.issues[0]?.message ?? 'Sprawdź dane publikacji.' };
   try {
     const { availableDate, dishes, fetchedAt } = parsed.data;
+    const previewAge = Date.now() - Date.parse(fetchedAt);
+    if (previewAge > 30 * 60 * 1000 || previewAge < -60000) {
+      return { success: false, error: 'Podgląd wygasł. Pobierz menu ponownie.' };
+    }
     const source = getImportSource(parsed.data.sourceId);
     if (!source || source.restaurantId !== parsed.data.restaurantId) {
       return { success: false, error: 'Konfiguracja źródła zmieniła się. Pobierz menu ponownie.' };

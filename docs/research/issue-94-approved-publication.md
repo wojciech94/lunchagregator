@@ -32,7 +32,10 @@ Follow-up #123 removes HMAC signing and the signing-secret requirement. The
 Admin submits a validated source ID, preview Restaurant ID, fetch timestamp and
 stable source-item keys. The server resolves the current Restaurant binding from
 its configured source and rejects a mismatched preview Restaurant ID. It checks
-unique keys and the 30-minute freshness window before saving. Source keys hash
+unique keys and the 30-minute freshness window before saving. Freshness uses
+the server action's clock and is independently enforced by the database. The
+shared browser schema validates timestamp format only, so an incorrect browser
+clock cannot reject a fresh server-issued preview. Source keys hash
 normalized literal titles, independently of reviewed names/prices/descriptions.
 Missing/duplicate source titles disable publication for that preview. A title
 renamed by the source is a new identity; the operator must review that change.
@@ -120,6 +123,13 @@ an AI timeout, so this QA used a temporary review harness rather than claiming
 a successful live fetch-to-publication run. The harness, account and all QA rows
 were removed; original bindings/AI configuration and the existing two Restaurants,
 three offers and three import links were preserved.
+
+PR #124 review follow-up: preview-age validation moved out of the shared schema
+to the server action. All 31 focused import/action/UI tests passed, including
+browser clocks two minutes behind and one hour ahead; typecheck and affected
+ESLint checks passed. Existing action tests still reject expired/future previews
+before writes. SQL/RLS contracts are unchanged, so prior database validation is
+reused rather than rerun.
 
 The pilot remains pending. Run it on the two reviewed sources in the agreed
 environment with an authorized operator for at least five business days. For
