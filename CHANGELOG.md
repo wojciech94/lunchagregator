@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/wojciech94/lunchagregator/compare/v0.2.0...v0.3.0) (2026-10-08)
+
+
+### Features
+
+* **import:** preview Sofa and Sushi Friends menus for admins ([7465a4a](https://github.com/wojciech94/lunchagregator/commit/7465a4ae8da029fb2dd00a0a3447ff0454380af0))
+* **import:** preview Sofa and Sushi Friends menus in admin ([#94](https://github.com/wojciech94/lunchagregator/issues/94)) ([f01072f](https://github.com/wojciech94/lunchagregator/commit/f01072fdfd9056c39f674435cb0d12acfb912f17))
+
+
+### Bug Fixes
+
+* **import:** preserve HTML previews beyond the AI input limit ([e10d961](https://github.com/wojciech94/lunchagregator/commit/e10d961c7244268af2e899d448786e389d204f19))
+
 ## [0.2.0](https://github.com/wojciech94/lunchagregator/compare/v0.1.0...v0.2.0) (2026-10-08)
 
 
