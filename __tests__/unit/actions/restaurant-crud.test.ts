@@ -289,11 +289,6 @@ describe('Restaurant CRUD Server Actions — Integration Tests', () => {
       // Fetch restaurant chain
       const fetchChain = createChainableMock('single', { data: existingRow, error: null });
 
-      // Check associated offers — returns empty array (terminal is eq since it resolves)
-      const offersChain: Record<string, unknown> = {};
-      offersChain.select = vi.fn().mockReturnValue(offersChain);
-      offersChain.eq = vi.fn().mockResolvedValue({ data: [], error: null });
-
       // Delete chain
       const deleteChain: Record<string, unknown> = {};
       deleteChain.delete = vi.fn().mockReturnValue(deleteChain);
@@ -301,7 +296,6 @@ describe('Restaurant CRUD Server Actions — Integration Tests', () => {
 
       const mockFromFn = vi.fn()
         .mockReturnValueOnce(fetchChain)       // restaurants fetch
-        .mockReturnValueOnce(offersChain)      // lunch_offers select
         .mockReturnValueOnce(deleteChain);     // restaurants delete
 
       mockedCreateClient.mockResolvedValue({ from: mockFromFn } as never);
@@ -350,41 +344,14 @@ describe('Restaurant CRUD Server Actions — Integration Tests', () => {
       }
     });
 
-    it('snapshots restaurant data into offers before deletion', async () => {
-      const existingRow = createDbRestaurantRow();
-
-      // Fetch restaurant chain
-      const fetchChain = createChainableMock('single', { data: existingRow, error: null });
-
-      // Check associated offers — returns some offers
-      const offersChain: Record<string, unknown> = {};
-      offersChain.select = vi.fn().mockReturnValue(offersChain);
-      offersChain.eq = vi.fn().mockResolvedValue({
-        data: [{ id: 'offer-1' }, { id: 'offer-2' }],
-        error: null,
-      });
-
-      // Snapshot update on offers
-      const snapshotChain: Record<string, unknown> = {};
-      snapshotChain.update = vi.fn().mockReturnValue(snapshotChain);
-      snapshotChain.eq = vi.fn().mockResolvedValue({ error: null });
-
-      // Delete chain
-      const deleteChain: Record<string, unknown> = {};
-      deleteChain.delete = vi.fn().mockReturnValue(deleteChain);
-      deleteChain.eq = vi.fn().mockResolvedValue({ error: null });
-
-      const mockFromFn = vi.fn()
-        .mockReturnValueOnce(fetchChain)       // restaurants fetch
-        .mockReturnValueOnce(offersChain)      // lunch_offers select (check offers)
-        .mockReturnValueOnce(snapshotChain)    // lunch_offers update (snapshot)
-        .mockReturnValueOnce(deleteChain);     // restaurants delete
-
-      mockedCreateClient.mockResolvedValue({ from: mockFromFn } as never);
-
-      const result = await deleteRestaurant('550e8400-e29b-41d4-a716-446655440000');
-
-      expect(result.success).toBe(true);
+    it('does not rewrite linked offer snapshots before deletion', async () => {
+      const fetchChain = createChainableMock('single', { data: createDbRestaurantRow(), error: null });
+      const deleteChain = { delete: vi.fn(), eq: vi.fn().mockResolvedValue({ error: null }) };
+      deleteChain.delete.mockReturnValue(deleteChain);
+      const from = vi.fn().mockReturnValueOnce(fetchChain).mockReturnValueOnce(deleteChain);
+      mockedCreateClient.mockResolvedValue({ from } as never);
+      expect(await deleteRestaurant('550e8400-e29b-41d4-a716-446655440000')).toEqual({ success: true, data: undefined });
+      expect(from.mock.calls.map(([table]) => table)).toEqual(['restaurants', 'restaurants']);
     });
 
     it('returns error when restaurant not found', async () => {

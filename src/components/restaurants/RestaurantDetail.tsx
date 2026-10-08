@@ -1,8 +1,6 @@
 'use client';
 
 import { cuisineLabels } from '@/lib/display-labels';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Clock,
@@ -10,7 +8,6 @@ import {
   Phone,
   Globe,
   Pencil,
-  Trash2,
   UtensilsCrossed,
   ArrowLeft,
   Plus,
@@ -48,9 +45,6 @@ const priceLevelColors: Record<string, string> = {
 };
 
 export function RestaurantDetail({ restaurant, canEdit, canDelete, offers = [] }: RestaurantDetailProps) {
-  const router = useRouter();
-  void router;
-
   return (
     <div className="space-y-6">
       {/* Back navigation */}
@@ -108,8 +102,6 @@ export function RestaurantDetail({ restaurant, canEdit, canDelete, offers = [] }
                     id: restaurant.id,
                     name: restaurant.name,
                     address: restaurant.address ?? null,
-                    hasOwner: restaurant.userId !== null && restaurant.userId !== undefined,
-                    activeOffersCount: restaurant.activeOffersCount ?? 0,
                   }}
                 />
               )}
@@ -252,7 +244,7 @@ export function RestaurantDetail({ restaurant, canEdit, canDelete, offers = [] }
             </h2>
           </div>
           <Link
-            href="/add"
+            href={`/add?restaurantId=${restaurant.id}`}
             className="inline-flex items-center gap-1.5 rounded-[4px] bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-[#5e6ad2]"
           >
             <Plus className="size-3.5" />

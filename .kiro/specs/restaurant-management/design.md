@@ -9,7 +9,7 @@ Funkcjonalność zarządzania restauracjami wprowadza osobną encję `Restaurant
 - **Nowa tabela `restaurants`** — osobna encja z pełnymi metadanymi, powiązana z ofertami przez opcjonalny FK
 - **Snapshot pattern** — przy tworzeniu oferty dane restauracji są kopiowane do oferty (denormalizacja dla stabilności historycznej)
 - **Kompatybilność wsteczna** — istniejące oferty bez `restaurant_id` nadal działają poprawnie
-- **Anonimowa własność** — identyfikacja właściciela przez `session_token` (jak w istniejących ofertach)
+- **Account ownership** — `user_id`, independent application authorization and RLS; `session_token` remains for legacy-data migration.
 - **PostGIS** — ponowne wykorzystanie istniejącej infrastruktury geolokalizacji
 - **Server Actions** — spójne z istniejącą architekturą (Next.js App Router)
 
@@ -53,20 +53,22 @@ Rozszerzenie ekstrakcji AI i przepływu dodawania ofert o obsługę menu na cał
 ### Infrastruktura bazy danych
 
 - Migracje uczyniono idempotentnymi (`ADD COLUMN IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`).
-- Dodano migrację RLS dla `restaurants` (`20240202000000_restaurants_rls.sql`) — polityki zezwalające na SELECT/INSERT/UPDATE/DELETE; kontrola własności realizowana w warstwie aplikacji przez `session_token`.
+- Current RLS from `20250101000000` restricts mutations to authorized Users; application code checks permissions independently. Permissive policies from `20240202000000` have been superseded.
 - `mapOfferToDbRow` pomija `restaurant_id` gdy brak wartości (kompatybilność z bazą przed migracją FK).
 - Timeout serwisu AI zwiększony do 30s.
 
-### Znane luki / nie zaimplementowane (zob. backlog w tasks.md)
+## Current publication scope (2026-10-08, #101–#105)
 
-- **Strona edycji restauracji** (`/restaurants/[id]/edit`) — `RestaurantDetail` linkuje do niej, ale route nie istnieje (akcja `updateRestaurant` gotowa).
-- **Strona edycji oferty** (`/offers/[id]/edit`) — linkowana z widoku oferty. Usuwanie oferty nie ma własnego route'u: `DeleteOfferButton` otwiera dialog na stronie, z której clicked, więc nie ma dokąd przekierowywać po usunięciu.
-- **Lista aktywnych ofert na stronie restauracji** (Req 6.5) — obecnie pokazywany jest tylko licznik `activeOffersCount`, nie sama lista ofert.
-- **Reverse geocoding** dla GPS — etykieta lokalizacji z GPS to „Bieżąca lokalizacja", nie czytelny adres.
+The implementation notes above and architecture examples below describe the original project stage. Edit pages, offer lists and the deletion dialog already exist. Current ownership uses `user_id` with independent application authorization and RLS from `20250101000000`; anonymous publication and permissive policies have been superseded. New publication requires Restaurant assignment; historical offers without a Restaurant FK remain compatible.
 
+- **#101:** `WeeklyMenuPreview` maintains offer drafts with stable indices, dates and selection. The User can correct names, prices, set components and dates, and exclude individual offers. Every selected offer is checked against `createOfferSchema`; invalid selections are never silently discarded. Metadata and edits survive rejected publication. Writes use the existing `onConfirm` contract.
+- **#102:** the `/add` server page validates `restaurantId` and resolves the Restaurant. The client wizard preserves assignment through Extraction and manual entry; explicit reassignment opens the existing assignment flow. Publication still resolves the authoritative Snapshot on the server. The input selector remains mounted to preserve retry input, as introduced in #96.
+- **#103:** preview and server share a 50-offer limit, checked before the publication loop. Per-offer validation and partial-success reporting remain. Importer idempotency belongs to #94.
+- **#104:** opening the dialog loads the count of all linked offers, independently of `activeOffersCount`. Count failures block confirmation. The count describes the read instant and cannot guarantee stability under concurrent changes.
+- **#105, User decision 2026-10-07:** deletion preserves existing offer Snapshots even after Restaurant renaming or relocation. After authentication and authorization, `deleteRestaurant` deletes the Restaurant and retains the existing Admin audit. `ON DELETE SET NULL` detaches offers in the same database transaction, including other owners' offers. No preceding offer update can leave overwritten Snapshots when deletion fails. This contract supersedes the historical copy-on-delete examples below. Previously overwritten historical records are not automatically repaired.
+- GPS reverse geocoding is deferred; the general Restaurant catalog date filter is withdrawn. Tests address the specific #101–#105 contracts. Importer #94 is separate work.
 
-
-## Architecture
+## Architecture (historical reference)
 
 ### Diagram komponentów
 

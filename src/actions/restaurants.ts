@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { z } from 'zod';
 import { getUser } from '@/lib/auth';
 import { canDelete, canModify, isAdmin } from '@/lib/ownership';
 import { recordAudit, shouldAudit } from '@/lib/audit';
@@ -202,13 +203,33 @@ export async function createRestaurant(
 }
 
 /**
- * Server action to delete a restaurant.
- * Verifies ownership via user_id from getUser(), snapshots restaurant data into
- * associated offers (to preserve name/address/location after deletion),
- * then deletes the restaurant. The FK ON DELETE SET NULL will automatically
- * set restaurant_id to NULL on associated offers.
- *
- * Validates: Requirements 3.2, 3.4, 3.5, 4.5, 5.3, 5.4, 5.5
+ * Read the full deletion impact for an authorized owner/admin, including expired offers.
+ * Query errors remain errors rather than an apparent count of zero.
+ */
+export async function countRestaurantLinkedOffers(id: string): Promise<ActionResult<number>> {
+  try {
+    if (!z.string().uuid().safeParse(id).success) {
+      return { success: false, error: 'Nieprawidłowy identyfikator restauracji.' };
+    }
+    const user = await getUser();
+    if (!user) return { success: false, error: 'Brak autoryzacji' };
+    const supabase = await createClient();
+    const { data: restaurant, error: restaurantError } = await supabase
+      .from('restaurants').select('user_id').eq('id', id).single();
+    if (restaurantError || !restaurant) return { success: false, error: 'Nie znaleziono restauracji.' };
+    if (!canDelete(user, restaurant.user_id)) return { success: false, error: 'Brak uprawnień do tej operacji' };
+    const { count, error } = await supabase.from('lunch_offers')
+      .select('id', { count: 'exact', head: true }).eq('restaurant_id', id);
+    if (error || typeof count !== 'number') return { success: false, error: 'Nie udało się policzyć powiązanych ofert. Spróbuj ponownie.' };
+    return { success: true, data: count };
+  } catch {
+    return { success: false, error: 'Nie udało się policzyć powiązanych ofert. Spróbuj ponownie.' };
+  }
+}
+
+/**
+ * Delete a restaurant after authentication and authorization. FK ON DELETE SET NULL
+ * detaches its offers without rewriting their published snapshots (#105).
  */
 export async function deleteRestaurant(
   id: string
@@ -246,45 +267,8 @@ export async function deleteRestaurant(
     };
   }
 
-  // 3. Check for associated offers
-  const { data: associatedOffers, error: offersError } = await supabase
-    .from('lunch_offers')
-    .select('id')
-    .eq('restaurant_id', id);
-
-  if (offersError) {
-    return {
-      success: false,
-      error: `Nie udało się sprawdzić powiązanych ofert: ${offersError.message}`,
-    };
-  }
-
-  // 4. If there are associated offers, snapshot restaurant data into them
-  if (associatedOffers && associatedOffers.length > 0) {
-    const snapshotData: Record<string, unknown> = {
-      restaurant_name: existingRow.name,
-      restaurant_address: existingRow.address,
-    };
-
-    // Convert PostGIS location to the format used in offers
-    if (existingRow.location) {
-      snapshotData.restaurant_location = existingRow.location;
-    }
-
-    const { error: snapshotError } = await supabase
-      .from('lunch_offers')
-      .update(snapshotData)
-      .eq('restaurant_id', id);
-
-    if (snapshotError) {
-      return {
-        success: false,
-        error: `Nie udało się zachować danych restauracji w ofertach: ${snapshotError.message}`,
-      };
-    }
-  }
-
-  // 5. Delete the restaurant (FK ON DELETE SET NULL will nullify restaurant_id in offers)
+  // One database delete detaches all linked offers, including another user's offers.
+  // Their publication snapshots already exist and must remain unchanged.
   const { error: deleteError } = await supabase
     .from('restaurants')
     .delete()

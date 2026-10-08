@@ -1,5 +1,7 @@
 'use server';
 
+import { MAX_OFFERS_PER_BATCH, OFFER_BATCH_LIMIT_MESSAGE } from '@/lib/validations/offer-batch';
+
 import { getAdmin, getUser } from '@/lib/auth';
 import { canDelete, canModify, isAdmin } from '@/lib/ownership';
 import { recordAudit, shouldAudit } from '@/lib/audit';
@@ -229,6 +231,10 @@ export async function createOffersBatchAction(
   try {
     if (!Array.isArray(items) || items.length === 0) {
       return { success: false, error: 'Brak ofert do utworzenia.' };
+    }
+
+    if (items.length > MAX_OFFERS_PER_BATCH) {
+      return { success: false, error: OFFER_BATCH_LIMIT_MESSAGE };
     }
 
     const user = await getUser();

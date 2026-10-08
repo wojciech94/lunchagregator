@@ -18,7 +18,7 @@
 // reaches them -- and the flag travels on the action's return value, so the
 // wizard's internals are not the subject.
 
-import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -46,7 +46,7 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: mocks.push, refresh: vi.fn() }),
 }));
 
-import AddOfferPage from '@/app/add/page';
+import AddOfferPage from '@/components/add-offer/AddOfferWizard';
 
 // The wizard's own step components, reduced to the single interaction each test
 // needs. InputSelector normally owns the upload and the AI call; calling
@@ -110,7 +110,8 @@ async function publishWeeklyMenu(missingCoordinates: number) {
 
   fireEvent.click(await screen.findByRole('button', { name: 'wyslij zdjecie' }));
   fireEvent.click(await screen.findByRole('button', { name: 'przypisz restauracje' }));
-  fireEvent.click(await screen.findByRole('button', { name: 'potwierdz menu' }));
+  const confirm = await screen.findByRole('button', { name: 'potwierdz menu' });
+  await act(async () => { fireEvent.click(confirm); });
 }
 
 afterEach(() => {

@@ -81,13 +81,6 @@ function restaurantUpdateChain(result: unknown) {
   return chain;
 }
 
-function emptyAssociatedOffersChain() {
-  const chain = { select: vi.fn(), eq: vi.fn() };
-  chain.select.mockReturnValue(chain);
-  chain.eq.mockResolvedValue({ data: [], error: null });
-  return chain;
-}
-
 function restaurantDeleteChain() {
   const chain = { delete: vi.fn(), eq: vi.fn() };
   chain.delete.mockReturnValue(chain);
@@ -123,11 +116,9 @@ describe('resource mutation authorization', () => {
 
     it('allows the owner to delete a restaurant', async () => {
       const fetch = readChain({ data: restaurantRow(OWNER_ID), error: null });
-      const offers = emptyAssociatedOffersChain();
       const remove = restaurantDeleteChain();
       const from = vi.fn()
         .mockReturnValueOnce(fetch)
-        .mockReturnValueOnce(offers)
         .mockReturnValueOnce(remove);
       mockedCreateClient.mockResolvedValue({ from } as never);
 

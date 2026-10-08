@@ -436,139 +436,28 @@ describe('Restaurant-Offer Association — Integration Tests', () => {
   // ==========================================================================
 
   describe('Offer data preservation on restaurant deletion', () => {
-    it('offers retain snapshot data and restaurant_id becomes null after deletion', async () => {
+    it('deletes the restaurant without issuing a snapshot update to offers', async () => {
       const restaurantId = '550e8400-e29b-41d4-a716-446655440000';
-      const existingRow = createDbRestaurantRow({ id: restaurantId });
-
-      // Fetch restaurant
-      const fetchChain = createChainableMock('single', { data: existingRow, error: null });
-
-      // Check associated offers — returns offers
-      const offersChain: Record<string, unknown> = {};
-      offersChain.select = vi.fn().mockReturnValue(offersChain);
-      offersChain.eq = vi.fn().mockResolvedValue({
-        data: [{ id: 'offer-001' }, { id: 'offer-002' }],
-        error: null,
+      const fetchChain = createChainableMock('single', {
+        data: createDbRestaurantRow({ id: restaurantId, name: 'Renamed restaurant', address: 'New address' }), error: null,
       });
-
-      // Snapshot update on offers — copies restaurant data into offers
-      const snapshotUpdateFn = vi.fn().mockResolvedValue({ error: null });
-      const snapshotChain: Record<string, unknown> = {};
-      snapshotChain.update = vi.fn().mockReturnValue(snapshotChain);
-      snapshotChain.eq = snapshotUpdateFn;
-
-      // Delete restaurant (FK ON DELETE SET NULL handles restaurant_id → null)
-      const deleteChain: Record<string, unknown> = {};
-      deleteChain.delete = vi.fn().mockReturnValue(deleteChain);
-      deleteChain.eq = vi.fn().mockResolvedValue({ error: null });
-
-      const mockFromFn = vi.fn()
-        .mockReturnValueOnce(fetchChain)       // restaurants: fetch
-        .mockReturnValueOnce(offersChain)      // lunch_offers: check associated
-        .mockReturnValueOnce(snapshotChain)    // lunch_offers: snapshot update
-        .mockReturnValueOnce(deleteChain);     // restaurants: delete
-
-      mockedCreateClient.mockResolvedValue({ from: mockFromFn } as never);
-
-      const result = await deleteRestaurant(restaurantId);
-
-      expect(result.success).toBe(true);
-
-      // Verify snapshot was written to offers before deletion
-      expect(snapshotChain.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          restaurant_name: 'Restauracja Testowa',
-          restaurant_address: 'ul. Testowa 1, Warszawa',
-          restaurant_location: 'POINT(21.0122 52.2297)',
-        })
-      );
-
-      // Verify the snapshot update targeted offers with the restaurant_id
-      expect(snapshotUpdateFn).toHaveBeenCalledWith('restaurant_id', restaurantId);
+      const deleteChain = { delete: vi.fn(), eq: vi.fn().mockResolvedValue({ error: null }) };
+      deleteChain.delete.mockReturnValue(deleteChain);
+      const from = vi.fn().mockReturnValueOnce(fetchChain).mockReturnValueOnce(deleteChain);
+      mockedCreateClient.mockResolvedValue({ from } as never);
+      expect(await deleteRestaurant(restaurantId)).toEqual({ success: true, data: undefined });
+      expect(from.mock.calls.map(([table]) => table)).toEqual(['restaurants', 'restaurants']);
+      expect(deleteChain.eq).toHaveBeenCalledWith('id', restaurantId);
     });
 
-    it('deletion proceeds without snapshot when no associated offers exist', async () => {
-      const restaurantId = '550e8400-e29b-41d4-a716-446655440000';
-      const existingRow = createDbRestaurantRow({ id: restaurantId });
-
-      // Fetch restaurant
-      const fetchChain = createChainableMock('single', { data: existingRow, error: null });
-
-      // Check associated offers — returns empty array
-      const offersChain: Record<string, unknown> = {};
-      offersChain.select = vi.fn().mockReturnValue(offersChain);
-      offersChain.eq = vi.fn().mockResolvedValue({ data: [], error: null });
-
-      // Delete restaurant directly (no snapshot needed)
-      const deleteChain: Record<string, unknown> = {};
-      deleteChain.delete = vi.fn().mockReturnValue(deleteChain);
-      deleteChain.eq = vi.fn().mockResolvedValue({ error: null });
-
-      const mockFromFn = vi.fn()
-        .mockReturnValueOnce(fetchChain)       // restaurants: fetch
-        .mockReturnValueOnce(offersChain)      // lunch_offers: check associated
-        .mockReturnValueOnce(deleteChain);     // restaurants: delete (no snapshot step)
-
-      mockedCreateClient.mockResolvedValue({ from: mockFromFn } as never);
-
-      const result = await deleteRestaurant(restaurantId);
-
-      expect(result.success).toBe(true);
-
-      // Only 3 from() calls — no snapshot update step
-      expect(mockFromFn).toHaveBeenCalledTimes(3);
-    });
-
-    it('restaurant deletion preserves offer data even with location', async () => {
-      const restaurantId = '550e8400-e29b-41d4-a716-446655440000';
-      const existingRow = createDbRestaurantRow({
-        id: restaurantId,
-        name: 'Restauracja z Lokalizacją',
-        address: 'ul. Geo 15, Gdańsk',
-        location: 'POINT(18.6466 54.3520)',
-      });
-
-      // Fetch restaurant
-      const fetchChain = createChainableMock('single', { data: existingRow, error: null });
-
-      // Check associated offers
-      const offersChain: Record<string, unknown> = {};
-      offersChain.select = vi.fn().mockReturnValue(offersChain);
-      offersChain.eq = vi.fn().mockResolvedValue({
-        data: [{ id: 'offer-100' }],
-        error: null,
-      });
-
-      // Snapshot update
-      const snapshotChain: Record<string, unknown> = {};
-      snapshotChain.update = vi.fn().mockReturnValue(snapshotChain);
-      snapshotChain.eq = vi.fn().mockResolvedValue({ error: null });
-
-      // Delete
-      const deleteChain: Record<string, unknown> = {};
-      deleteChain.delete = vi.fn().mockReturnValue(deleteChain);
-      deleteChain.eq = vi.fn().mockResolvedValue({ error: null });
-
-      const mockFromFn = vi.fn()
-        .mockReturnValueOnce(fetchChain)
-        .mockReturnValueOnce(offersChain)
-        .mockReturnValueOnce(snapshotChain)
-        .mockReturnValueOnce(deleteChain);
-
-      mockedCreateClient.mockResolvedValue({ from: mockFromFn } as never);
-
-      const result = await deleteRestaurant(restaurantId);
-
-      expect(result.success).toBe(true);
-
-      // Verify snapshot includes location data
-      expect(snapshotChain.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          restaurant_name: 'Restauracja z Lokalizacją',
-          restaurant_address: 'ul. Geo 15, Gdańsk',
-          restaurant_location: 'POINT(18.6466 54.3520)',
-        })
-      );
+    it('reports a refused deletion without writing to linked offers', async () => {
+      const fetchChain = createChainableMock('single', { data: createDbRestaurantRow(), error: null });
+      const deleteChain = { delete: vi.fn(), eq: vi.fn().mockResolvedValue({ error: { message: 'delete refused' } }) };
+      deleteChain.delete.mockReturnValue(deleteChain);
+      const from = vi.fn().mockReturnValueOnce(fetchChain).mockReturnValueOnce(deleteChain);
+      mockedCreateClient.mockResolvedValue({ from } as never);
+      expect(await deleteRestaurant('550e8400-e29b-41d4-a716-446655440000')).toMatchObject({ success: false, error: expect.stringContaining('delete refused') });
+      expect(from.mock.calls.map(([table]) => table)).toEqual(['restaurants', 'restaurants']);
     });
   });
 });
