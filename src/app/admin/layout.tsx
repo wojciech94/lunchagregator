@@ -18,6 +18,7 @@ import { getAdmin } from '@/lib/auth';
 const TABS = [
   { href: '/admin/offers', label: 'Oferty' },
   { href: '/admin/restaurants', label: 'Restauracje' },
+  { href: '/admin/import', label: 'Import menu' },
   { href: '/admin/logs', label: 'Logi' },
 ] as const;
 
@@ -38,7 +39,7 @@ export default async function AdminLayout({
       </Link>
 
       <nav aria-label="Sekcje administracji" className="mb-6 border-b border-border">
-        <ul className="flex gap-2 -mb-px">
+        <ul className="flex flex-wrap gap-2 -mb-px">
           {TABS.map((tab) => (
             <li key={tab.href}>
               <Link
