@@ -24,8 +24,11 @@ a 2 MB body limit, HTML-only content handling and no automatic retries. Only
 the exact configured HTTPS URL is permitted, including at redirects; up to two
 redirects are allowed. Every resolved IPv4 must be public, and a validated
 address is pinned to the TLS request. IPv6-only sources are unsupported. The
-adapter parses only the lunch category, strips scripts/styles and limits the
-menu excerpt to 5,000 characters before the existing AI extractor is called.
+adapter parses only the lunch category and strips scripts/styles. The action
+checks the complete analyzer input, including Restaurant name and address,
+against the shared 5,000-character limit. Longer inputs skip AI and return the
+complete direct HTML preview with an explicit length warning; source evidence
+and dishes are never truncated.
 The extractor retains its shared 25-second deadline and existing rate-limit
 fallback behavior. No browser execution, OCR or arbitrary URL fetching occurs.
 

@@ -38,7 +38,7 @@ export function LunchImportPanel({ enabled, sourceId = 'sofa', name = 'Sofa Loun
           <a href={result.data.sourceUrl} target="_blank" rel="noreferrer" className="underline break-all">Otwórz źródło menu</a>
           <p className="text-sm">Pobrano: {new Date(result.data.fetchedAt).toLocaleString('pl-PL')}</p>
           <p className="font-medium">Data menu: nieznana</p>
-          <p className="text-sm">Sposób odczytu: {result.data.extractionMethod === 'html' ? 'bezpośrednio ze strony (AI niedostępne)' : 'analiza AI'}</p>
+          <p className="text-sm">Sposób odczytu: {result.data.extractionMethod === 'html' ? 'bezpośrednio ze strony (bez analizy AI)' : 'analiza AI'}</p>
           <ul className="list-disc pl-5 text-sm space-y-1">{result.data.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul>
         </div>
         <h2 className="text-lg font-semibold">{result.data.extractionMethod === 'html' ? 'Dania odczytane ze strony' : 'Dania rozpoznane przez AI'}</h2>

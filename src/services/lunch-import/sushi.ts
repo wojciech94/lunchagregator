@@ -32,6 +32,5 @@ export function extractSushiMenu(html: string) {
   });
   if (!dishes.length) throw new Error('Sekcja lunchowa Sushi Friends nie zawiera dań.');
   const excerpt = ['Lunch', conditions, ...itemText].join('\n\n');
-  if (excerpt.length > 5000) throw new Error('Menu jest zbyt długie do analizy.');
   return { excerpt, conditions, dishes };
 }

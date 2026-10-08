@@ -34,10 +34,10 @@ describe('Sushi Friends HTML adapter', () => {
     expect(result.excerpt).toContain('31 zł + 1 zł');
   });
 
-  it('reports missing/empty/oversized menus and leaves unavailable common sides unknown', () => {
+  it('reports missing/empty menus, retains long content and leaves unavailable common sides unknown', () => {
     expect(() => extractSushiMenu('<h1>Menu</h1>')).toThrow('sekcji lunchowej');
     expect(() => extractSushiMenu('<section id="lunch"></section>')).toThrow('nie zawiera dań');
-    expect(() => extractSushiMenu(html.replace('Kurczak', 'x'.repeat(5100)))).toThrow('zbyt długie');
+    expect(extractSushiMenu(html.replace('Kurczak', 'x'.repeat(5100))).excerpt).toContain('x'.repeat(5100));
     const missingSide = html.replace('dir="auto"', 'dir="ltr"');
     expect(extractSushiMenu(missingSide).dishes.every(dish => dish.items?.length === 0)).toBe(true);
   });

@@ -23,7 +23,11 @@ prices remain null in direct HTML output while their literal text remains in
 the source excerpt. Packaging is never added to the observed base prices.
 
 Both sources use the existing AI extractor and the explicitly labelled direct
-HTML preview if AI reports temporary unavailability. They return no inferred
+HTML preview if AI reports temporary unavailability or the complete analyzer
+input (Restaurant name, address and excerpt) exceeds 5,000 characters. Long
+menus skip AI and preserve all source dishes and evidence with a distinct
+length warning; the fetched HTML remains subject to the 2 MB transport limit.
+They return no inferred
 dates, dietary tags or allergens. Sushi's explicit vegetarian wording remains
 part of the literal title in the source excerpt and direct HTML output, not a
 separately inferred tag. AI output may shorten the title, so the excerpt remains
@@ -33,6 +37,13 @@ still required before publication. No offers are saved by this increment.
 
 ## Verification
 
+- PR review follow-up: both sources are tested at complete analyzer input
+  lengths of 4,999, 5,000, 5,001 and 6,000 characters. Inputs within the limit
+  reach AI unchanged; longer inputs preserve the complete excerpt and literal
+  dishes, show a length warning, and make no AI request. UI checks distinguish
+  HTML output from AI output and display the fallback reason. The follow-up
+  suite passed 66 tests (including 9 shared analyzer tests), with 3 opt-in live
+  cases skipped; typecheck passed.
 - Frozen Sushi excerpts with synthetic structural wrappers test four rows,
   31/36/41/31 PLN prices, common side alternatives, packaging wording, unrelated
   items/chat-attribute exclusion, missing menus and ambiguous price evidence.

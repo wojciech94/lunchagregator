@@ -1,7 +1,7 @@
 import { generateObject } from 'ai';
 import { modelWithRateLimitFallback } from '@/lib/ai/model-with-fallback';
 import { ExtractionTimeoutError, reportExtractionFailure } from '@/lib/ai/extraction-errors';
-import { AI_TIMEOUT_MS, GEMINI_PROVIDER_OPTIONS } from '@/lib/ai/constants';
+import { AI_TIMEOUT_MS, GEMINI_PROVIDER_OPTIONS, MAX_AI_TEXT_LENGTH } from '@/lib/ai/constants';
 import { z } from 'zod';
 import type { DietaryTag, Allergen } from '@/types/offers';
 
@@ -319,7 +319,7 @@ export async function analyzeText(text: string): Promise<ExtractedOffers> {
     };
   }
 
-  if (text.length > 5000) {
+  if (text.length > MAX_AI_TEXT_LENGTH) {
     throw new Error(
       'Text exceeds maximum length of 5000 characters. Please shorten the input.'
     );

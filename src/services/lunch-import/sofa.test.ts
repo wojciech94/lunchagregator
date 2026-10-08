@@ -37,8 +37,8 @@ describe('Sofa HTML adapter', () => {
     expect(() => extractSofaMenu('<div id="menu-zestawy-lunch-owe"></div>')).toThrow('nie zawiera dań');
   });
 
-  it('retains a missing price for review and rejects oversized menu content', () => {
+  it('retains a missing price and complete long menu content for HTML review', () => {
     expect(extractSofaMenu(html.replaceAll('40,31', '')).excerpt).not.toContain('40,31');
-    expect(() => extractSofaMenu(html.replace('Zestaw 1', 'x'.repeat(5100)))).toThrow('zbyt długie');
+    expect(extractSofaMenu(html.replace('Zestaw 1', 'x'.repeat(5100))).excerpt).toContain('x'.repeat(5100));
   });
 });

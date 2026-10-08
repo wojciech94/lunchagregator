@@ -29,12 +29,13 @@ describe('operator import preview', () => {
     expect(mocks.preview).toHaveBeenCalledWith({ sourceId: 'sushi' });
     expect(screen.getByRole('button', { name: 'Pobierz menu Sofa' })).toBeEnabled();
   });
-  it('identifies source-derived dishes when AI is unavailable', async () => {
-    mocks.preview.mockResolvedValue({ ...preview, data: { ...preview.data, extractionMethod: 'html' } });
+  it.each(['AI chwilowo niedostępne.', 'Menu zbyt długie do analizy AI. Wyświetlamy pełny odczyt HTML.'])('identifies source-derived dishes and their fallback reason: %s', async warning => {
+    mocks.preview.mockResolvedValue({ ...preview, data: { ...preview.data, extractionMethod: 'html', warnings: [warning] } });
     render(<LunchImportPanel enabled />);
     fireEvent.click(screen.getByRole('button', { name: 'Pobierz menu Sofa' }));
     expect(await screen.findByRole('heading', { name: 'Dania odczytane ze strony' })).toBeInTheDocument();
-    expect(screen.getByText(/bezpośrednio ze strony \(AI niedostępne\)/)).toBeInTheDocument();
+    expect(screen.getByText(/bezpośrednio ze strony \(bez analizy AI\)/)).toBeInTheDocument();
+    expect(screen.getByText(warning)).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Dania rozpoznane przez AI' })).not.toBeInTheDocument();
     expect(screen.getByText('Data menu: nieznana')).toBeInTheDocument();
   });

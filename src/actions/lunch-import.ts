@@ -10,6 +10,7 @@ import { extractSofaMenu } from '@/services/lunch-import/sofa';
 import { extractSushiMenu } from '@/services/lunch-import/sushi';
 import { analyzeText } from '@/services/ai-analyzer';
 import { EXTRACTION_ERROR_MESSAGES } from '@/lib/ai/extraction-errors';
+import { MAX_AI_TEXT_LENGTH } from '@/lib/ai/constants';
 
 export async function previewLunchImport(input: unknown): Promise<ImportPreviewResult> {
   if (!(await getAdmin())) return { success: false, error: 'Brak uprawnień administratora.' };
@@ -31,9 +32,15 @@ export async function previewLunchImport(input: unknown): Promise<ImportPreviewR
     const fetchedAt = new Date().toISOString();
     const adapter = source.id === 'sofa' ? extractSofaMenu : extractSushiMenu;
     const { excerpt, conditions, dishes: sourceDishes } = adapter(html);
-    const result = await analyzeText(`Restauracja: ${restaurant.name}\nAdres: ${restaurant.address}\n\n${excerpt}`);
-    const sourceFallback = result.message === EXTRACTION_ERROR_MESSAGES.unavailable;
-    if (result.message && !sourceFallback) {
+    const inputText = `Restauracja: ${restaurant.name}\nAdres: ${restaurant.address}\n\n${excerpt}`;
+    // Preserve the complete source evidence rather than truncating a dish or price.
+    const tooLong = inputText.length > MAX_AI_TEXT_LENGTH;
+    const result = tooLong ? null : await analyzeText(inputText);
+    const fallbackReason = tooLong
+      ? 'Menu zbyt długie do analizy AI. Wyświetlamy pełny odczyt HTML.'
+      : result?.message === EXTRACTION_ERROR_MESSAGES.unavailable ? EXTRACTION_ERROR_MESSAGES.unavailable : null;
+    const sourceFallback = fallbackReason !== null;
+    if (result?.message && !sourceFallback) {
       // Only forward the analyzer's allowlisted product messages, never a raw
       // provider response that could contain source text or request metadata.
       const knownMessage = Object.values(EXTRACTION_ERROR_MESSAGES).find(message => message === result.message);
@@ -49,11 +56,11 @@ export async function previewLunchImport(input: unknown): Promise<ImportPreviewR
         conditions,
         date: null,
         extractionMethod: sourceFallback ? 'html' : 'ai',
-        dishes: sourceFallback ? sourceDishes : result.offers.flatMap(offer => offer.dishes).map(dish => ({
+        dishes: sourceFallback ? sourceDishes : (result?.offers ?? []).flatMap(offer => offer.dishes).map(dish => ({
           name: dish.name, price: dish.price, description: dish.description, items: dish.items,
         })),
         warnings: [
-          ...(sourceFallback ? [EXTRACTION_ERROR_MESSAGES.unavailable,
+          ...(fallbackReason ? [fallbackReason,
             'Wyświetlamy dane odczytane bezpośrednio ze strony, bez analizy AI. Sprawdź nazwy, opisy i ceny.'] : []),
           'Źródło nie podaje daty menu. Dostępność i datę trzeba potwierdzić przed publikacją.',
           'Porównaj dania, ceny i alternatywy z fragmentem źródła. Data pobrania nie jest datą ważności menu.',

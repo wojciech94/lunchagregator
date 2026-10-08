@@ -6,6 +6,7 @@ import { AI_MODEL_ID } from './models';
  * has room to finish without resetting the deadline.
  */
 export const AI_TIMEOUT_MS = 25000;
+export const MAX_AI_TEXT_LENGTH = 5000;
 
 // The legacy numeric budget works for 2.5 Flash, but 3.5 Flash-Lite rejects
 // zero with HTTP 400. Use model defaults for other models. This SDK version

@@ -2,8 +2,6 @@ import { load } from 'cheerio';
 import type { LunchImportPreview } from '@/lib/lunch-import/types';
 import { readSourcePrice } from './source-price';
 
-const MAX_MENU_LENGTH = 5000;
-
 /** Read only the lunch category. No scripts, links or unrelated à-la-carte items. */
 export function extractSofaMenu(html: string) {
   const $ = load(html);
@@ -33,6 +31,5 @@ export function extractSofaMenu(html: string) {
   });
   if (items.length === 0) throw new Error('Sekcja lunchowa Sofa nie zawiera dań.');
   const excerpt = ["Zestawy Lunch'owe", conditions, ...items].filter(Boolean).join('\n\n');
-  if (excerpt.length > MAX_MENU_LENGTH) throw new Error('Menu jest zbyt długie do analizy.');
   return { excerpt, conditions, dishes };
 }
