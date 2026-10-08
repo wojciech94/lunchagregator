@@ -14,7 +14,8 @@ git remote -v
 git fetch origin
 ```
 
-Resolve the task's issue and intended PR base. Use `origin/main` for independent
+Resolve the task's requirements from its existing issue or the user's request,
+and identify its intended base. Use `origin/main` for independent
 work unless the task specifies another base. Resolve the fetched base with
 `git rev-parse origin/main` (or the specified ref), and report the directory,
 task branch and base SHA before implementation. A local branch named `main`
@@ -71,7 +72,8 @@ prove that the server is running the intended checkout.
 ## Before delivery
 
 Fetch the actual remote base again. Check the diff from the merge-base, account
-for newly merged changes, and verify the PR's current state before pushing.
+for newly merged changes, and verify the PR's current state before pushing
+when a PR exists.
 For a merged or closed PR, use a new branch from the fetched base for follow-up
 work rather than appending commits to its completed branch. Re-run affected
 checks when code or base changes invalidate prior evidence; distinguish earlier
@@ -81,17 +83,22 @@ Inspect `git status --short`, staged changes and the commit diff. Commit only
 the task's files. Preserve unrelated edits; completion does not authorize
 `reset --hard`, `clean`, deleting another worktree, force-pushing or merging.
 
-Before reporting completion, update all affected documentation together:
+Before reporting completion, update affected repository documentation and any
+existing issue/PR records together:
 
 - Repository docs describe the delivered behavior and current limitations.
-- The PR describes its final scope, validation and remaining work.
-- The issue records the current PR/merge status, completed stage, review fixes,
-  evidence and the next unfinished stage. Only check off work actually delivered
+- When a PR exists, it describes its final scope, validation and remaining work.
+- When an issue exists, it records the current PR/merge status (if applicable),
+  completed stage, review fixes, evidence and the next unfinished stage.
+  Only check off work actually delivered
   to the stated stage; clearly distinguish implementation from merge and pilot
   verification.
 
-Re-read published issue/PR updates to verify them. Report the task branch,
-delivered commit/PR, validation and material outstanding work. Leave a clean
+Re-read any published issue/PR updates to verify them. Tasks requested directly
+by the user or delivered locally can complete without tracker artifacts; this
+workflow does not require creating an issue or PR solely to satisfy the checklist.
+Report the task branch, delivered commit/PR when present, validation and material
+outstanding work. Leave a clean
 checkout after committing this task, or explicitly identify any preserved
 uncommitted work. These are agent workflow requirements; Git does not enforce
 task ownership or fetch freshness automatically.

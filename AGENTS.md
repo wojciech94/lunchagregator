@@ -27,8 +27,8 @@ Baza testowa: lokalny stos (`npx supabase start`) — patrz `docs/agents/test-da
 Before starting implementation, resuming work, switching tasks, or handing work
 back, read and follow `docs/agents/workspace.md`. One active task owns each
 worktree. Verify the working tree, fetch the actual remote base, and record its
-SHA before editing; keep issue, PR and repository documentation current when
-delivering changes.
+SHA before editing; keep existing issue/PR records and affected repository
+documentation current when delivering changes.
 
 ## Agent skills
 
