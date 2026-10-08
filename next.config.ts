@@ -4,9 +4,13 @@ import { createBuildInfo } from "./scripts/build-info";
 
 export default function nextConfig(phase: string): NextConfig {
   if (phase !== PHASE_PRODUCTION_BUILD && phase !== PHASE_DEVELOPMENT_SERVER) return {};
+  // Next also loads config in build workers. They inherit this snapshot so the
+  // server, browser and recorded build config receive exactly the same identity.
+  const snapshot = process.env.LUNCH_BUILD_INFO_SNAPSHOT ?? JSON.stringify(createBuildInfo());
+  process.env.LUNCH_BUILD_INFO_SNAPSHOT = snapshot;
   return {
     env: {
-      NEXT_PUBLIC_APP_BUILD_INFO: JSON.stringify(createBuildInfo()),
+      NEXT_PUBLIC_APP_BUILD_INFO: snapshot,
     },
   };
 }
