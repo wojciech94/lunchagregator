@@ -1,5 +1,4 @@
-import { z } from 'zod';
-import type { RecommendationIntent } from './validations/chat';
+import { recommendationDateSchema, recommendationPeriodAnnotationSchema, type RecommendationIntent } from './validations/chat';
 
 export interface DatePeriod { start: string; end: string }
 export interface RecommendationContext {
@@ -23,18 +22,29 @@ export function shiftDate(date: string, days: number): string {
   return value.toISOString().slice(0, 10);
 }
 
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
-  const date = new Date(`${value}T12:00:00Z`);
-  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
-});
+/** Read only assistant metadata; user annotations cannot set the prior selection. */
+export function previousRecommendationPeriod(messages: { role: string; annotations?: unknown[] }[]): DatePeriod | undefined {
+  for (const message of [...messages].reverse()) {
+    if (message.role !== 'assistant') continue;
+    for (const annotation of [...(message.annotations ?? [])].reverse()) {
+      const parsed = recommendationPeriodAnnotationSchema.safeParse(annotation);
+      if (parsed.success) return parsed.data.period ?? undefined;
+    }
+  }
+}
 
 export type PeriodResolution = { context: RecommendationContext; message?: never } | { message: string; context?: never };
 
-export function resolveRecommendationPeriod(intent: RecommendationIntent, today: string): PeriodResolution {
+export function resolveRecommendationPeriod(intent: RecommendationIntent, today: string, previousPeriod?: DatePeriod): PeriodResolution {
   const day = new Date(`${today}T12:00:00Z`).getUTCDay();
   let start = today;
   let end = today;
   switch (intent.period) {
+    case 'previous':
+      if (!previousPeriod) return { message: 'Nie mam zapisanego poprzedniego okresu. Na jaki dzień lub zakres dat szukasz lunchu?' };
+      start = previousPeriod.start;
+      end = previousPeriod.end;
+      break;
     case 'clarify': return { message: intent.clarification || 'Na jaki dzień lub zakres dat szukasz lunchu?' };
     case 'tomorrow': start = end = shiftDate(today, 1); break;
     case 'weekday':
@@ -45,7 +55,7 @@ export function resolveRecommendationPeriod(intent: RecommendationIntent, today:
       start = shiftDate(today, 7 - ((day + 6) % 7));
       end = shiftDate(start, 6); break;
     case 'dates':
-      if (!isoDate.safeParse(intent.startDate).success || !isoDate.safeParse(intent.endDate).success) {
+      if (!recommendationDateSchema.safeParse(intent.startDate).success || !recommendationDateSchema.safeParse(intent.endDate).success) {
         return { message: 'Podaj poprawną datę lub zakres dat (np. 2026-10-12).' };
       }
       start = intent.startDate!;

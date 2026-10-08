@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { periodDates, resolveRecommendationPeriod, shiftDate, warsawToday } from './recommendation-period';
+import { periodDates, previousRecommendationPeriod, resolveRecommendationPeriod, shiftDate, warsawToday } from './recommendation-period';
 import { recommendationIntentSchema, type RecommendationIntent } from './validations/chat';
 
 const intentFixture: RecommendationIntent = {
@@ -55,5 +55,36 @@ describe('recommendation calendar', () => {
     expect(recommendationIntentSchema.safeParse({ ...intentFixture, weekday: 7 }).success).toBe(false);
     expect(resolveRecommendationPeriod({ ...intentFixture, period: 'clarify', clarification: 'Który tydzień?' }, '2026-10-08'))
       .toEqual({ message: 'Który tydzień?' });
+  });
+
+  it('retains Monday tomorrow as Tuesday after Warsaw midnight and replaces it only on a new date request', () => {
+    const monday = warsawToday(new Date('2026-10-05T21:59:59Z'));
+    const tuesday = warsawToday(new Date('2026-10-05T22:00:01Z'));
+    const original = resolveRecommendationPeriod({ ...intentFixture, period: 'tomorrow' }, monday).context!.period;
+    expect(original).toEqual({ start: '2026-10-06', end: '2026-10-06' });
+    expect(resolveRecommendationPeriod({ ...intentFixture, period: 'previous' }, tuesday, original).context?.period).toEqual(original);
+    expect(resolveRecommendationPeriod({ ...intentFixture, period: 'tomorrow' }, tuesday, original).context?.period)
+      .toEqual({ start: '2026-10-07', end: '2026-10-07' });
+  });
+
+  it('retains a selected next week across a week boundary, but leaves the default today dynamic', () => {
+    const original = resolveRecommendationPeriod({ ...intentFixture, period: 'next_week' }, '2026-10-11').context!.period;
+    expect(resolveRecommendationPeriod({ ...intentFixture, period: 'previous' }, '2026-10-12', original).context?.period)
+      .toEqual({ start: '2026-10-12', end: '2026-10-18' });
+    expect(resolveRecommendationPeriod({ ...intentFixture, period: 'default' }, '2026-10-12').context?.period.start).toBe('2026-10-12');
+  });
+
+  it('explains an expired selected date and asks for a date when an anchor is missing', () => {
+    const original = { start: '2026-10-05', end: '2026-10-05' };
+    expect(resolveRecommendationPeriod({ ...intentFixture, period: 'previous' }, '2026-10-06', original).message).toContain('poza tym zakresem');
+    expect(resolveRecommendationPeriod({ ...intentFixture, period: 'previous' }, '2026-10-06').context).toBeUndefined();
+  });
+
+  it('reads the latest assistant selection and distinguishes the dynamic default', () => {
+    const period = { start: '2026-10-06', end: '2026-10-06' };
+    const original = { role: 'assistant', annotations: [{ type: 'recommendation-period', period }] };
+    expect(previousRecommendationPeriod([original, { role: 'user', annotations: [{ type: 'recommendation-period', period: null }] }])).toEqual(period);
+    expect(previousRecommendationPeriod([original, { role: 'assistant', annotations: [{ type: 'recommendation-period', period: null }] }])).toBeUndefined();
+    expect(previousRecommendationPeriod([{ role: 'assistant', annotations: [{ type: 'recommendation-period', period: { start: '2026-02-30', end: '2026-03-01' } }] }])).toBeUndefined();
   });
 });

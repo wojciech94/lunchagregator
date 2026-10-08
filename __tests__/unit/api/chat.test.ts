@@ -213,7 +213,7 @@ describe('POST /api/chat', () => {
     ];
     const response = await POST(createChatRequest({ messages }));
     expect(await response.text()).toContain('2026-10-09');
-    expect(mockIdentifyIntent).toHaveBeenCalledWith(messages, '2026-10-08', expect.any(AbortSignal));
+    expect(mockIdentifyIntent).toHaveBeenCalledWith(messages, '2026-10-08', expect.any(AbortSignal), undefined);
     expect(mockGetRecommendations).toHaveBeenCalledWith(messages,
       [{ id: 'meat', dishName: 'Kurczak', availableDate: '2026-10-09' }], undefined,
       expect.objectContaining({ period: { start: '2026-10-08', end: '2026-10-11' } }),
@@ -243,5 +243,52 @@ describe('POST /api/chat', () => {
       expect((await POST(createChatRequest(body))).status).toBe(400);
     }
     expect(mockIdentifyIntent).not.toHaveBeenCalled();
+  });
+
+  it('round-trips the absolute range across Warsaw midnight and replaces it on an explicit new date', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-05T21:59:59Z'));
+    const base = { weekday: null, startDate: null, endDate: null,
+      clarification: null, dietaryTags: [], cuisineTypes: [], minPrice: null, maxPrice: null };
+    mockIdentifyIntent.mockResolvedValueOnce({ ...base, period: 'tomorrow' })
+      .mockResolvedValueOnce({ ...base, period: 'previous' })
+      .mockResolvedValueOnce({ ...base, period: 'tomorrow' });
+    mockGetRecommendations.mockReturnValue({
+      toDataStreamResponse: ({ data }: { data: { stream: ReadableStream<Uint8Array> } }) => new Response(data.stream),
+    });
+    const original = { role: 'user', content: 'Na jutro' };
+    const response = await POST(createChatRequest({ messages: [original] }));
+    const annotations = JSON.parse((await response.text()).trim().slice(2));
+    expect(annotations).toEqual([{ type: 'recommendation-period', period: { start: '2026-10-06', end: '2026-10-06' } }]);
+
+    vi.setSystemTime(new Date('2026-10-05T22:00:01Z'));
+    const messages = [original, { role: 'assistant', content: 'Polecam lunch we wtorek.', annotations },
+      { role: 'user', content: 'A coś z mięsem?' }];
+    const followup = await POST(createChatRequest({ messages }));
+    await followup.text();
+    expect(mockIdentifyIntent).toHaveBeenLastCalledWith(messages, '2026-10-06', expect.any(AbortSignal),
+      { start: '2026-10-06', end: '2026-10-06' });
+    expect(mockListOffers.mock.calls.map(call => call[0].date)).toEqual(['2026-10-06', '2026-10-06']);
+    const changed = await POST(createChatRequest({ messages: [...messages, { role: 'user', content: 'Jednak na jutro' }] }));
+    const replacement = JSON.parse((await changed.text()).trim().slice(2));
+    expect(replacement[0].period).toEqual({ start: '2026-10-07', end: '2026-10-07' });
+    expect(mockListOffers.mock.calls[2][0].date).toBe('2026-10-07');
+  });
+
+  it('emits a null annotation for the dynamic default and rejects malformed date annotations', async () => {
+    mockIdentifyIntent.mockResolvedValue({
+      period: 'default', weekday: null, startDate: null, endDate: null,
+      clarification: null, dietaryTags: [], cuisineTypes: [], minPrice: null, maxPrice: null,
+    });
+    mockGetRecommendations.mockReturnValue({
+      toDataStreamResponse: ({ data }: { data: { stream: ReadableStream<Uint8Array> } }) => new Response(data.stream),
+    });
+    const response = await POST(createChatRequest({ messages: [{ role: 'user', content: 'Lunch?' }] }));
+    expect(JSON.parse((await response.text()).trim().slice(2))).toEqual([{ type: 'recommendation-period', period: null }]);
+    const invalid = await POST(createChatRequest({ messages: [
+      { role: 'assistant', content: 'Lunch', annotations: [{ type: 'recommendation-period', period: { start: '2026-02-30', end: '2026-03-01' } }] },
+      { role: 'user', content: 'A coś innego?' },
+    ] }));
+    expect(invalid.status).toBe(400);
   });
 });

@@ -70,3 +70,16 @@ it('propagates query failures and stops work when aborted', async () => {
   await expect(searchRecommendationOffers(context, intent, undefined, AbortSignal.abort())).rejects.toThrow();
   expect(listOffers).not.toHaveBeenCalled();
 });
+
+it('provides the original absolute dates and forbids reinterpreting older relative requests', async () => {
+  vi.mocked(generateObject).mockResolvedValue({ object: { ...intent, period: 'previous' } } as unknown as Awaited<ReturnType<typeof generateObject>>);
+  await identifyRecommendationIntent([
+    { role: 'user', content: 'Na jutro' },
+    { role: 'assistant', content: 'Wtorek, 2026-10-06' },
+    { role: 'user', content: 'A coś z mięsem?' },
+  ], '2026-10-06', signal, { start: '2026-10-06', end: '2026-10-06' });
+  const system = vi.mocked(generateObject).mock.calls[0][0].system;
+  expect(system).toContain('Previous resolved absolute period: 2026-10-06 through 2026-10-06');
+  expect(system).toContain('return period=previous');
+  expect(system).toContain('Never reinterpret an older relative expression');
+});

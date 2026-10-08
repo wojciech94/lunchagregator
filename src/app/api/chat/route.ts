@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createDataStreamResponse, formatDataStreamPart } from 'ai';
+import { createDataStreamResponse, formatDataStreamPart, StreamData } from 'ai';
 import { createAIRecommenderService } from '@/services/ai-recommender';
 import { identifyRecommendationIntent, searchRecommendationOffers } from '@/services/recommendation-search';
-import { resolveRecommendationPeriod, warsawToday } from '@/lib/recommendation-period';
+import { previousRecommendationPeriod, resolveRecommendationPeriod, warsawToday } from '@/lib/recommendation-period';
 import { chatRequestSchema } from '@/lib/validations/chat';
 import { AI_TIMEOUT_MS } from '@/lib/ai/constants';
 
@@ -27,8 +27,9 @@ export async function POST(request: Request) {
   const signal = AbortSignal.any([request.signal, AbortSignal.timeout(AI_TIMEOUT_MS)]);
   try {
     const today = warsawToday();
-    const intent = await identifyRecommendationIntent(messages, today, signal);
-    const resolution = resolveRecommendationPeriod(intent, today);
+    const previousPeriod = previousRecommendationPeriod(messages);
+    const intent = await identifyRecommendationIntent(messages, today, signal, previousPeriod);
+    const resolution = resolveRecommendationPeriod(intent, today, previousPeriod);
     if (resolution.message !== undefined) {
       return createDataStreamResponse({ execute: writer => {
         writer.write(formatDataStreamPart('text', resolution.message));
@@ -40,7 +41,13 @@ export async function POST(request: Request) {
     const stream = await createAIRecommenderService().getRecommendations(
       messages, result.offers, userLocation, result.context, signal,
     );
-    return stream.toDataStreamResponse();
+    const data = new StreamData();
+    data.appendMessageAnnotation({
+      type: 'recommendation-period', period: intent.period === 'default' ? null
+        : { ...(intent.period === 'previous' ? previousPeriod : result.context.period) },
+    });
+    await data.close();
+    return stream.toDataStreamResponse({ data });
   } catch (error) {
     console.error('Chat API route error:', error);
     return NextResponse.json({

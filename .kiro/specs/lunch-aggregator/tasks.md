@@ -332,5 +332,6 @@ Implementacja aplikacji Lunch Agregator w Next.js (App Router) z TypeScript, Sup
   - Retrieve filtered offers across every date with pagination, bounded concurrency/context, and incomplete-coverage metadata.
   - Include dates, weekdays, searched period and coverage disclosures in the recommendation prompt; update introductory text.
   - Share the 25-second deadline across intent extraction, retrieval and streaming.
+  - Retain selected absolute ranges in assistant message annotations across midnight/week boundaries; validate metadata and test the real chat hook's follow-up payload.
   - Add calendar, route, search and prompt tests; verify the existing database query's date/filter/pagination contract against local Supabase.
   - _Requirements: 4.2 through 4.11_

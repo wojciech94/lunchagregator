@@ -10,6 +10,7 @@ import { warsawToday, polishWeekday, type RecommendationContext } from '@/lib/re
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
+  annotations?: unknown[];
 }
 
 /**
