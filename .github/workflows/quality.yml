@@ -1,0 +1,54 @@
+name: Quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Choose checks
+        id: scope
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
+            echo 'code=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git diff --name-only "$BASE_SHA" HEAD > /tmp/quality-changes
+          while IFS= read -r file; do
+            case "$file" in
+              docs/*.md|.kiro/*.md|AGENTS.md|CLAUDE.md|GLOSSARY.md|CHANGELOG.md|README.md) ;;
+              *) echo 'code=true' >> "$GITHUB_OUTPUT"; exit 0 ;;
+            esac
+          done < /tmp/quality-changes
+          echo 'code=false' >> "$GITHUB_OUTPUT"
+          echo 'Documentation only: code checks skipped; review content and links.' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        if: steps.scope.outputs.code == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+        if: steps.scope.outputs.code == 'true'
+      - run: npm run lint
+        if: steps.scope.outputs.code == 'true'
+      - run: npm run typecheck
+        if: steps.scope.outputs.code == 'true'
+      - run: npm test -- --maxWorkers 2
+        if: steps.scope.outputs.code == 'true'
