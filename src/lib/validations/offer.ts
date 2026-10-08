@@ -106,6 +106,8 @@ export const createOfferSchema = z.object({
 });
 
 export const updateOfferSchema = z.object({
+  // Explicit snapshot repair; ordinary restaurant edits never rewrite offers.
+  useRestaurantLocation: z.boolean().optional(),
   dishName: z
     .string()
     .min(1, 'Podaj nazwę dania.')

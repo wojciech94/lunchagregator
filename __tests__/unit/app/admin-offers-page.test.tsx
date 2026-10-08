@@ -95,6 +95,15 @@ describe('a non-admin', () => {
 });
 
 describe('an admin', () => {
+  it('can restore the place of a linked offer with an incomplete snapshot', async () => {
+    mockListAdminOffers.mockResolvedValue({
+      rows: [orphan({ restaurantId: 'restaurant', restaurantAddress: null, restaurantLocation: null })], total: 1,
+    });
+    render(await renderPage());
+    expect(screen.getByText('brak adresu')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pobierz adres restauracji' })).toBeInTheDocument();
+  });
+
   it('sees each ownerless offer, with the restaurant and the address', async () => {
     mockListAdminOffers.mockResolvedValue({
       rows: [

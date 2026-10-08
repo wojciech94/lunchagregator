@@ -189,6 +189,7 @@ function EditOfferForm({
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
   const [formError, setFormError] = React.useState<string | null>(null);
+  const [locationWarning, setLocationWarning] = React.useState(false);
 
   function toggleCuisine(value: CuisineType) {
     setCuisineType((prev) => (prev === value ? null : value));
@@ -210,6 +211,7 @@ function EditOfferForm({
     e.preventDefault();
     setFieldErrors({});
     setFormError(null);
+    setLocationWarning(false);
 
     const parsedPrice = Number.parseFloat(price);
 
@@ -243,6 +245,11 @@ function EditOfferForm({
     setIsSubmitting(true);
     const result = await updateOfferAction(offerId, validation.data);
     if (result.success) {
+      if (result.locationWarning) {
+        setLocationWarning(true);
+        setIsSubmitting(false);
+        return;
+      }
       onSuccess();
       return;
     }
@@ -254,6 +261,12 @@ function EditOfferForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6" noValidate>
+      {locationWarning && (
+        <div role="status" className="rounded-md border border-border p-4 space-y-2">
+          <p className="text-sm">Zapisano ofertę, ale nie udało się ustalić współrzędnych adresu. Oferta nie będzie widoczna w wyszukiwaniu po odległości.</p>
+          <Button type="button" variant="outline" onClick={onSuccess}>Przejdź do oferty</Button>
+        </div>
+      )}
       {/* Form error */}
       {formError && (
         <div className="rounded-[4px] border border-destructive/30 bg-destructive/5 px-4 py-3">

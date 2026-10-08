@@ -4,6 +4,7 @@ import { AlertTriangle, Calendar, MapPin, Pencil, Utensils } from "lucide-react"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DeleteOfferButton } from "@/components/offers/DeleteOfferButton";
+import { RestoreOfferLocationButton } from "@/components/offers/RestoreOfferLocationButton";
 import type { LunchOffer } from "@/types/offers";
 
 interface OrphanOfferRowProps {
@@ -29,7 +30,7 @@ interface OrphanOfferRowProps {
  * single most common thing to want to fix in this list.
  */
 export function OrphanOfferRow({ offer }: OrphanOfferRowProps) {
-  const hasAddress = offer.restaurantAddress !== null;
+  const hasAddress = Boolean(offer.restaurantAddress?.trim());
   const hasCoordinates = offer.restaurantLocation !== null;
 
   return (
@@ -81,7 +82,10 @@ export function OrphanOfferRow({ offer }: OrphanOfferRowProps) {
         </div>
       </div>
 
-      <div className="flex shrink-0 gap-2">
+      <div className="flex shrink-0 flex-wrap gap-2">
+        {offer.restaurantId && (!hasAddress || !hasCoordinates) && (
+          <RestoreOfferLocationButton offerId={offer.id} />
+        )}
         <Button variant="outline" size="sm" asChild>
           <Link href={`/offers/${offer.id}/edit`}>
             <Pencil className="size-4" aria-hidden="true" />

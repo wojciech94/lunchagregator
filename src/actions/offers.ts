@@ -1,7 +1,7 @@
 'use server';
 
 import { MAX_OFFERS_PER_BATCH, OFFER_BATCH_LIMIT_MESSAGE } from '@/lib/validations/offer-batch';
-
+import { revalidatePath } from 'next/cache';
 import { getAdmin, getUser } from '@/lib/auth';
 import { canDelete, canModify, isAdmin } from '@/lib/ownership';
 import { recordAudit, shouldAudit } from '@/lib/audit';
@@ -404,7 +404,7 @@ export async function assignOfferRestaurantAction(
 export async function updateOfferAction(
   id: string,
   data: unknown
-): Promise<ActionResult<LunchOffer>> {
+): Promise<ActionResultWithLocationWarning<LunchOffer>> {
   try {
     if (!id || typeof id !== 'string') {
       return { success: false, error: 'Invalid offer ID' };
@@ -451,6 +451,12 @@ export async function updateOfferAction(
       });
     }
 
+    if (result.success) {
+      revalidatePath(`/offers/${id}`);
+      revalidatePath('/admin');
+      revalidatePath('/admin/offers');
+      revalidatePath('/');
+    }
     return result;
   } catch (error) {
     const message =
