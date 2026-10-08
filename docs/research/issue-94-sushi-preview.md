@@ -43,7 +43,8 @@ still required before publication. No offers are saved by this increment.
   dishes, show a length warning, and make no AI request. UI checks distinguish
   HTML output from AI output and display the fallback reason. The follow-up
   suite passed 66 tests (including 9 shared analyzer tests), with 3 opt-in live
-  cases skipped; typecheck passed.
+  cases skipped; typecheck and production build passed. The full suite was not
+  rerun for this focused follow-up.
 - Frozen Sushi excerpts with synthetic structural wrappers test four rows,
   31/36/41/31 PLN prices, common side alternatives, packaging wording, unrelated
   items/chat-attribute exclusion, missing menus and ambiguous price evidence.
@@ -55,7 +56,8 @@ still required before publication. No offers are saved by this increment.
 - A direct live HTML adapter check on 2026-10-08 returned all four expected
   prices and the miso/wakame alternative, without calling AI. This is a source
   observation, not proof of date-specific availability.
-- Final focused import suite: 48 passed, 3 opt-in live corpus cases skipped;
+- Initial focused import suite before the review follow-up: 48 passed,
+  3 opt-in live corpus cases skipped;
   production build and typecheck passed (existing unrelated build warnings).
 - Collaborative-browser verification used the local pilot Admin session:
   selecting Sushi produced four AI-extracted rows at 31/36/41/31 PLN, retaining
