@@ -1,6 +1,6 @@
 {
   "name": "lunch-agregator",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^1.2.22",
-    
     "@hookform/resolvers": "^3.9.1",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.49.4",
