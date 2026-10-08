@@ -94,7 +94,8 @@ enough; no separate validation ledger is required.
 
 The `Quality` GitHub Actions job runs lint, typecheck and unit/property tests for
 code or configuration changes. Ordinary Markdown under `docs/` and `.kiro/`,
-and the named root documentation files in that workflow, skip those steps. The
+and the named root documentation files in that workflow, skip those steps.
+File moves are classified using both their original and destination paths. The
 job still reports success so it can be used as a required check. Builds, E2E and
 database tests remain risk-based checks; this job does not validate their contracts.
 

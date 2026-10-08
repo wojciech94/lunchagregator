@@ -30,7 +30,7 @@ jobs:
             echo 'code=true' >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          git diff --name-only "$BASE_SHA" HEAD > /tmp/quality-changes
+          git diff --no-renames --name-only "$BASE_SHA" HEAD > /tmp/quality-changes
           while IFS= read -r file; do
             case "$file" in
               docs/*.md|.kiro/*.md|AGENTS.md|CLAUDE.md|GLOSSARY.md|CHANGELOG.md|README.md) ;;
