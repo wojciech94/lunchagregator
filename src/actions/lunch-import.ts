@@ -11,7 +11,7 @@ import { extractSushiMenu } from '@/services/lunch-import/sushi';
 import { analyzeText } from '@/services/ai-analyzer';
 import { EXTRACTION_ERROR_MESSAGES } from '@/lib/ai/extraction-errors';
 import { MAX_AI_TEXT_LENGTH } from '@/lib/ai/constants';
-import { createImportReview } from '@/services/lunch-import/receipt';
+import { createImportReview } from '@/services/lunch-import/review';
 
 export async function previewLunchImport(input: unknown): Promise<ImportPreviewResult> {
   if (!(await getAdmin())) return { success: false, error: 'Brak uprawnień administratora.' };

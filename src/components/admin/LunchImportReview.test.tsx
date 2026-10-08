@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({ publish: vi.fn() }));
 vi.mock('@/actions/publish-lunch-import', () => ({ publishLunchImport: mocks.publish }));
 import { LunchImportReview } from './LunchImportReview';
 afterEach(cleanup);
-const review = { receipt: 'signed-preview', dishes: [
+const review = { sourceId: 'sofa' as const, restaurantId: '1070afce-ff35-4861-b940-f4eb783b9e40', fetchedAt: new Date().toISOString(), dishes: [
   { itemKey: 'a'.repeat(64), name: 'Set 1', price: 31, description: 'Fish or tofu', items: ['Soup or wakame'] },
   { itemKey: 'b'.repeat(64), name: 'Set 2', price: 32 },
 ] };
