@@ -9,6 +9,15 @@ const actions = vi.hoisted(() => ({ getOfferWithAccessAction: vi.fn(), updateOff
 vi.mock('@/actions/offers', () => actions);
 afterEach(cleanup);
 
+it('keeps the geocoding warning visible after a successful save', async () => {
+  actions.getOfferWithAccessAction.mockResolvedValue({ success: true, data: { offer, canModify: true } });
+  actions.updateOfferAction.mockResolvedValue({ success: true, data: offer, locationWarning: true });
+  render(<EditOfferPage params={Promise.resolve({ id: offer.id })} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Zapisz zmiany' }));
+  expect(await screen.findByRole('status')).toHaveTextContent('nie udało się ustalić współrzędnych');
+  expect(screen.getByRole('button', { name: 'Przejdź do oferty' })).toBeVisible();
+});
+
 const offer: LunchOffer = {
   id: 'offer-90', dishName: 'Pizza Margherita', price: 34, currency: 'PLN',
   items: ['Pizza Margherita', 'Napój (kawa, oranżada lub woda)', 'Deser "dnia", owoce'],

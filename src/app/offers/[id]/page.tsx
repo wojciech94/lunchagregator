@@ -7,6 +7,7 @@ import { getOfferById } from '@/actions/offers';
 import { getUser } from '@/lib/auth';
 import { canModify } from '@/lib/ownership';
 import { DeleteOfferButton } from '@/components/offers/DeleteOfferButton';
+import { RestoreOfferLocationButton } from '@/components/offers/RestoreOfferLocationButton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -107,11 +108,26 @@ export default async function OfferDetailsPage({ params }: OfferDetailsPageProps
                 <Utensils className="size-4 text-muted-foreground" />
                 <span className="text-base font-medium">{offer.restaurantName}</span>
               </div>
-              {offer.restaurantAddress && (
+              <div className="flex items-center gap-2">
+                <MapPin className="size-4 shrink-0 text-muted-foreground" />
+                <span className="text-base">{offer.restaurantAddress?.trim() || 'Brak adresu'}</span>
+              </div>
+              {offer.restaurantLocation && (
                 <div className="flex items-center gap-2">
-                  <MapPin className="size-4 text-muted-foreground" />
-                  <span className="text-base">{offer.restaurantAddress}</span>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${offer.restaurantLocation.latitude},${offer.restaurantLocation.longitude}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="text-sm underline underline-offset-4"
+                  >
+                    Pokaż na mapie
+                  </a>
                 </div>
+              )}
+              {offer.restaurantAddress?.trim() && !offer.restaurantLocation && (
+                <p className="text-sm text-muted-foreground">Brak współrzędnych — oferta nie jest widoczna w wyszukiwaniu po odległości.</p>
+              )}
+              {mayModify && offer.restaurantId && (!offer.restaurantAddress?.trim() || !offer.restaurantLocation) && (
+                <RestoreOfferLocationButton offerId={offer.id} />
               )}
             </section>
 

@@ -637,7 +637,7 @@ export async function assignOffersToRestaurant(
 export async function updateOffer(
   id: string,
   data: unknown
-): Promise<ActionResult<LunchOffer>> {
+): Promise<ActionResultWithLocationWarning<LunchOffer>> {
   const supabase = await createClient();
 
   // Validate input with Zod
@@ -658,6 +658,55 @@ export async function updateOffer(
 
   const dbRow = mapUpdateToDbRow(parsed.data);
 
+  let addressRequested = false;
+  if (parsed.data.restaurantAddress !== undefined || parsed.data.useRestaurantLocation) {
+    const { data: existing, error } = await supabase
+      .from('lunch_offers')
+      .select('restaurant_id, restaurant_address, restaurant_location')
+      .eq('id', id)
+      .single();
+    if (error || !existing) {
+      return { success: false, error: 'Nie znaleziono oferty' };
+    }
+
+    let address = parsed.data.restaurantAddress?.trim() || null;
+    const addressChanged = address !== (existing.restaurant_address?.trim() || null);
+    const needsLocation = parsed.data.useRestaurantLocation || addressChanged || !parseLocation(existing.restaurant_location);
+
+    if (needsLocation) {
+      let restaurant: { address: string | null; location: unknown } | null = null;
+      if (existing.restaurant_id) {
+        const result = await supabase.from('restaurants')
+          .select('address, location').eq('id', existing.restaurant_id).single();
+        if (!result.error) restaurant = result.data;
+      }
+      if (parsed.data.useRestaurantLocation) {
+        if (!restaurant) return { success: false, error: 'Nie znaleziono przypisanej restauracji' };
+        address = restaurant.address?.trim() || null;
+      }
+
+      dbRow.restaurant_address = address;
+      // Never retain coordinates belonging to the previous address.
+      dbRow.restaurant_location = null;
+      addressRequested = address !== null;
+      const restaurantPoint = parseLocation(restaurant?.location);
+      // Only reuse a restaurant's coordinates for the same address, or when
+      // explicitly restoring its place (including coordinate-only restaurants).
+      if (restaurantPoint && (parsed.data.useRestaurantLocation ||
+        (address !== null && address === restaurant?.address?.trim()))) {
+        dbRow.restaurant_location = pointString(restaurantPoint);
+      } else if (address) {
+        try {
+          const coordinates = await geocodeAddress(address);
+          if (coordinates) dbRow.restaurant_location = pointString(coordinates);
+        } catch {
+          // A geocoding outage must not discard an otherwise valid edit.
+          // The successful save reports its missing location below.
+        }
+      }
+    }
+  }
+
   const { data: updated, error: updateError } = await supabase
     .from('lunch_offers')
     .update(dbRow)
@@ -672,7 +721,10 @@ export async function updateOffer(
     };
   }
 
-  return { success: true, data: mapDbRowToOffer(updated as DbLunchOffer) };
+  const offer = mapDbRowToOffer(updated as DbLunchOffer);
+  return addressRequested && !offer.restaurantLocation
+    ? { success: true, data: offer, locationWarning: true }
+    : { success: true, data: offer };
 }
 
 /**
