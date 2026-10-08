@@ -8,7 +8,7 @@ export default async function LunchImportPage() {
   return <div className="space-y-6">
     <div>
       <h1 className="text-2xl font-bold">Import menu — pilotaż</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Pobierz aktualną stronę i porównaj wynik analizy z treścią menu.</p>
+      <p className="mt-2 text-sm text-muted-foreground">Pobierz menu, sprawdź dane i potwierdź datę przed zatwierdzeniem publikacji.</p>
     </div>
     {Object.values(IMPORT_SOURCES).map(source => <LunchImportPanel key={source.id}
       sourceId={source.id} name={source.restaurantName} address={getImportSource(source.id)?.branchAddress ?? source.branchAddress}

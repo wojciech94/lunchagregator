@@ -4,6 +4,9 @@ This document records the initial read-only Sofa preview increment. It is
 preparation for the 2–3-source pilot, not the five-business-day publication pilot.
 The subsequent [Sushi Friends increment](issue-94-sushi-preview.md) adds a second
 preview source; PROST remains unconfigured.
+Approved publication is described in the subsequent
+[stage-2 implementation](issue-94-approved-publication.md); the read-only
+limitations below describe this initial increment.
 
 ## Configuration and operator flow
 
