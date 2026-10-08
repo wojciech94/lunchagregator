@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/wojciech94/lunchagregator/compare/v0.4.0...v0.4.1) (2026-10-08)
+
+
+### Bug Fixes
+
+* **import:** validate preview freshness using server time ([3c7532f](https://github.com/wojciech94/lunchagregator/commit/3c7532f54329209038f9af0a629b102a7f1ee70f))
+
 ## [0.4.0](https://github.com/wojciech94/lunchagregator/compare/v0.3.0...v0.4.0) (2026-10-08)
 
 
