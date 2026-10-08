@@ -4,8 +4,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 const mocks = vi.hoisted(() => ({ publish: vi.fn() }));
 vi.mock('@/actions/publish-lunch-import', () => ({ publishLunchImport: mocks.publish }));
 import { LunchImportReview } from './LunchImportReview';
-afterEach(cleanup);
-const review = { receipt: 'signed-preview', dishes: [
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+const review = { sourceId: 'sofa' as const, restaurantId: '1070afce-ff35-4861-b940-f4eb783b9e40', fetchedAt: new Date().toISOString(), dishes: [
   { itemKey: 'a'.repeat(64), name: 'Set 1', price: 31, description: 'Fish or tofu', items: ['Soup or wakame'] },
   { itemKey: 'b'.repeat(64), name: 'Set 2', price: 32 },
 ] };
@@ -14,6 +14,15 @@ function approve() {
   fireEvent.click(screen.getByRole('checkbox', { name: /Potwierdzam dostępność/ }));
 }
 describe('operator publication review', () => {
+  it.each([-2 * 60000, 60 * 60000])('submits a server preview despite browser clock skew of %i ms', async skew => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse(review.fetchedAt) + skew);
+    mocks.publish.mockResolvedValueOnce({ success: true, data: { saved: [], failed: [] } });
+    render(<LunchImportReview review={review} onBusyChange={vi.fn()} />); approve();
+    fireEvent.click(screen.getByRole('button', { name: 'Opublikuj zatwierdzone pozycje' }));
+    await waitFor(() => expect(mocks.publish).toHaveBeenCalledTimes(1));
+    expect(mocks.publish.mock.calls[0][0].fetchedAt).toBe(review.fetchedAt);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Ponów niezapisane pozycje' })).toBeEnabled());
+  });
   it('requires explicit date/approval and resets approval after a correction', () => {
     render(<LunchImportReview review={review} onBusyChange={vi.fn()} />);
     const publish = screen.getByRole('button', { name: 'Opublikuj zatwierdzone pozycje' });

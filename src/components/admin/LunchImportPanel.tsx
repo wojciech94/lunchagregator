@@ -55,8 +55,8 @@ export function LunchImportPanel({ enabled, sourceId = 'sofa', name = 'Sofa Loun
           <summary className="cursor-pointer font-medium">Fragment menu ze źródła</summary>
           <pre className="mt-3 whitespace-pre-wrap break-words text-sm font-sans">{result.data.excerpt}</pre>
         </details>
-        {result.data.review ? <LunchImportReview key={result.data.review.receipt} review={result.data.review} onBusyChange={setPublishing} />
-          : <p>Publikacja niedostępna: sprawdź konfigurację publikacji oraz jednoznaczne nazwy pozycji źródła.</p>}
+        {result.data.review ? <LunchImportReview key={result.data.review.fetchedAt} review={result.data.review} onBusyChange={setPublishing} />
+          : <p>Publikacja niedostępna: źródło musi zawierać jednoznaczne nazwy pozycji.</p>}
       </div>}
     </div>
   );

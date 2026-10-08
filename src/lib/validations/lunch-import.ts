@@ -7,7 +7,10 @@ export const lunchImportRequestSchema = z.object({
 }).strict();
 
 export const importPublicationSchema = z.object({
-  receipt: z.string().min(1).max(12000),
+  sourceId: lunchImportRequestSchema.shape.sourceId,
+  restaurantId: z.string().uuid(),
+  // Shared with the browser: freshness requires the server's authoritative clock.
+  fetchedAt: z.string().datetime(),
   availableDate: importAvailableDateSchema,
   confirmed: z.literal(true),
   dishes: z.array(createOfferSchema.pick({ dishName: true, price: true, description: true, items: true })
