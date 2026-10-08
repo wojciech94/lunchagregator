@@ -197,8 +197,10 @@ interface AIRecommenderService {
   getRecommendations(
     messages: Message[],
     availableOffers: LunchOffer[],
-    userLocation?: Coordinates
-  ): AsyncIterable<StreamPart>;
+    userLocation?: Coordinates,
+    context?: RecommendationContext,
+    signal?: AbortSignal
+  ): ReturnType<typeof streamText>;
 }
 
 interface GeocodingService {
@@ -647,3 +649,15 @@ __tests__/
 ```
 
 > **Uwaga o nazewnictwie.** `__tests__/integration/` nie istnieje i nie powstał. Testy, które dawniej tam leżały, to server actions uruchamiane na **mockowanym** kliencie Supabase — bez gniazda, bez zmiennych środowiskowych, bez seedów i bez teardownu. Nazwa katalogu sugerowała pokrycie relacji oferta–restauracja na prawdziwej bazie, a takiego pokrycia nie ma. Trafiły do `unit/actions/`. Testy integracyjne żyją w projekcie `db` (`npm run test:db`, `__tests__/db/`), który łączy się z lokalnym stosem Supabase.
+
+### Recommendation date scope (#110)
+
+The chat route validates user/assistant messages and coordinates using Zod. One abort signal, shared with the request cancellation signal, starts a 25-second deadline before intent extraction. Both AI calls use the existing rate-limit fallback middleware without SDK retries.
+
+`recommendation-search.ts` uses structured AI extraction over the full conversation to identify the latest requested period and explicit current dietary/cuisine/price criteria. Follow-ups retain the last user-selected period; explicit new periods replace it. Assistant replies do not override user date requests. Relative periods are represented as enums and computed on the server; explicit dates are validated as real ISO calendar dates.
+
+`recommendation-period.ts` anchors dates to Europe/Warsaw and performs calendar arithmetic in UTC at noon to avoid host timezone and DST changes. This week is today through Sunday; next week is the following Monday through Sunday; an unqualified weekday includes today. Dates are intersected with [today, today + 30]. Empty intersections, invalid/reversed ranges, and ambiguity return a direct AI SDK data-stream explanation with no database query. Partial intersections retain the requested range so the answer can disclose clipping.
+
+Retrieval reuses `listOffers` with each explicit date and validated filters rather than changing the single-day listing contract or adding SQL. It requests pages of 50, at most 200 offers per date and 1,000 offers overall (equal per-date allocation), in batches of four dates. Query/count requests receive the shared abort signal. Each date with omitted rows is marked incomplete. This is a bounded snapshot, not an exhaustive search when a limit is reached; the response must disclose those dates and cannot claim that a missing match proves no matching offer exists.
+
+The recommendation prompt includes the current local date, requested/searched ranges, clipping and incomplete coverage, and each offer's availability date, Polish weekday, components, price, dietary tags, allergens, and distance when known. Descriptions and component text are bounded. The answer recommends 1 to 5 offers in total and labels each with its actual date and weekday. Introductory chat text advertises date/week requests. No history is persisted outside the session.

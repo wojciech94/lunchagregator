@@ -1,61 +1,50 @@
 import { NextResponse } from 'next/server';
-import { createAIRecommenderService, type ChatMessage } from '@/services/ai-recommender';
-import { listOffers } from '@/services/offers';
-import type { Coordinates } from '@/types/offers';
-
-const MAX_MESSAGES_PER_SESSION = 50;
-
-interface ChatRequestBody {
-  messages: ChatMessage[];
-  userLocation?: Coordinates;
-}
+import { createDataStreamResponse, formatDataStreamPart } from 'ai';
+import { createAIRecommenderService } from '@/services/ai-recommender';
+import { identifyRecommendationIntent, searchRecommendationOffers } from '@/services/recommendation-search';
+import { resolveRecommendationPeriod, warsawToday } from '@/lib/recommendation-period';
+import { chatRequestSchema } from '@/lib/validations/chat';
+import { AI_TIMEOUT_MS } from '@/lib/ai/constants';
 
 export async function POST(request: Request) {
+  let input: unknown;
+  try { input = await request.json(); }
+  catch { return NextResponse.json({ error: 'Invalid JSON.' }, { status: 400 }); }
+  const parsed = chatRequestSchema.safeParse(input);
+  if (!parsed.success) {
+    const messageIssue = parsed.error.issues.find(issue => issue.path.length === 1 && issue.path[0] === 'messages');
+    const error = messageIssue?.code === 'too_big'
+      ? 'Przekroczono limit 50 wiadomości na sesję. Rozpocznij nową sesję, aby kontynuować rozmowę.'
+      : messageIssue?.code === 'invalid_type' ? 'Messages array is required.'
+      : 'Nieprawidłowa wiadomość lub lokalizacja.';
+    return NextResponse.json({ error }, { status: 400 });
+  }
+  const { messages, userLocation } = parsed.data;
+  if (messages[messages.length - 1].role !== 'user') {
+    return NextResponse.json({ error: 'Dodaj swoją wiadomość, aby otrzymać rekomendację.' }, { status: 400 });
+  }
+  // One budget covers intent resolution, retrieval, streaming and model fallback.
+  const signal = AbortSignal.any([request.signal, AbortSignal.timeout(AI_TIMEOUT_MS)]);
   try {
-    const body: ChatRequestBody = await request.json();
-    const { messages, userLocation } = body;
-
-    // Validate messages array exists
-    if (!messages || !Array.isArray(messages)) {
-      return NextResponse.json(
-        { error: 'Messages array is required.' },
-        { status: 400 }
-      );
+    const today = warsawToday();
+    const intent = await identifyRecommendationIntent(messages, today, signal);
+    const resolution = resolveRecommendationPeriod(intent, today);
+    if (resolution.message !== undefined) {
+      return createDataStreamResponse({ execute: writer => {
+        writer.write(formatDataStreamPart('text', resolution.message));
+        writer.write(formatDataStreamPart('finish_message', { finishReason: 'stop' }));
+      } });
     }
-
-    // Enforce 50-message-per-session limit
-    if (messages.length > MAX_MESSAGES_PER_SESSION) {
-      return NextResponse.json(
-        {
-          error: `Przekroczono limit ${MAX_MESSAGES_PER_SESSION} wiadomości na sesję. Rozpocznij nową sesję, aby kontynuować rozmowę.`,
-        },
-        { status: 400 }
-      );
-    }
-
-    // Fetch today's available offers as context for the AI
-    const offersResult = await listOffers({});
-    const availableOffers = offersResult.offers;
-
-    // Create the AI recommender service and get streaming response
-    const recommenderService = createAIRecommenderService();
-    const result = await recommenderService.getRecommendations(
-      messages,
-      availableOffers,
-      userLocation
+    const result = await searchRecommendationOffers(resolution.context, intent, userLocation, signal);
+    signal.throwIfAborted();
+    const stream = await createAIRecommenderService().getRecommendations(
+      messages, result.offers, userLocation, result.context, signal,
     );
-
-    // Return the streaming response using Vercel AI SDK format
-    return result.toDataStreamResponse();
+    return stream.toDataStreamResponse();
   } catch (error) {
     console.error('Chat API route error:', error);
-
-    // Handle AI service unavailability
-    return NextResponse.json(
-      {
-        error: 'Usługa rekomendacji jest tymczasowo niedostępna. Spróbuj ponownie później.',
-      },
-      { status: 503 }
-    );
+    return NextResponse.json({
+      error: 'Usługa rekomendacji jest tymczasowo niedostępna. Spróbuj ponownie później.',
+    }, { status: 503 });
   }
 }

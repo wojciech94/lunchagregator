@@ -822,7 +822,8 @@ async function countFilteredOffers(
   filters: OfferFilters,
   location: Coordinates | null,
   date: string,
-  supabase: Awaited<ReturnType<typeof createClient>>
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  signal?: AbortSignal
 ): Promise<number> {
   let query = supabase
     .from('lunch_offers')
@@ -869,7 +870,7 @@ async function countFilteredOffers(
     );
   }
 
-  const { count, error } = await query;
+  const { count, error } = await (signal ? query.abortSignal(signal) : query);
   if (error) throw new Error(`Failed to count offers: ${error.message}`);
   return count ?? 0;
 }
@@ -896,7 +897,8 @@ async function countFilteredOffers(
  */
 export async function listOffers(
   filters: OfferFilters,
-  userLocation?: Coordinates
+  userLocation?: Coordinates,
+  signal?: AbortSignal
 ): Promise<PaginatedOffers> {
   const date = filters.date ?? getTodayDate();
   const page = filters.page ?? 1;
@@ -915,7 +917,7 @@ export async function listOffers(
 
   const supabase = await createClient();
 
-  const { data, error } = await supabase.rpc('get_offers_filtered', {
+  const offersQuery = supabase.rpc('get_offers_filtered', {
     p_date: date,
     p_price_min: filters.price?.min ?? null,
     p_price_max: filters.price?.max ?? null,
@@ -929,6 +931,7 @@ export async function listOffers(
     p_limit: limit,
     p_offset: offset,
   });
+  const { data, error } = await (signal ? offersQuery.abortSignal(signal) : offersQuery);
 
   if (error) {
     throw new Error(`Failed to fetch offers: ${error.message}`);
@@ -940,7 +943,7 @@ export async function listOffers(
     mapDbRowToOfferWithDistance(row as unknown as Record<string, unknown>, row.distance_km),
   );
 
-  const total = await countFilteredOffers(filters, location, date, supabase);
+  const total = await countFilteredOffers(filters, location, date, supabase, signal);
 
   return {
     offers,

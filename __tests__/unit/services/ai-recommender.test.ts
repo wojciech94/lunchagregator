@@ -235,5 +235,30 @@ describe('AIRecommenderService', () => {
       expect(callArgs.abortSignal?.aborted).toBe(false);
       expect(timeout).toHaveBeenCalledWith(25000);
     });
+
+    it('includes future availability dates, weekdays and the searched week without today-only instructions', () => {
+      service.getRecommendations([{ role: 'user', content: 'Co z mięsem w tym tygodniu?' }],
+        [createMockOffer({ dishName: 'Kurczak', availableDate: '2026-10-09' })], undefined,
+        { today: '2026-10-08', requestedPeriod: { start: '2026-10-08', end: '2026-10-11' },
+          period: { start: '2026-10-08', end: '2026-10-11' }, clipped: false, incompleteDates: [] });
+      const system = mockedStreamText.mock.calls[0][0].system!;
+      expect(system).toContain('2026-10-08 – 2026-10-11');
+      expect(system).toContain('"availableDate": "2026-10-09"');
+      expect(system).toContain('piątek');
+      expect(system).not.toContain('TYLKO oferty z poniższej listy dostępnych ofert na dziś');
+    });
+
+    it('discloses clipped periods and incomplete searches and reuses the caller deadline', () => {
+      const signal = new AbortController().signal;
+      service.getRecommendations([{ role: 'user', content: 'Cały miesiąc' }], [], undefined,
+        { today: '2026-10-08', requestedPeriod: { start: '2026-10-01', end: '2026-11-30' },
+          period: { start: '2026-10-08', end: '2026-11-07' }, clipped: true, incompleteDates: ['2026-10-09'] }, signal);
+      const call = mockedStreamText.mock.calls[0][0];
+      expect(call.abortSignal).toBe(signal);
+      expect(call.system).toContain('sprawdzono tylko część');
+      expect(call.system).toContain('NIEPEŁNE WYNIKI');
+      expect(call.system).toContain('NIE oznacza braku');
+      expect(call.system).not.toContain('Wyniki obejmują wszystkie');
+    });
   });
 });

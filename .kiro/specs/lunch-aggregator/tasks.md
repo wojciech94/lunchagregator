@@ -134,7 +134,7 @@ Implementacja aplikacji Lunch Agregator w Next.js (App Router) z TypeScript, Sup
 - [x] 7. AI Recommender chat
   - [x] 7.1 Implement AIRecommenderService with streaming
     - Create `services/ai-recommender.ts` implementing `AIRecommenderService` interface
-    - Use Vercel AI SDK `streamText` with system prompt including today's available offers as context
+    - Use Vercel AI SDK `streamText` with system prompt including dated offers in the resolved search period as context (#110)
     - Filter and prioritize recommendations based on user preferences (dietary, price, location)
     - Return 1-5 matching offers with natural language explanations
     - Handle "no matching offers" scenario with suggestion to broaden criteria
@@ -143,7 +143,7 @@ Implementacja aplikacji Lunch Agregator w Next.js (App Router) z TypeScript, Sup
   - [x] 7.2 Implement chat API route with session management
     - Create `app/api/chat/route.ts` using Vercel AI SDK route handler
     - Implement 50-message-per-session limit with message counting
-    - Fetch today's available offers as context for the AI
+    - Resolve the conversational search period and fetch its published offers as AI context (#110)
     - Include user location in context when available
     - Handle AI service unavailability with error message
     - _Requirements: 4.5, 4.7_
@@ -325,3 +325,12 @@ Implementacja aplikacji Lunch Agregator w Next.js (App Router) z TypeScript, Sup
   ]
 }
 ```
+
+- [x] Extend AI recommendation date scope (#110)
+  - Validate chat input and structured conversational period/preference extraction.
+  - Resolve relative dates in Europe/Warsaw and validate/clip explicit ranges to today through day 30.
+  - Retrieve filtered offers across every date with pagination, bounded concurrency/context, and incomplete-coverage metadata.
+  - Include dates, weekdays, searched period and coverage disclosures in the recommendation prompt; update introductory text.
+  - Share the 25-second deadline across intent extraction, retrieval and streaming.
+  - Add calendar, route, search and prompt tests; verify the existing database query's date/filter/pagination contract against local Supabase.
+  - _Requirements: 4.2 through 4.11_

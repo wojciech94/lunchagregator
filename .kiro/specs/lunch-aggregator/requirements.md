@@ -78,17 +78,22 @@ Anonimowe dodawanie ofert zostało **świadomie wycofane**. Pierwotna wersja teg
 
 ### Requirement 4: Rekomendacje AI w ramach sesji
 
-**User Story:** As a User, I want to ask for AI-powered meal recommendations in a chat window, so that I can get suggestions for today's lunch without browsing manually.
+**User Story:** As a User, I want to ask for AI-powered meal recommendations in a chat window, so that I can get suggestions for today or a requested future date or period without browsing manually.
 
 #### Acceptance Criteria
 
 1. WHEN a User opens the recommendation chat, THE System SHALL display a chat interface where the User can describe preferences in natural language
-2. WHEN a User sends a message describing preferences (e.g., "chcę coś lekkiego i taniego"), THE AI_Recommender SHALL respond within a total budget of 25 seconds with 1 to 5 Lunch_Offers from today's available offers that match the stated preferences. The budget includes an optional alternate-model attempt after HTTP 429 and SHALL NOT reset when switching models.
-3. WHEN the AI_Recommender returns recommendations, THE AI_Recommender SHALL provide a natural language explanation for each recommended Lunch_Offer stating why it matches the User's preferences
+2. WHEN a User sends a message describing preferences (e.g., "chcę coś lekkiego i taniego"), THE AI_Recommender SHALL respond within a total budget of 25 seconds with 1 to 5 Lunch_Offers from published offers in the resolved search period that match the stated preferences. The budget covers conversational intent resolution, offer retrieval, streaming, and an optional alternate-model attempt after HTTP 429, and SHALL NOT reset between stages or when switching models.
+3. WHEN the AI_Recommender returns recommendations, THE AI_Recommender SHALL provide a natural language explanation for each recommended Lunch_Offer stating why it matches the User's preferences, its availability date and weekday, and the searched period
 4. THE AI_Recommender SHALL filter and prioritize recommendations based on dietary restrictions, price preferences, and location when these are stated by the User in the conversation
 5. THE AI_Recommender SHALL maintain conversation context within the current session only, supporting up to 50 messages per session, without persisting history between sessions
-6. IF no Lunch_Offers match the User's stated preferences, THEN THE AI_Recommender SHALL inform the User that no matching offers are available and suggest broadening the criteria
+6. IF no Lunch_Offers match the User's stated preferences, THEN THE AI_Recommender SHALL identify the searched period and suggest broadening the criteria. It SHALL disclose incomplete coverage and SHALL NOT claim an exhaustive absence of matches from a truncated sample or a failed query, nor infer a restaurant's actual menu from missing published data
 7. IF the AI_Recommender service is unavailable, THEN THE System SHALL display an error message indicating the recommendation service is temporarily unavailable and suggest the User try again later
+
+8. THE System SHALL resolve dates in Europe/Warsaw. With no user-selected period, default to today. Support tomorrow, an unqualified weekday (its next occurrence, including today), explicit dates/ranges, this week (today through Sunday), and next week (following Monday through Sunday).
+9. THE System SHALL retain the last user-selected period for conversational follow-ups and replace it when a later user request specifies another period. Ambiguous date requests SHALL receive a clarification rather than a silent fallback.
+10. THE supported window SHALL be today through today + 30 calendar days, inclusive. Invalid, reversed, past-only, and wholly unsupported ranges SHALL receive an explanation without querying offers. Partly supported ranges SHALL be clipped to the supported window and the searched portion SHALL be disclosed.
+11. THE System SHALL apply explicit dietary, cuisine, and price criteria before pagination; retrieve beyond the first page when needed; bound database work/model context; and represent every searched date fairly. Truncation SHALL be disclosed by date.
 
 ### Requirement 5: Dodawanie ofert przez użytkowników
 
