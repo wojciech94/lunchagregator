@@ -11,6 +11,7 @@ import { extractSushiMenu } from '@/services/lunch-import/sushi';
 import { analyzeText } from '@/services/ai-analyzer';
 import { EXTRACTION_ERROR_MESSAGES } from '@/lib/ai/extraction-errors';
 import { MAX_AI_TEXT_LENGTH } from '@/lib/ai/constants';
+import { createImportReview } from '@/services/lunch-import/receipt';
 
 export async function previewLunchImport(input: unknown): Promise<ImportPreviewResult> {
   if (!(await getAdmin())) return { success: false, error: 'Brak uprawnień administratora.' };
@@ -55,6 +56,7 @@ export async function previewLunchImport(input: unknown): Promise<ImportPreviewR
         excerpt,
         conditions,
         date: null,
+        review: createImportReview(source, fetchedAt, sourceDishes),
         extractionMethod: sourceFallback ? 'html' : 'ai',
         dishes: sourceFallback ? sourceDishes : (result?.offers ?? []).flatMap(offer => offer.dishes).map(dish => ({
           name: dish.name, price: dish.price, description: dish.description, items: dish.items,

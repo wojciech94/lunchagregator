@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { parsePostGisPoint } from '@/lib/postgis';
 import { geocodeAddress } from '@/services/geocoding';
+import { importAvailableDateSchema } from '@/lib/validations/import-date';
 import {
   addDaysISO,
   anchorIsTooOld,
@@ -44,6 +45,8 @@ export type ActionResultWithLocationWarning<T> =
        * so the offer was saved without them. Absent or false otherwise.
        */
       locationWarning?: true;
+      /** Import linkage already existed; its offer was returned without edits. */
+      alreadyImported?: true;
     })
   | { success: false; error: string; fieldErrors?: Record<string, string> };
 
@@ -262,10 +265,14 @@ export async function getOffersByRestaurant(
 export async function createOffer(
   data: unknown,
   userId: string,
-  options?: { presetLocation?: string | null; inferCuisine?: boolean }
+  options?: { presetLocation?: string | null; inferCuisine?: boolean; import?: {
+    sourceId: 'sofa' | 'sushi'; itemKey: string; fetchedAt: string;
+    expectedName: string; expectedAddress: string;
+  } }
 ): Promise<ActionResultWithLocationWarning<LunchOffer>> {
   // Validate input with Zod
-  const parsed = createOfferSchema.safeParse(data);
+  const schema = options?.import ? createOfferSchema.extend({ availableDate: importAvailableDateSchema }) : createOfferSchema;
+  const parsed = schema.safeParse(data);
 
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
@@ -362,27 +369,38 @@ export async function createOffer(
     }
   }
 
-  const { data: inserted, error } = await supabase
-    .from('lunch_offers')
-    .insert(dbRow)
-    .select('*')
-    .single();
-
-  if (error) {
-    return { success: false, error: `Failed to create offer: ${error.message}` };
+  let inserted: DbLunchOffer;
+  let alreadyImported = false;
+  if (options?.import) {
+    const provenance = options.import;
+    const { data, error } = await supabase.rpc('create_lunch_import_offer', {
+      p_source_id: provenance.sourceId, p_item_key: provenance.itemKey,
+      p_fetched_at: provenance.fetchedAt, p_expected_name: provenance.expectedName,
+      p_expected_address: provenance.expectedAddress, p_offer: dbRow,
+    });
+    if (error) return { success: false, error: 'Nie udało się zapisać pozycji importu. Spróbuj ponownie.' };
+    const saved = data as { created: boolean; offer: DbLunchOffer | null };
+    if (!saved?.offer) return { success: false, error: 'Ta pozycja była już opublikowana i została usunięta. Nie przywracamy jej automatycznie.' };
+    inserted = saved.offer;
+    alreadyImported = !saved.created;
+  } else {
+    const { data, error } = await supabase.from('lunch_offers').insert(dbRow).select('*').single();
+    if (error) return { success: false, error: `Failed to create offer: ${error.message}` };
+    inserted = data as DbLunchOffer;
   }
 
-  const offer = mapDbRowToOffer(inserted as DbLunchOffer);
+  const offer = mapDbRowToOffer(inserted);
+  const importStatus = alreadyImported ? { alreadyImported: true as const } : {};
 
   // Requirement 6.5: an address was supplied and no coordinates came out, so
   // tell the caller this offer will be absent from distance sorting. Reading
   // the saved row rather than the local decision means the flag describes what
   // is actually stored, not what this function hoped to store.
   if (addressRequested && !offer.restaurantLocation) {
-    return { success: true, data: offer, locationWarning: true };
+    return { success: true, data: offer, locationWarning: true, ...importStatus };
   }
 
-  return { success: true, data: offer };
+  return { success: true, data: offer, ...importStatus };
 }
 
 /**

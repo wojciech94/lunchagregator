@@ -1,5 +1,9 @@
 # Issue #94: second preview source, Sushi Friends
 
+This records stage 1. The subsequent
+[approved-publication increment](issue-94-approved-publication.md) adds stage-2
+review and publication; the historical stage-1 verification remains below.
+
 The Admin import page now has independent Sofa and Sushi Friends controls.
 The Sushi source is the official HTTPS home page. Set
 `SUSHI_IMPORT_RESTAURANT_ID` to the reviewed branch UUID in the environment.
