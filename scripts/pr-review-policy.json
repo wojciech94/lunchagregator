@@ -1,0 +1,7 @@
+{
+  "maxFixRounds": 3,
+  "totalBudgetMs": 1800000,
+  "reviewWaitMs": 360000,
+  "pollIntervalMs": 30000,
+  "requestTimeoutMs": 20000
+}
