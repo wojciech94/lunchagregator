@@ -40,6 +40,14 @@ export function LunchImportPanel({ enabled, sourceId = 'sofa', name = 'Sofa Loun
           <a href={result.data.sourceUrl} target="_blank" rel="noreferrer" className="underline break-all">Otwórz źródło menu</a>
           <p className="text-sm">Pobrano: {new Date(result.data.fetchedAt).toLocaleString('pl-PL')}</p>
           <p className="font-medium">Data menu: nieznana</p>
+          {result.data.menuImage && <div className="space-y-2">
+            {/* Exact downloaded bytes, rather than a mutable remote image URL. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={result.data.menuImage.dataUrl} alt="Oryginalne pobrane menu lunchowe — porównaj dania, ceny i godziny" className="max-h-[800px] max-w-full object-contain" />
+            <a href={result.data.menuImage.assetUrl} target="_blank" rel="noreferrer" className="underline break-all">Otwórz plik menu</a>
+            <p className="text-sm break-all">SHA-256: {result.data.menuImage.contentHash}</p>
+            <p>{result.data.conditions}</p>
+          </div>}
           <p className="text-sm">Sposób odczytu: {result.data.extractionMethod === 'html' ? 'bezpośrednio ze strony (bez analizy AI)' : 'analiza AI'}</p>
           <ul className="list-disc pl-5 text-sm space-y-1">{result.data.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul>
         </div>

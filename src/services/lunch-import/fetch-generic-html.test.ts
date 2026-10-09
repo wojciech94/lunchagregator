@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ lookup: vi.fn(), request: vi.fn(), responses: [] as Record<string, unknown>[] }));
 vi.mock('node:dns/promises', () => ({ lookup: mocks.lookup, resolve4: vi.fn() }));
 vi.mock('node:https', () => ({ request: mocks.request }));
-import { fetchGenericHtml, isPublicAddress, validateGenericUrl } from './fetch-generic-html';
+import { fetchGenericHtml, fetchPublicResource, isPublicAddress, validateGenericUrl } from './fetch-generic-html';
+import { validateMeatologiaUrl } from './meatologia';
 beforeEach(() => {
   mocks.lookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }]);
   mocks.responses = [{}];
@@ -19,6 +20,18 @@ beforeEach(() => {
   });
 });
 describe('arbitrary HTTPS fetch protection', () => {
+  it('applies image origin policy before DNS and on redirects, while bounding type and connected destination', async () => {
+    const url = 'https://cdn.shopify.com/s/files/1/0930/9054/5989/files/lunch.jpg';
+    const policy = { accept: 'image/jpeg,image/png', allowedTypes: ['image/jpeg', 'image/png'], validateUrl: validateMeatologiaUrl };
+    mocks.responses = [{ headers: { 'content-type': 'image/jpeg' }, body: 'fixture' }];
+    expect((await fetchPublicResource(url, policy)).bytes.toString()).toBe('fixture');
+    mocks.responses = [{ statusCode: 302, headers: { location: 'https://evil.example/lunch.jpg' } }];
+    await expect(fetchPublicResource(url, policy)).rejects.toThrow('Nieobsługiwany adres');
+    mocks.responses = [{ headers: { 'content-type': 'application/pdf' } }];
+    await expect(fetchPublicResource(url, policy)).rejects.toThrow('JPG/PNG');
+    mocks.responses = [{ peer: '127.0.0.1', headers: { 'content-type': 'image/jpeg' } }];
+    await expect(fetchPublicResource(url, policy)).rejects.toThrow('Połączony');
+  });
   it.each(['127.0.0.1','10.0.0.1','169.254.169.254','100.64.0.1','192.168.0.1','192.0.2.1','192.88.99.1','224.0.0.1','::1','::ffff:93.184.216.34','fc00::1','fe80::1','2001:db8::1','2002:c000:201::1','3fff::1'])('rejects reserved address %s including mixed DNS results', async address => {
     expect(isPublicAddress(address)).toBe(false);
     mocks.lookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }, { address, family: address.includes(':') ? 6 : 4 }]);

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ admin: vi.fn(), rpc: vi.fn(), from: vi.fn(), single: vi.fn(), fetch: vi.fn() }));
+const mocks = vi.hoisted(() => ({ admin: vi.fn(), rpc: vi.fn(), from: vi.fn(), single: vi.fn(), fetch: vi.fn(), image: vi.fn(), branch: vi.fn() }));
+vi.mock('@/services/lunch-import/meatologia', () => ({ readMeatologiaMenu: mocks.image, requireMeatologiaBranch: mocks.branch }));
 vi.mock('@/lib/auth', () => ({ getAdmin: mocks.admin }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('@/lib/supabase/server', () => ({ createClient: async () => ({ from: mocks.from, rpc: mocks.rpc }) }));
@@ -19,6 +20,21 @@ beforeEach(() => {
   mocks.fetch.mockResolvedValue({ html: '<section><h2>Lunch</h2><ul><li><strong>Zupa</strong> 31 PLN</li></ul></section>', finalUrl: 'https://example.org/menu' });
 });
 describe('generic source Admin actions', () => {
+  it('routes Meatologia trial through image analysis, stores evidence without image bytes and records failed analysis as unsupported', async () => {
+    const source_url = 'https://meatologia.pl/pages/nasze-lokale';
+    mocks.single.mockResolvedValue({ data: { restaurant_id: restaurantId, revision, source_url }, error: null });
+    const menuImage = { assetUrl: 'https://cdn.shopify.com/lunch.jpg', contentHash: 'a'.repeat(64) };
+    mocks.image.mockResolvedValue({ supported: true, limitations: [], dishes: [{ name: 'Stek', price: 59 }],
+      identityEvidence: 'Włodkowica 27', excerpt: 'Stek 59 PLN', fetchedAt: new Date().toISOString(), finalUrl: source_url,
+      menuImage, conditions: 'do 16:00', imageDataUrl: 'data:image/jpeg;base64,privatebytes' });
+    expect((await configureGenericSource({ ...base, action: 'trial' })).success).toBe(true);
+    const payload = mocks.rpc.mock.calls[0][1].p_trial;
+    expect(payload).toMatchObject({ supported: true, menuImage, conditions: 'do 16:00' });
+    expect(payload.imageDataUrl).toBeUndefined(); expect(mocks.fetch).not.toHaveBeenCalled();
+    mocks.image.mockRejectedValueOnce(new Error('Image analysis failed'));
+    await configureGenericSource({ ...base, action: 'trial' });
+    expect(mocks.rpc.mock.calls[1][1].p_trial).toMatchObject({ supported: false, dishes: [], limitations: ['Image analysis failed'] });
+  });
   it('requires Admin before reads, fetching or writes', async () => {
     mocks.admin.mockResolvedValue(null);
     expect((await configureGenericSource({ ...base, action: 'trial' })).success).toBe(false);

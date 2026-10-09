@@ -1,5 +1,10 @@
 # Admin onboarding for bounded HTML pilots (#129)
 
+The later [Meatologia image pilot (#134)](issue-134-meatologia-image-pilot.md)
+reuses this source slot for one explicitly selected image-menu adapter. Its trial
+calls image AI and displays image evidence. The generic HTML workflow below
+continues to exclude images/OCR, PDF and JavaScript-rendered menus.
+
 Base: fetched `origin/main` `15c9fcfa780af4090316c365fa6b2f00eb3a94f2`.
 
 ## Operator workflow

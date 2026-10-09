@@ -2,6 +2,7 @@ import type { AnySourceId } from './sources';
 import type { ExtractedDish } from '@/services/ai-analyzer';
 
 export interface LunchImportPreview {
+  menuImage?: { assetUrl: string; contentHash: string; dataUrl: string };
   restaurant: { id: string; name: string; address: string };
   sourceUrl: string;
   fetchedAt: string;

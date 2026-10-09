@@ -21,6 +21,18 @@ const preview: ImportPreviewResult = {
 };
 
 describe('operator import preview', () => {
+  it('shows the exact downloaded image, asset provenance and availability alongside review', async () => {
+    if (!preview.success) throw new Error('Invalid fixture');
+    const dataUrl = 'data:image/jpeg;base64,fixture';
+    mocks.preview.mockResolvedValue({ success: true, data: { ...preview.data,
+      conditions: 'w dni robocze do 16:00', menuImage: { dataUrl, assetUrl: 'https://cdn.shopify.com/lunch.jpg', contentHash: 'a'.repeat(64) },
+    } });
+    render(<LunchImportPanel enabled />);
+    fireEvent.click(screen.getByRole('button', { name: 'Pobierz menu Sofa' }));
+    expect(await screen.findByRole('img')).toHaveAttribute('src', dataUrl);
+    expect(screen.getByText('w dni robocze do 16:00')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Otwórz plik menu' })).toHaveAttribute('href', 'https://cdn.shopify.com/lunch.jpg');
+  });
   it('keeps the two source controls and previews independent', async () => {
     mocks.preview.mockResolvedValue(preview);
     render(<><LunchImportPanel enabled /><LunchImportPanel enabled sourceId="sushi" name="Sushi Friends Bar & Resto" address="ul. Marco Polo 9e, Wrocław" label="Sushi Friends" /></>);

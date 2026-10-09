@@ -5,6 +5,7 @@ import { configureGenericSource } from '@/actions/generic-source';
 import { bindingIsActive, type ImportBinding } from '@/lib/lunch-import/binding-state';
 import { Button } from '@/components/ui/button';
 import { LunchImportPanel } from './LunchImportPanel';
+import { isMeatologiaUrl, MEATOLOGIA_URL } from '@/lib/lunch-import/meatologia';
 
 export function GenericSourceSettings({ restaurant, initial }: {
   restaurant: { id: string; name: string; address: string }; initial?: ImportBinding;
@@ -17,6 +18,7 @@ export function GenericSourceSettings({ restaurant, initial }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const changed = url !== binding?.source_url;
+  const meatologia = isMeatologiaUrl(url);
   const active = !!binding && bindingIsActive(binding, restaurant);
   async function run(action: 'draft' | 'trial' | 'confirm' | 'disable') {
     setBusy(true); setError('');
@@ -30,15 +32,17 @@ export function GenericSourceSettings({ restaurant, initial }: {
     finally { setBusy(false); }
   }
   return <section className="space-y-4 border-t pt-4" aria-labelledby={`${id}-title`}>
-    <h3 id={`${id}-title`} className="text-lg font-semibold">Nowe źródło HTML — pilotaż</h3>
-    <p>Obsługujemy jedną sekcję lunchową z nazwanymi pozycjami HTML. PDF, OCR i strony wymagające JavaScript pozostają poza zakresem. Zapis szkicu lub nowa próba wyłącza źródło do ponownej weryfikacji; wcześniejsze importy pozostają chronione.</p>
+    <h3 id={`${id}-title`} className="text-lg font-semibold">Nowe źródło menu — pilotaż</h3>
+    <p>Ogólne źródła obsługują jedną sekcję lunchową z nazwanymi pozycjami HTML. PDF, obrazy i strony wymagające JavaScript pozostają poza ich zakresem. Zapis szkicu lub nowa próba wyłącza źródło do ponownej weryfikacji; wcześniejsze importy pozostają chronione.</p>
+    <p>Wyjątek: pilot Meatologii przy Włodkowica 27 obsługuje zdjęcie JPG/PNG wskazane na stronie lokali. PDF-y pozostają poza zakresem.</p>
+    <Button variant="outline" disabled={busy} onClick={() => { setUrl(MEATOLOGIA_URL); setConfirmed(false); }}>Wybierz pilot Meatologii — Włodkowica 27</Button>
     <label className="block" htmlFor={`${id}-url`}>Oficjalny URL menu HTTPS
       <input id={`${id}-url`} type="url" maxLength={2000} className="block w-full rounded border bg-background p-2" value={url} disabled={busy}
         onChange={event => { setUrl(event.target.value); setConfirmed(false); }} />
     </label>
     <div className="flex flex-wrap gap-3">
       <Button disabled={busy || !url} onClick={() => run('draft')}>Zapisz szkic źródła</Button>
-      <Button variant="outline" disabled={busy || !binding || changed} onClick={() => run('trial')}>Uruchom próbny odczyt HTML</Button>
+      <Button variant="outline" disabled={busy || !binding || changed} onClick={() => run('trial')}>{meatologia ? 'Uruchom próbny odczyt zdjęcia menu' : 'Uruchom próbny odczyt HTML'}</Button>
       {binding?.enabled && <Button variant="outline" disabled={busy} onClick={() => run('disable')}>Wyłącz nowe źródło</Button>}
     </div>
     <p role="status">{busy ? 'Pobieranie lub zapis…' : `Status: ${active ? 'aktywny' : 'szkic / niezweryfikowany'}. Próba nie publikuje ofert.`}</p>
@@ -53,6 +57,11 @@ export function GenericSourceSettings({ restaurant, initial }: {
       <p>Data i dostępność menu wymagają ręcznego potwierdzenia. Brak ceny lub niejasne warianty wymagają korekty albo wykluczenia przed publikacją.</p>
       {binding.trial.limitations.map(message => <p role="alert" key={message}>{message}</p>)}
       <pre className="whitespace-pre-wrap break-words font-sans text-sm">{binding.trial.excerpt}</pre>
+      {binding.trial.menuImage && <div>
+        <a className="underline" href={binding.trial.menuImage.assetUrl} target="_blank" rel="noreferrer">Sprawdź oryginalne zdjęcie menu</a>
+        <p className="text-sm break-all">SHA-256 pobranego obrazu: {binding.trial.menuImage.contentHash}</p>
+        <p>Wynik odczytał model ze zdjęcia. Porównaj nazwy, ceny i godziny z oryginałem; link może wskazywać nowszy plik.</p>
+      </div>}
       <ul>{binding.trial.dishes.map((dish, index) => <li key={index}>{dish.name}: {dish.price === null ? 'cena do uzupełnienia' : `${dish.price} PLN`}</li>)}</ul>
       {binding.trial.supported && <>
         <label className="block" htmlFor={`${id}-evidence`}>Podstawa potwierdzenia oddziału, aktualności i wyjaśnienie różnic
