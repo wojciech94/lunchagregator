@@ -106,6 +106,9 @@ report the exact unverified scenario and any human step needed to unblock it.
 
 ## Before delivery
 
+For PR publication, automated feedback monitoring, and review-fix resumptions,
+read and follow [pr-delivery.md](pr-delivery.md).
+
 Fetch the actual remote base again. Check the diff from the merge-base, account
 for newly merged changes, and verify the PR's current state before pushing
 when a PR exists.

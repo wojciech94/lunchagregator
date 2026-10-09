@@ -96,4 +96,5 @@ not authorize merging or changing the PR code.
 After fixes, pin the new head SHA, verify each reported defect, and inspect the
 new diff for regressions. Complete the review when both perspectives have been
 assessed, findings are resolved or explicitly remain open, and validation limits
-are recorded. No fixed number of rounds is required.
+are recorded. Review assessment has no fixed number of rounds; autonomous delivery
+and fix sessions use the limits and handoff rules in [pr-delivery.md](pr-delivery.md).

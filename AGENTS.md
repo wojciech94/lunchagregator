@@ -42,4 +42,8 @@ Single-context layout: `GLOSSARY.md` at the repo root plus `docs/adr/`. See `doc
 
 ### Pull request reviews
 
+When publishing a PR, waiting for automated feedback, or resuming review fixes,
+read and follow `docs/agents/pr-delivery.md`, including its recorded session limits
+and handoff criteria.
+
 When performing an automatic or user-requested PR review, read and follow `docs/agents/pr-review.md`. Review both issue/spec conformance and correctness/repository standards. Automatic review is configured externally; opening a PR does not require an additional agent-initiated review.
