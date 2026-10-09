@@ -35,6 +35,7 @@ export interface ExtractedOffer {
 }
 
 export interface ExtractedOffers {
+  availability?: string;
   offers: ExtractedOffer[];
   sourceType: 'link' | 'text' | 'photo';
   confidence: number;
@@ -121,6 +122,7 @@ const extractedOfferSchema = z.object({
 });
 
 const extractionResultSchema = z.object({
+  availability: z.string().optional().describe('Literal availability days/hours stated in the menu; never infer validity dates.'),
   offers: z
     .array(extractedOfferSchema)
     .describe('Extracted lunch offers'),
@@ -354,7 +356,7 @@ export async function analyzeText(text: string): Promise<ExtractedOffers> {
  * Analyzes an image (via URL) to extract lunch offer details.
  * Uses a vision-capable model for OCR and content analysis.
  */
-export async function analyzeImage(imageUrl: string): Promise<ExtractedOffers> {
+export async function analyzeImage(imageUrl: string, instruction = ''): Promise<ExtractedOffers> {
   return withAIFallback<ExtractedOffers>(
     async (abortSignal) => {
       const { object } = await generateObject({
@@ -363,7 +365,7 @@ export async function analyzeImage(imageUrl: string): Promise<ExtractedOffers> {
         model: modelWithRateLimitFallback(),
         providerOptions: GEMINI_PROVIDER_OPTIONS,
         schema: extractionResultSchema,
-        system: EXTRACTION_SYSTEM_PROMPT,
+        system: EXTRACTION_SYSTEM_PROMPT + '\n' + instruction,
         messages: [
           {
             role: 'user',
@@ -386,6 +388,7 @@ export async function analyzeImage(imageUrl: string): Promise<ExtractedOffers> {
       return {
         offers: object.offers as ExtractedOffer[],
         sourceType: 'photo' as const,
+        availability: object.availability,
         confidence: object.confidence,
         missingFields,
       };

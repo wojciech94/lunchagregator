@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  getAdmin: vi.fn(), resolve: vi.fn(), fetch: vi.fn(), genericFetch: vi.fn(), analyze: vi.fn(),
+  getAdmin: vi.fn(), resolve: vi.fn(), fetch: vi.fn(), genericFetch: vi.fn(), analyze: vi.fn(), image: vi.fn(),
 }));
+vi.mock('@/services/lunch-import/meatologia', () => ({ readMeatologiaMenu: mocks.image }));
 vi.mock('@/lib/auth', () => ({ getAdmin: mocks.getAdmin }));
 vi.mock('@/lib/lunch-import/bindings', () => ({ resolveImportSource: mocks.resolve }));
 vi.mock('@/services/lunch-import/fetch-html', () => ({ fetchMenuHtml: mocks.fetch }));
@@ -27,6 +28,22 @@ beforeEach(() => {
 });
 
 describe('import preview authorization and provenance', () => {
+  it('returns the exact image evidence and editable review from the image adapter without a second AI text pass', async () => {
+    const sourceId = `html-${restaurant.id}`;
+    mocks.resolve.mockResolvedValue({ restaurant, source: { ...IMPORT_SOURCES.sofa, id: sourceId, restaurantId: restaurant.id,
+      bindingRevision, url: 'https://meatologia.pl/pages/nasze-lokale' } });
+    mocks.image.mockResolvedValue({ fetchedAt: new Date().toISOString(), excerpt: 'Stek 59 PLN', conditions: 'do 16:00',
+      dishes: [{ name: 'Stek', price: 59 }], menuImage: { assetUrl: 'https://cdn.shopify.com/lunch.jpg', contentHash: 'a'.repeat(64) },
+      imageDataUrl: 'data:image/jpeg;base64,fixture' });
+    expect(await previewLunchImport({ sourceId })).toMatchObject({ success: true, data: {
+      date: null, menuImage: { dataUrl: 'data:image/jpeg;base64,fixture' }, review: { sourceId, bindingRevision, dishes: [{ name: 'Stek', price: 59 }] },
+    } });
+    expect(mocks.analyze).not.toHaveBeenCalled(); expect(mocks.genericFetch).not.toHaveBeenCalled();
+    mocks.image.mockRejectedValueOnce(new Error('Image unavailable'));
+    expect(await previewLunchImport({ sourceId })).toEqual({ success: false, error: 'Image unavailable' });
+    mocks.getAdmin.mockResolvedValue(null); mocks.image.mockClear();
+    expect((await previewLunchImport({ sourceId })).success).toBe(false); expect(mocks.image).not.toHaveBeenCalled();
+  });
   it('routes an active generic source through protected fetching and retains literal review items despite AI differences', async () => {
     const sourceId = `html-${restaurant.id}`;
     mocks.resolve.mockResolvedValue({ restaurant, source: { ...IMPORT_SOURCES.sofa, id: sourceId,

@@ -21,10 +21,13 @@ export function validateGenericUrl(raw: string): URL {
 }
 
 /** No shared agents/proxy, all DNS results checked, pinned lookup, peer checked before reading. */
-export async function fetchGenericHtml(raw: string): Promise<{ html: string; finalUrl: string }> {
+export async function fetchPublicResource(raw: string, policy: {
+  accept: string; allowedTypes: readonly string[]; validateUrl?: (url: URL) => void;
+}): Promise<{ bytes: Buffer; contentType: string; finalUrl: string }> {
   const signal = AbortSignal.timeout(10_000);
-  async function read(url: URL, redirects: number): Promise<{ html: string; finalUrl: string }> {
+  async function read(url: URL, redirects: number): Promise<{ bytes: Buffer; contentType: string; finalUrl: string }> {
     validateGenericUrl(url.href);
+    policy.validateUrl?.(url);
     const addresses = await Promise.race([lookup(url.hostname, { all: true, verbatim: true }),
       new Promise<never>((_, reject) => {
         if (signal.aborted) reject(new Error('Przekroczono czas pobierania.'));
@@ -35,7 +38,7 @@ export async function fetchGenericHtml(raw: string): Promise<{ html: string; fin
     return new Promise((resolve, reject) => {
       const req = request(url, { signal, agent: false, family: pinned.family,
         lookup: (_host, _options, callback) => callback(null, pinned.address, pinned.family),
-        headers: { Accept: 'text/html', 'Accept-Encoding': 'identity', 'User-Agent': 'LunchAggregator-Pilot/1.0' } }, res => {
+        headers: { Accept: policy.accept, 'Accept-Encoding': 'identity', 'User-Agent': 'LunchAggregator-Pilot/1.0' } }, res => {
         if (!res.socket.remoteAddress || !isPublicAddress(res.socket.remoteAddress) || res.socket.remoteAddress !== pinned.address) {
           res.destroy(); reject(new Error('Połączony adres nie odpowiada zweryfikowanemu DNS.')); return;
         }
@@ -46,9 +49,12 @@ export async function fetchGenericHtml(raw: string): Promise<{ html: string; fin
             resolve(read(validateGenericUrl(new URL(res.headers.location, url).href), redirects + 1));
           } catch (error) { reject(error); } return;
         }
-        if (res.statusCode !== 200 || !/^text\/html(?:;|$)/i.test(res.headers['content-type'] ?? '')
+        const contentType = (res.headers['content-type'] ?? '').split(';')[0].trim().toLowerCase();
+        if (res.statusCode !== 200 || !policy.allowedTypes.includes(contentType)
           || (res.headers['content-encoding'] && res.headers['content-encoding'] !== 'identity')) {
-          res.destroy(); reject(new Error('Wymagany dostępny dokument HTML (HTTP 200). PDF i skompresowane odpowiedzi nie są obsługiwane.')); return;
+          res.destroy(); reject(new Error(policy.allowedTypes.includes('text/html')
+            ? 'Wymagany dostępny dokument HTML (HTTP 200). PDF i skompresowane odpowiedzi nie są obsługiwane.'
+            : 'Wymagany dostępny obraz JPG/PNG (HTTP 200). PDF i skompresowane odpowiedzi nie są obsługiwane.')); return;
         }
         const chunks: Buffer[] = []; let bytes = 0;
         res.on('data', (chunk: Buffer) => {
@@ -57,11 +63,16 @@ export async function fetchGenericHtml(raw: string): Promise<{ html: string; fin
           else chunks.push(chunk);
         });
         res.on('error', reject); res.on('aborted', () => reject(new Error('Pobieranie przerwane.')));
-        res.on('end', () => resolve({ html: Buffer.concat(chunks).toString('utf8'), finalUrl: url.href }));
+        res.on('end', () => resolve({ bytes: Buffer.concat(chunks), contentType, finalUrl: url.href }));
       });
       req.on('error', reject); req.end();
     });
   }
   try { return await read(validateGenericUrl(raw), 0); }
   catch (error) { if (signal.aborted) throw new Error('Przekroczono czas pobierania menu.'); throw error; }
+}
+
+export async function fetchGenericHtml(raw: string): Promise<{ html: string; finalUrl: string }> {
+  const result = await fetchPublicResource(raw, { accept: 'text/html', allowedTypes: ['text/html'] });
+  return { html: result.bytes.toString('utf8'), finalUrl: result.finalUrl };
 }

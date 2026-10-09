@@ -13,6 +13,8 @@ import { analyzeText } from '@/services/ai-analyzer';
 import { EXTRACTION_ERROR_MESSAGES } from '@/lib/ai/extraction-errors';
 import { MAX_AI_TEXT_LENGTH } from '@/lib/ai/constants';
 import { createImportReview } from '@/services/lunch-import/review';
+import { isMeatologiaUrl } from '@/lib/lunch-import/meatologia';
+import { readMeatologiaMenu } from '@/services/lunch-import/meatologia';
 
 export async function previewLunchImport(input: unknown): Promise<ImportPreviewResult> {
   if (!(await getAdmin())) return { success: false, error: 'Brak uprawnień administratora.' };
@@ -24,6 +26,18 @@ export async function previewLunchImport(input: unknown): Promise<ImportPreviewR
     const resolved = await resolveImportSource(parsed.data.sourceId);
     if (!resolved) return { success: false, error: 'Źródło jest wyłączone lub wymaga potwierdzenia oddziału.' };
     const { source, restaurant } = resolved;
+    if (source.id.startsWith('html-') && isMeatologiaUrl(source.url)) {
+      const menu = await readMeatologiaMenu(restaurant);
+      return { success: true, data: {
+        restaurant, sourceUrl: source.url, fetchedAt: menu.fetchedAt, excerpt: menu.excerpt,
+        conditions: menu.conditions, date: null, extractionMethod: 'ai', dishes: menu.dishes,
+        menuImage: { ...menu.menuImage, dataUrl: menu.imageDataUrl },
+        review: createImportReview(source, menu.fetchedAt, menu.dishes),
+        warnings: ['Dania i ceny odczytał model z obrazu. Porównaj każdą pozycję z oryginałem.',
+          'Sprawdź dni i godziny na obrazie. Data pobrania oraz nazwa pliku nie określają daty ważności.',
+          'Niezmienione menu nie potwierdza dostępności na dziś. Wybierz i potwierdź datę przed publikacją.'],
+      } };
+    }
     const generic = source.id.startsWith('html-');
     const html = generic ? (await fetchGenericHtml(source.url)).html : await fetchMenuHtml(source.id as 'sofa' | 'sushi');
     const fetchedAt = new Date().toISOString();

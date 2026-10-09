@@ -8,6 +8,8 @@ import type { ImportBinding } from '@/lib/lunch-import/binding-state';
 import type { ActionResult } from '@/services/offers';
 import { fetchGenericHtml, validateGenericUrl } from '@/services/lunch-import/fetch-generic-html';
 import { extractGenericMenu } from '@/services/lunch-import/generic-html';
+import { isMeatologiaUrl, MEATOLOGIA_URL } from '@/lib/lunch-import/meatologia';
+import { readMeatologiaMenu, requireMeatologiaBranch } from '@/services/lunch-import/meatologia';
 
 export async function configureGenericSource(input: unknown): Promise<ActionResult<ImportBinding>> {
   if (!(await getAdmin())) return { success: false, error: 'Brak uprawnień administratora.' };
@@ -17,15 +19,23 @@ export async function configureGenericSource(input: unknown): Promise<ActionResu
   try {
     const client = await createClient();
     let trial = null;
-    const url = data.action === 'draft' ? validateGenericUrl(data.url!).href : null;
+    const url = data.action === 'draft' ? (isMeatologiaUrl(data.url!) ? MEATOLOGIA_URL : validateGenericUrl(data.url!).href) : null;
+    if (url === MEATOLOGIA_URL) requireMeatologiaBranch({ name: data.expectedName, address: data.expectedAddress });
     if (data.action === 'trial') {
       const { data: binding, error } = await client.from('lunch_import_bindings').select('*')
         .eq('source_id', `html-${data.restaurantId}`).single();
       if (error || binding.revision !== data.revision || binding.restaurant_id !== data.restaurantId) throw new Error('Konfiguracja zmieniła się. Odśwież stronę.');
       try {
-        const fetched = await fetchGenericHtml(binding.source_url);
-        const extracted = extractGenericMenu(fetched.html);
-        trial = { ...extracted, fetchedAt: new Date().toISOString(), finalUrl: fetched.finalUrl };
+        if (isMeatologiaUrl(binding.source_url)) {
+          const menu = await readMeatologiaMenu({ name: data.expectedName, address: data.expectedAddress });
+          trial = { supported: menu.supported, limitations: menu.limitations, dishes: menu.dishes,
+            identityEvidence: menu.identityEvidence, excerpt: menu.excerpt, fetchedAt: menu.fetchedAt,
+            finalUrl: menu.finalUrl, menuImage: menu.menuImage, conditions: menu.conditions };
+        } else {
+          const fetched = await fetchGenericHtml(binding.source_url);
+          const extracted = extractGenericMenu(fetched.html);
+          trial = { ...extracted, fetchedAt: new Date().toISOString(), finalUrl: fetched.finalUrl };
+        }
       } catch (error) {
         trial = { supported: false, excerpt: '', identityEvidence: '', dishes: [], finalUrl: binding.source_url,
           fetchedAt: new Date().toISOString(), limitations: [error instanceof Error ? error.message : 'Nie udało się odczytać HTML.'] };

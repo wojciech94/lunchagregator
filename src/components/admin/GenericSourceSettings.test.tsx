@@ -16,6 +16,17 @@ const binding: ImportBinding = { source_id: `html-${restaurant.id}`, restaurant_
 afterEach(cleanup);
 beforeEach(() => { mocks.configure.mockResolvedValue({ success: true, data: { ...binding, enabled: true, verified_at: new Date().toISOString(), verified_by: 'admin' } }); });
 describe('generic source onboarding UI', () => {
+  it('selects the image pilot, requires a saved draft and displays trial image evidence', () => {
+    const view = render(<GenericSourceSettings restaurant={restaurant} />);
+    fireEvent.click(screen.getByRole('button', { name: /Wybierz pilot Meatologii/ }));
+    expect(screen.getByRole('textbox', { name: /Oficjalny URL/ })).toHaveValue('https://meatologia.pl/pages/nasze-lokale');
+    expect(screen.getByRole('button', { name: 'Uruchom próbny odczyt zdjęcia menu' })).toBeDisabled();
+    view.unmount();
+    render(<GenericSourceSettings restaurant={restaurant} initial={{ ...binding, source_url: 'https://meatologia.pl/pages/nasze-lokale',
+      trial: { ...binding.trial!, menuImage: { assetUrl: 'https://cdn.shopify.com/lunch.jpg', contentHash: 'a'.repeat(64) } } }} />);
+    expect(screen.getByRole('link', { name: 'Sprawdź oryginalne zdjęcie menu' })).toHaveAttribute('href', 'https://cdn.shopify.com/lunch.jpg');
+    expect(screen.getByRole('button', { name: 'Zweryfikuj i aktywuj nowe źródło' })).toBeDisabled();
+  });
   it('requires draft before trial and explicit evidence before activation', async () => {
     const view = render(<GenericSourceSettings restaurant={restaurant} />);
     expect(screen.getByRole('button', { name: 'Uruchom próbny odczyt HTML' })).toBeDisabled();
