@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.0](https://github.com/wojciech94/lunchagregator/compare/v0.7.1...v0.8.0) (2026-10-09)
+
+
+### Features
+
+* **menu:** automatic recurring lunch menus with schedules and day exceptions ([#139](https://github.com/wojciech94/lunchagregator/issues/139)) ([06a6be4](https://github.com/wojciech94/lunchagregator/commit/06a6be4999cf3395cc4cbb554c100178837d9d3a))
+* **menu:** automatic recurring lunch menus with schedules and day exceptions ([#139](https://github.com/wojciech94/lunchagregator/issues/139)) ([403631c](https://github.com/wojciech94/lunchagregator/commit/403631cf0a1339e6e17a8853a31b10f04ce0e3aa))
+
 ## [0.7.1](https://github.com/wojciech94/lunchagregator/compare/v0.7.0...v0.7.1) (2026-10-09)
 
 
