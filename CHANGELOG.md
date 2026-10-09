@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/wojciech94/lunchagregator/compare/v0.6.0...v0.7.0) (2026-10-09)
+
+
+### Features
+
+* pilot Meatologia image menus through verified Admin imports ([f09bb7a](https://github.com/wojciech94/lunchagregator/commit/f09bb7a3b41c40c28c39355fd9412d7cdb59d37e))
+
 ## [0.6.0](https://github.com/wojciech94/lunchagregator/compare/v0.5.0...v0.6.0) (2026-10-09)
 
 
