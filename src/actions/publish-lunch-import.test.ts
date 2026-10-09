@@ -21,6 +21,13 @@ function input() {
     dishes: review.dishes.map(dish => ({ itemKey: dish.itemKey, dishName: dish.name, price: dish.price, items: [] })) };
 }
 describe('approved import publication', () => {
+  it('uses the generic namespace with the existing reviewed publication service', async () => {
+    const sourceId = `html-${restaurant.id}` as const;
+    mocks.resolve.mockResolvedValue({ restaurant, source: { ...IMPORT_SOURCES.sofa, id: sourceId,
+      restaurantId: restaurant.id, bindingRevision: input().bindingRevision } });
+    expect((await publishLunchImport({ ...input(), sourceId })).success).toBe(true);
+    expect(mocks.create.mock.calls[0][2]).toMatchObject({ inferCuisine: false, import: { sourceId } });
+  });
   it('refuses non-admins, missing approval, invalid/past dates and missing prices before writes', async () => {
     mocks.admin.mockResolvedValueOnce(null);
     expect((await publishLunchImport(input())).success).toBe(false);

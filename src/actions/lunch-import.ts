@@ -5,6 +5,8 @@ import { getAdmin } from '@/lib/auth';
 import { resolveImportSource } from '@/lib/lunch-import/bindings';
 import type { ImportPreviewResult } from '@/lib/lunch-import/types';
 import { fetchMenuHtml } from '@/services/lunch-import/fetch-html';
+import { fetchGenericHtml } from '@/services/lunch-import/fetch-generic-html';
+import { extractGenericMenu } from '@/services/lunch-import/generic-html';
 import { extractSofaMenu } from '@/services/lunch-import/sofa';
 import { extractSushiMenu } from '@/services/lunch-import/sushi';
 import { analyzeText } from '@/services/ai-analyzer';
@@ -22,10 +24,13 @@ export async function previewLunchImport(input: unknown): Promise<ImportPreviewR
     const resolved = await resolveImportSource(parsed.data.sourceId);
     if (!resolved) return { success: false, error: 'Źródło jest wyłączone lub wymaga potwierdzenia oddziału.' };
     const { source, restaurant } = resolved;
-    const html = await fetchMenuHtml(source.id);
+    const generic = source.id.startsWith('html-');
+    const html = generic ? (await fetchGenericHtml(source.url)).html : await fetchMenuHtml(source.id as 'sofa' | 'sushi');
     const fetchedAt = new Date().toISOString();
-    const adapter = source.id === 'sofa' ? extractSofaMenu : extractSushiMenu;
-    const { excerpt, conditions, dishes: sourceDishes } = adapter(html);
+    const genericExtraction = generic ? extractGenericMenu(html) : null;
+    if (genericExtraction && !genericExtraction.supported) throw new Error(genericExtraction.limitations.join(' '));
+    const extracted = genericExtraction ?? (source.id === 'sofa' ? extractSofaMenu(html) : extractSushiMenu(html));
+    const { excerpt, conditions, dishes: sourceDishes } = extracted;
     const inputText = `Restauracja: ${restaurant.name}\nAdres: ${restaurant.address}\n\n${excerpt}`;
     // Preserve the complete source evidence rather than truncating a dish or price.
     const tooLong = inputText.length > MAX_AI_TEXT_LENGTH;

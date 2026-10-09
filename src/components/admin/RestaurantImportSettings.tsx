@@ -8,13 +8,14 @@ import { configureImportBinding } from '@/actions/import-bindings';
 import { IMPORT_SOURCES, type SourceId } from '@/lib/lunch-import/sources';
 import { bindingIsActive, type ImportBinding } from '@/lib/lunch-import/binding-state';
 import { sameImportIdentity } from '@/lib/lunch-import/identity';
+import { GenericSourceSettings } from './GenericSourceSettings';
 import { LunchImportPanel } from './LunchImportPanel';
 
 export function RestaurantImportSettings({ restaurant, bindings }: {
   restaurant: { id: string; name: string; address: string }; bindings: ImportBinding[];
 }) {
-  const own = bindings.find(binding => binding.restaurant_id === restaurant.id);
-  const [sourceId, setSourceId] = useState<SourceId>(own?.source_id ?? 'sofa');
+  const own = bindings.find(binding => binding.restaurant_id === restaurant.id && (binding.source_id === 'sofa' || binding.source_id === 'sushi'));
+  const [sourceId, setSourceId] = useState<SourceId>(own?.source_id === 'sushi' ? 'sushi' : 'sofa');
   const [currentBindings, setBindings] = useState(bindings);
   const [evidence, setEvidence] = useState('');
   const [confirmed, setConfirmed] = useState(false);
@@ -76,6 +77,7 @@ export function RestaurantImportSettings({ restaurant, bindings }: {
       {active && <LunchImportPanel key={binding.revision} enabled sourceId={sourceId}
         name={restaurant.name} address={restaurant.address} label={source.label} />}
     </>}
+    <GenericSourceSettings restaurant={restaurant} initial={bindings.find(row => row.source_id === `html-${restaurant.id}`)} />
     {error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
   </section>;
 }

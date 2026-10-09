@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { IMPORT_SOURCES, type ImportSource, type SourceId } from './sources';
+import { fixedSource, type ImportSource, type AnySourceId } from './sources';
 import { bindingIsActive, type ImportBinding } from './binding-state';
 export type { ImportBinding } from './binding-state';
 
@@ -11,7 +11,7 @@ export async function listImportBindings(): Promise<ImportBinding[]> {
 }
 
 /** Session client and RLS; no environment UUID fallback. */
-export async function resolveImportSource(sourceId: SourceId): Promise<{
+export async function resolveImportSource(sourceId: AnySourceId): Promise<{
   source: ImportSource; restaurant: { id: string; name: string; address: string };
 } | null> {
   const client = await createClient();
@@ -22,5 +22,5 @@ export async function resolveImportSource(sourceId: SourceId): Promise<{
   const { data: restaurant, error: restaurantError } = await client.from('restaurants').select('id,name,address')
     .eq('id', binding.restaurant_id).single();
   if (restaurantError || !restaurant || !bindingIsActive(binding, restaurant)) return null;
-  return { restaurant, source: { ...IMPORT_SOURCES[sourceId], restaurantId: restaurant.id, bindingRevision: binding.revision } };
+  return { restaurant, source: { ...(fixedSource(sourceId) ?? { id: sourceId, label: binding.source_name, url: binding.source_url, restaurantName: binding.source_name, branchAddress: binding.source_address }), restaurantId: restaurant.id, bindingRevision: binding.revision } };
 }
