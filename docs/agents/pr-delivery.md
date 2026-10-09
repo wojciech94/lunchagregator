@@ -51,7 +51,8 @@ Never run the helper alongside a native watcher.
 Determine the actual configured reviewer login from the integration or existing
 reviews. The helper recognizes completed GitHub reviews for the exact head SHA;
 it includes `COMMENTED` and `CHANGES_REQUESTED`, neither of which means approval.
-It paginates reviews. A bot that posts only issue comments or checks needs manual
+It paginates reviews and rechecks the PR state/head after fetching them, within
+the same request budget. A bot that posts only issue comments or checks needs manual
 inspection and explicit revision-specific completion evidence; the helper will
 time out rather than infer completion from silence or an unrelated comment.
 

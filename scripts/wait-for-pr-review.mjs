@@ -19,6 +19,18 @@ export function classify(snapshot, head, bot) {
   ) ? 'feedback' : 'pending';
 }
 
+export async function readSnapshot({ repo, pr, head, signal, request }) {
+  const statusArgs = ['pr', 'view', pr, '--repo', repo, '--json', 'state,headRefOid'];
+  const initial = JSON.parse(await request(statusArgs, signal));
+  if (initial.state !== 'OPEN' || initial.headRefOid !== head) return { ...initial, reviews: [] };
+  const reviews = JSON.parse(await request(
+    ['api', '--paginate', '--slurp', `repos/${repo}/pulls/${pr}/reviews`], signal
+  )).flat();
+  // Reviews may arrive after a push or closure: classify against the final state.
+  const current = JSON.parse(await request(statusArgs, signal));
+  return { ...current, reviews };
+}
+
 export async function waitForReview({ head, bot, publishedAt, deadline, read, now = Date.now, pause = ms => sleep(ms) }) {
   const stopAt = Math.min(publishedAt + policy.reviewWaitMs, deadline);
   while (now() < stopAt) {
@@ -62,14 +74,12 @@ async function main() {
       deadline - publishedAt > policy.totalBudgetMs) {
     throw new Error('Provide --repo owner/repo --pr number --head SHA --bot login --published-at ISO-date --deadline ISO-date (original session deadline, at most 30 minutes after publication)');
   }
-  const read = async signal => {
+  const request = async (args, signal) => {
     const options = { signal, maxBuffer: 8 * 1024 * 1024, windowsHide: true };
-    const status = await exec('gh', ['pr', 'view', pr, '--repo', repo, '--json', 'state,headRefOid'], options);
-    const snapshot = JSON.parse(status.stdout);
-    if (snapshot.state !== 'OPEN' || snapshot.headRefOid !== head) return { ...snapshot, reviews: [] };
-    const reviews = await exec('gh', ['api', '--paginate', '--slurp', `repos/${repo}/pulls/${pr}/reviews`], options);
-    return { ...snapshot, reviews: JSON.parse(reviews.stdout).flat() };
+    const result = await exec('gh', args, options);
+    return result.stdout;
   };
+  const read = signal => readSnapshot({ repo, pr, head, signal, request });
   const result = await waitForReview({ head, bot, publishedAt, deadline, read });
   console.log(JSON.stringify({ result, repo, pr, head }));
   process.exitCode = result === 'feedback' ? 0 : result === 'timeout' ? 2 : 3;

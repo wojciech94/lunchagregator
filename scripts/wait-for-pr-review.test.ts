@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { classify, policy, waitForReview } from './wait-for-pr-review.mjs';
+import { classify, policy, readSnapshot, waitForReview } from './wait-for-pr-review.mjs';
 
 const head = 'a'.repeat(40);
 const bot = 'reviewer[bot]';
@@ -9,6 +9,36 @@ const snapshot = { state: 'OPEN', headRefOid: head, reviews: [review] };
 afterEach(() => vi.useRealTimers());
 
 describe('bounded PR review waiting', () => {
+  it.each([
+    { state: 'OPEN', headRefOid: 'b'.repeat(40), expected: 'head-changed' },
+    { state: 'CLOSED', headRefOid: head, expected: 'closed' },
+    { state: 'MERGED', headRefOid: head, expected: 'closed' },
+  ])('rejects stale feedback when the PR becomes $state/$headRefOid during review fetching', async current => {
+    const signal = new AbortController().signal;
+    const request = vi.fn()
+      .mockResolvedValueOnce(JSON.stringify({ state: 'OPEN', headRefOid: head }))
+      .mockResolvedValueOnce(JSON.stringify([[review]]))
+      .mockResolvedValueOnce(JSON.stringify(current));
+    const result = await waitForReview({ head, bot, publishedAt: Date.now(), deadline: Date.now() + 1000,
+      read: () => readSnapshot({ repo: 'owner/repo', pr: '126', head, signal, request }),
+    });
+    expect(result).toBe(current.expected);
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(request.mock.calls[2]).toEqual(request.mock.calls[0]);
+  });
+
+  it('accepts paginated feedback when the final head remains current', async () => {
+    const status = JSON.stringify({ state: 'OPEN', headRefOid: head });
+    const request = vi.fn().mockResolvedValueOnce(status)
+      .mockResolvedValueOnce(JSON.stringify([[], [review]]))
+      .mockResolvedValueOnce(status);
+    const current = await readSnapshot({ repo: 'owner/repo', pr: '126', head,
+      signal: new AbortController().signal, request,
+    });
+    expect(classify(current, head, bot)).toBe('feedback');
+    expect(request).toHaveBeenCalledTimes(3);
+  });
+
   it('accepts completed feedback only from the configured bot on the pinned revision', () => {
     expect(classify(snapshot, head, bot)).toBe('feedback');
     for (const change of [
