@@ -5,7 +5,9 @@ Base: fetched `origin/main` `5cab9fb3978f0ff657db7d42a05166fd398d2ec6`.
 ## Admin workflow
 
 Use an existing Restaurant named Meatologia (a branch suffix is allowed) at
-`ul. Pawła Włodkowica 27, 50-072 Wrocław`; the postal code may be omitted.
+`ul. Pawła Włodkowica 27, 50-072 Wrocław`; the postal code and the first name
+`Pawła` may be omitted. This is a narrow alias for Włodkowica 27 in Wrocław,
+not fuzzy branch matching; other house numbers and cities remain rejected.
 In Restaurant import settings choose **Wybierz pilot Meatologii — Włodkowica 27**,
 save the draft and run the image-menu trial. The adapter finds exactly one card
 by its branch title/address and follows its **Menu lunch** anchor. Card order
@@ -18,6 +20,13 @@ publication. The trial never creates offers. Its original asset link, content
 hash, fetched time, branch evidence and machine transcription are visible.
 Remote links can change their content; the active publication preview also shows
 the exact downloaded bytes as an image for comparison.
+
+AI failures retain the application's safe classified message (rate limit,
+25-second timeout, configuration, invalid output or temporary unavailability).
+Raw provider errors are not displayed; failures are not cached. For a deployed
+failure, inspect server logs for `AI extraction failed` and its allowlisted
+`kind`/`statusCode`. Configuration failures require checking the deployment's
+Google API key/model access; a repeated trial cannot fix that configuration.
 
 Compare the branch and actual image, establish menu freshness independently,
 and record explicit verification evidence before activation. Fetch an active
@@ -75,6 +84,14 @@ publication are separate future work.
 
 ## Validation evidence
 
+- Post-merge pilot diagnostics follow-up: the reported abbreviated address and
+  lost AI failure classification reproduced as seven failing regression cases.
+  After the fix, 43 focused adapter/action/provider tests passed, including real
+  SDK HTTP 400/503 classification, safe-message filtering, failed-analysis retry
+  and rejection of other house numbers/cities. Typecheck and affected ESLint passed.
+  The reported Vercel provider failure remains undiagnosed until its sanitized
+  server-log classification is available; this fixes visibility, not credentials
+  or provider availability. Existing UI displays the saved trial limitations.
 - Full unit/property suite: 1,114 passed, seven opt-in live tests skipped. Focused
   adapter/transport/action/provider/UI suite: 95 passed. Typecheck and affected
   ESLint passed; production build passed with the two existing unused-import warnings.
