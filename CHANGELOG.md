@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/wojciech94/lunchagregator/compare/v0.4.1...v0.4.2) (2026-10-09)
+
+
+### Bug Fixes
+
+* recheck PR revision after fetching bot reviews ([474423a](https://github.com/wojciech94/lunchagregator/commit/474423a4f8de42052475078eebe359ddd9370878))
+
 ## [0.4.1](https://github.com/wojciech94/lunchagregator/compare/v0.4.0...v0.4.1) (2026-10-08)
 
 
