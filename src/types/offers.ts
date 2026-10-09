@@ -52,6 +52,8 @@ export interface LunchOffer {
   sessionToken: string;
   createdAt: string;
   updatedAt: string;
+  /** Generated offers are managed through their menu, not individually. */
+  menuEntryId?: string;
 }
 
 export interface LunchOfferWithDistance extends LunchOffer {

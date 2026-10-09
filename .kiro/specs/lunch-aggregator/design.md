@@ -68,7 +68,7 @@ Ustalone w grillu, zamkniętym komentarzem „Settled". Dwie decyzje sterujące:
 
 **Formularze oferty są przypięte do restauracji.** Wolne pola tekstowe nazwy i adresu znikają z `OfferForm` i `WeeklyMenuPreview`; zamiast nich widok przypiętej restauracji. Przy publikacji snapshot (nazwa, adres, lokalizacja) jest kopiowany na ofertę — **inwariant 6.2 nietknięty**: późniejsza edycja restauracji nie przepisuje opublikowanych ofert, snapshot pozostaje źródłem prawdy dla wyświetlania.
 
-**Flaga: `restaurants.menu_recurs_weekly BOOLEAN NOT NULL DEFAULT FALSE`.** Ustawiana i odwoływana w edycji restauracji (właściciel lub admin, po istniejącej ścieżce `updateRestaurant`) oraz jednym klikiem w podsumowaniu wznowienia. Rola: marker intencji „menu powtarza się co tydzień, do odwołania" i kryterium surfacingu (restauracje z flagą i wygasłym menu na górze „Moje oferty" jako „Menu tygodniowe do odnowienia"). **Zero automatyzacji w v1** — brak crona, brak materializacji w tle; to świadoma decyzja, zapisana także w Req 8.7.
+**Recurring menus (#139):** Explicit schedules, effective revisions and date exceptions materialize ordinary dated offers transactionally under a restaurant lock. A persistent pg_cron runner maintains a 30-date horizon after synchronous initial publication. The legacy flag requires setup; for activated schedules it is derived from their status. See ADR-0001 and `docs/agents/recurring-menus.md`. This supersedes the manual-only #71 decision.
 
 **Wznowienie = okno + `+7`.** Eligible: własne oferty restauracji z `available_date ∈ [dziś−7, dziś+6]`. Każda dostaje `data źródłowa + 7 dni`. Dlaczego nie `nextDateForDay`: menu pon–pt odnawiane w środku tygodnia podniosłoby tylko wygasłe pon/wt i gubiąc śr–pt na kolejny tydzień; `+7` zachowuje strukturę dni, a okno gwarantuje poprawność (najstarsze źródło ląduje dokładnie na dziś — INSERT akceptuje; najnowsze na dziś+13 ≤ limit 30 dni). Nakładanie się okien jest normalne i obcina je dedupe: wznowienie w poniedziałek mapuje zeszłotygodniowe dania na istniejące wiersze („pomięto — już istnieją"), a bieżący tydzień tworzy następny. Rytm: jedno kliknięcie tygodniowo = pełne menu na kolejny tydzień. `nextDateForDay` zostaje tam, gdzie już żył: publikacja weekly-menu w flow dodawania.
 
@@ -79,7 +79,7 @@ Ustalone w grillu, zamkniętym komentarzem „Settled". Dwie decyzje sterujące:
 **Stare oferty bez restauracji są martwe.** Bez migracji, bez czyszczenia, bez doczepiania post-hoc (decyzja #18 obowiązuje). W „Moje oferty" lądują w odrębnej grupie „bez restauracji" z podpowiedzią ponownego dodania przez nowy flow. Admin pozostaje narzędziem backlogu (#54–#56).
 **Zmienione w #74:** doczepianie jest dostępne — kafelek „Bez restauracji" subgrupuje po nazwie snapshota, a jedna decyzja przypisuje całą grupę. Węższa zasada: **attach-when-null tylko** (nigdy przepiąć, nigdy odwiązać — #18 w mocy), snapshot bez zmian (Req 6.2).
 
-**Poza zakresem v1 (świadomie):** automatyczna materializacja menu (cron/pg_cron), digesty e-mail, scalanie zdublowanych restauracji, globalne ograniczenie unikatowości ofert, doczepianie restauracji do starych ofert.
+**Poza zakresem v1 (świadomie):** digesty e-mail, scalanie zdublowanych restauracji, globalne ograniczenie unikatowości ofert, doczepianie restauracji do starych ofert.
 
 ## Architecture
 

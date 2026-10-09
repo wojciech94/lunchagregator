@@ -25,7 +25,15 @@ Słownik domeny lunch-aggregatora. Format i konsumpcja: `docs/agents/domain.md`.
 
 - **Offer Group** — w „Moje oferty": oferty użytkownika jednej restauracji (klucz `restaurant_id`). Oferty bez `restaurant_id` lądują w kafelku „bez restauracji", pogrupowane po nazwie snapshota; właściciel może je doczepić (attach-when-null, #74) — nigdy przepiąć ani odrywać (#18).
 - **Re-publication (Wznowienie)** — jednoczesne utworzenie nowych ofert z bieżącego menu restauracji: okno `[dziś−7, dziś+6]` na własnych ofertach, mapowanie **`data + 7 dni`**, dania verbatim z oferty źródłowej, adres i współrzędne z bieżącej restauracji, **zero geokodowania**, duplikaty pomijane z raportem (per użytkownik: `restaurant_id` + `dish_name` + data docelowa).
-- **Weekly Menu Flag** (`restaurants.menu_recurs_weekly`) — znacznik „menu powtarza się co tygodnie, do odwołania". Marker intencji i surfacingu („Menu tygodniowe do odnowienia" na górze „Moje oferty"); **nie jest wyzwalaczem automatyzacji** — nic nie publikuje się samo.
+- **Weekly Menu Flag** — a legacy indication that a restaurant intends its menu to repeat. It requires schedule setup before automatic publication; for configured menus it reflects whether repetition is active.
+
+## Recurring menus
+
+- **Recurring Menu** — a restaurant's lunch menu that repeats on selected weekdays until stopped; either the same dishes on every selected day or different dishes per weekday. _Avoid_: automatically renewed historical offers.
+- **Menu Revision** — a complete recurring menu effective from a specified calendar date; earlier dates retain their earlier menu.
+- **Menu Exception** — a date-specific closure or complete replacement menu that takes precedence over the normal restaurant lunch menu.
+- **Menu Occurrence** — a dated Lunch_Offer belonging to a recurring menu or its replacement exception.
+- **Withdrawn Offer** — an offer retained for history and identity but unavailable for public browsing.
 
 ## Decyzje i ich ślad
 

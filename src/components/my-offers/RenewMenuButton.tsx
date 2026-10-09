@@ -1,10 +1,10 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { CheckCircle2, Loader2, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { renewMenuAction } from "@/actions/offers";
-import { updateRestaurant } from "@/actions/restaurants";
 
 // ============================================================================
 // Types
@@ -13,7 +13,10 @@ import { updateRestaurant } from "@/actions/restaurants";
 export interface RenewMenuButtonProps {
   restaurantId: string;
   restaurantName: string;
-  /** The restaurant's `menu_recurs_weekly` flag as of page render. */
+  /**
+   * The derived `menu_recurs_weekly` state: true while a recurring schedule is
+   * active, or while a legacy flag still awaits owner-confirmed setup (#139).
+   */
   hasWeeklyFlag: boolean;
   className?: string;
 }
@@ -46,9 +49,11 @@ function offersPlural(count: number): string {
  * skipped (already existing), failed, and the count saved without
  * coordinates.
  *
- * The weekly flag (Req 8.7) is offered as a one-click follow-up after a
- * successful renewal; revoking happens in the restaurant edit form. Nothing
- * here publishes anything on its own.
+ * Automatic repetition is a separate capability (#139). It is configured and
+ * stopped in "Moje menu", where the schedule is the single source of truth and
+ * `menu_recurs_weekly` is derived from it. This button therefore never writes
+ * that flag: it keeps the manual duplication path for one-off menus and points
+ * owners at the schedule view instead.
  */
 export function RenewMenuButton({
   restaurantId,
@@ -59,9 +64,6 @@ export function RenewMenuButton({
   const [isBusy, setIsBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [summary, setSummary] = React.useState<RenewalSummary | null>(null);
-  const [flagged, setFlagged] = React.useState(hasWeeklyFlag);
-  const [isFlagging, setIsFlagging] = React.useState(false);
-  const [flagError, setFlagError] = React.useState<string | null>(null);
 
   async function renew() {
     setIsBusy(true);
@@ -80,24 +82,16 @@ export function RenewMenuButton({
     }
   }
 
-  async function markWeekly() {
-    setIsFlagging(true);
-    setFlagError(null);
-    try {
-      const result = await updateRestaurant(restaurantId, {
-        menuRecursWeekly: true,
-      });
-      if (!result.success) {
-        setFlagError(result.error);
-        return;
-      }
-      setFlagged(true);
-    } catch {
-      setFlagError("Nie udało się zapisać flagi. Spróbuj ponownie.");
-    } finally {
-      setIsFlagging(false);
-    }
-  }
+  const scheduleLink = (
+    <Link
+      href="/my-menus"
+      className="flex min-h-[44px] items-center self-start text-sm text-primary underline underline-offset-4 hover:text-primary/80"
+    >
+      {hasWeeklyFlag
+        ? "Potwierdź harmonogram w Moje menu"
+        : "Ustaw automatyczne menu"}
+    </Link>
+  );
 
   if (summary) {
     return (
@@ -131,33 +125,13 @@ export function RenewMenuButton({
             odległości. Uzupełnij adres restauracji i wznuż ponownie.
           </p>
         )}
-        {!flagged && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={markWeekly}
-            disabled={isFlagging}
-            className="self-start mt-1"
-          >
-            {isFlagging ? (
-              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-            ) : (
-              <Repeat className="size-4" />
-            )}
-            Oznacz jako menu tygodniowe (do odwołania)
-          </Button>
-        )}
-        {flagged && (
+        {hasWeeklyFlag && (
           <p className="text-xs text-muted-foreground">
-            Menu tygodniowe — odwołasz w edycji restauracji.
+            Menu tygodniowe — potwierdź harmonogram w „Moje menu”, aby włączyć
+            automatyczne publikowanie.
           </p>
         )}
-        {flagError && (
-          <p className="text-sm text-destructive" role="alert">
-            {flagError}
-          </p>
-        )}
+        {scheduleLink}
       </div>
     );
   }
@@ -172,12 +146,13 @@ export function RenewMenuButton({
         )}
         {isBusy ? "Wznawiam..." : "Wznów na kolejny tydzień"}
       </Button>
-      {flagged && (
+      {hasWeeklyFlag && (
         <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-0.5 text-xs text-primary">
           <Repeat className="size-3" aria-hidden="true" />
           menu tygodniowe
         </span>
       )}
+      {hasWeeklyFlag && scheduleLink}
       {error && (
         <p className="text-sm text-destructive" role="alert">
           {error}

@@ -2,7 +2,7 @@ import { getOffers } from "@/actions/offers";
 import { OffersPage } from "@/components/offers/OffersPage";
 import { parseFiltersFromSearchParams, withDistanceFilter } from "@/lib/filter-url";
 import { readStoredLocationCookie } from "@/lib/location";
-import { todayISO } from "@/utils/day-of-week";
+import { menuToday } from '@/lib/recurring-menu';
 
 interface HomeProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -33,7 +33,7 @@ export default async function Home({ searchParams }: HomeProps) {
     ? result.data
     : { offers: [], total: 0, page: 1, limit: 50, hasMore: false };
 
-  const date = filters.date ?? todayISO();
+  const date = filters.date ?? menuToday();
   // The server does not know the visitor's timezone. An absolute calendar date
   // stays truthful even when "today" differs between the browser and server.
   const dayLabel = new Date(`${date}T12:00:00Z`).toLocaleDateString("pl-PL", {
@@ -45,6 +45,7 @@ export default async function Home({ searchParams }: HomeProps) {
       <h1 className="text-2xl font-bold tracking-tight sm:text-3xl mb-6">
         Oferty lunchowe na {dayLabel}
       </h1>
+      {!result.success && <p role="alert" className="mb-4 text-destructive">Nie udało się pobrać ofert. Spróbuj ponownie.</p>}
       <OffersPage initialData={initialData} />
     </div>
   );

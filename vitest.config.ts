@@ -106,6 +106,15 @@ export default defineConfig(({ mode }) => {
             setupFiles: ['./tests/setup.db.ts'],
             // One database, many files. Serialising costs little at this size
             // and removes a whole class of cross-file interference.
+            //
+            // `fileParallelism` is set here as the intent, but Vitest 3.2.7 does
+            // not read it from a project block (same limitation as
+            // `environmentMatchGlobs`, see the note above). A single fork is the
+            // mechanism this version honors: it runs every db file in one child
+            // process, one after another. Without it the paging suites race
+            // against a neighbour's inserts and flake.
+            pool: 'forks',
+            poolOptions: { forks: { singleFork: true } },
             fileParallelism: false,
             env: {
               TEST_SUPABASE_URL: env.TEST_SUPABASE_URL,

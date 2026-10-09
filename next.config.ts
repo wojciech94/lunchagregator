@@ -9,6 +9,8 @@ export default function nextConfig(phase: string): NextConfig {
   const snapshot = process.env.LUNCH_BUILD_INFO_SNAPSHOT ?? JSON.stringify(createBuildInfo());
   process.env.LUNCH_BUILD_INFO_SNAPSHOT = snapshot;
   return {
+    // Isolate local E2E builds from a developer's running Next server.
+    distDir: process.env.NEXT_BUILD_DIR ?? ".next",
     env: {
       NEXT_PUBLIC_APP_BUILD_INFO: snapshot,
     },

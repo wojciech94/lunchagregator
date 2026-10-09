@@ -42,7 +42,9 @@ it("supports arrow navigation and Escape with focus restoration", async () => {
   render(menu(true));
   const trigger = screen.getByRole("button", { name: "Menu profilu" });
   fireEvent.click(trigger);
-  await waitFor(() => expect(screen.getByRole("link", { name: "Moje oferty" })).toHaveFocus());
+  await waitFor(() => expect(screen.getByRole("link", { name: "Moje menu" })).toHaveFocus());
+  fireEvent.keyDown(document.activeElement!, { key: "ArrowDown" });
+  expect(screen.getByRole("link", { name: "Moje oferty" })).toHaveFocus();
   fireEvent.keyDown(document.activeElement!, { key: "ArrowDown" });
   expect(screen.getByRole("link", { name: "Panel admina" })).toHaveFocus();
   fireEvent.keyDown(document.activeElement!, { key: "End" });

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="pl"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{margin:0;background:transparent}#menu-demo{color-scheme:light dark;font:16px/1.5 system-ui;color:light-dark(#202822,#edf3ee)}#menu-demo .screen{background:light-dark(#fff,#19211c);padding:24px;border:1px solid light-dark(#dfe5e0,#36453a);border-radius:14px}#menu-demo h2{font-size:21px;margin:0 0 4px;font-weight:600}#menu-demo p{margin:4px 0 20px;color:light-dark(#59665d,#b4c3b8)}#menu-demo label{display:block}#menu-demo select{font:inherit;color:inherit;background:light-dark(#f7faf7,#222e26);width:100%;padding:10px;border:1px solid light-dark(#dfe5e0,#46584b);border-radius:8px;margin:8px 0 20px}#menu-demo .days{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 20px}#menu-demo .days label{display:flex;align-items:center;gap:5px;min-height:44px;padding:0 8px;background:light-dark(#f3f7f3,#24332a);border-radius:6px}#menu-demo input{accent-color:#408859;width:18px;height:18px}#menu-demo .check{display:flex;align-items:center;gap:8px;margin:16px 0}#menu-demo .preview{border-top:1px solid light-dark(#dfe5e0,#36453a);padding-top:16px}#menu-demo .dish{display:flex;justify-content:space-between;gap:14px;margin:8px 0}#menu-demo small{font-size:13px;color:light-dark(#59665d,#b4c3b8)}
+</style>
+<div id="menu-demo"><div class="screen">
+<h2>Publikacja menu</h2><p>Przykład proponowanego formularza</p>
+<label class="check"><input id="repeat" type="checkbox" checked> Powtarzaj automatycznie</label>
+<label for="shape">Jak obowiązuje menu?</label>
+<select id="shape"><option value="fixed">To samo menu w wybrane dni</option><option value="weekly">Inne menu na każdy dzień tygodnia</option></select>
+<span>Dni z lunchem</span>
+<div class="days"><label><input type="checkbox" checked data-day="1">Pon.</label><label><input type="checkbox" checked data-day="2">Wt.</label><label><input type="checkbox" checked data-day="3">Śr.</label><label><input type="checkbox" checked data-day="4">Czw.</label><label><input type="checkbox" checked data-day="5">Pt.</label><label><input type="checkbox" data-day="6">Sob.</label><label><input type="checkbox" data-day="0">Niedz.</label></div>
+<small id="summary">Co tydzień, do odwołania. Start: 9 października 2026.</small>
+<div class="preview" aria-live="polite"><strong>Poniedziałek, 12 października</strong><div id="result"></div></div>
+</div></div>
+<script>
+(()=>{const root=document.getElementById('menu-demo');const shape=root.querySelector('#shape'),repeat=root.querySelector('#repeat'),result=root.querySelector('#result'),summary=root.querySelector('#summary');
+function update(){const mon=root.querySelector('[data-day="1"]').checked;summary.textContent=repeat.checked?'Co tydzień, do odwołania. Start: 9 października 2026.':'Publikacja jednorazowa: 9 października 2026.';result.replaceChildren();if(!repeat.checked||!mon){const p=document.createElement('p');p.textContent='Brak ofert na ten dzień.';result.append(p);return;}const names=shape.value==='fixed'?['Lunch I','Lunch II','Lunch III','Lunch IV (wegetariański)']:['Pizza Salami Napoli + Napój'];for(const name of names){const div=document.createElement('div');div.className='dish';const span=document.createElement('span');span.textContent=name;div.append(span);result.append(div);}}
+root.addEventListener('change',update);update();})();
+</script></html>

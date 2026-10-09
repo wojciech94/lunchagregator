@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 import { getUser } from '@/lib/auth';
+import { menuToday } from '@/lib/recurring-menu';
 import { canDelete, canModify, isAdmin } from '@/lib/ownership';
 import { recordAudit, shouldAudit } from '@/lib/audit';
 import { createRestaurantSchema, updateRestaurantSchema } from '@/schemas/restaurant.schema';
@@ -413,9 +414,6 @@ export async function updateRestaurant(
   if (validated.websiteUrl !== undefined) {
     updateObj.website_url = validated.websiteUrl;
   }
-  if (validated.menuRecursWeekly !== undefined) {
-    updateObj.menu_recurs_weekly = validated.menuRecursWeekly;
-  }
 
   // 6. Update in Supabase
   const { data: updated, error: updateError } = await supabase
@@ -472,10 +470,10 @@ export async function getRestaurant(id: string): Promise<RestaurantWithDistance 
   const dbRow = row as DbRestaurant;
 
   // 2. Count active offers (available_date >= today)
-  const today = new Date().toISOString().split('T')[0];
+  const today = menuToday();
 
   const { count, error: countError } = await supabase
-    .from('lunch_offers')
+    .from('visible_lunch_offers')
     .select('*', { count: 'exact', head: true })
     .eq('restaurant_id', id)
     .gte('available_date', today);
@@ -605,13 +603,13 @@ export async function listRestaurants(
 
   // 3. Get active offers count for each restaurant
   const restaurantIds = dbRows.map((r) => r.id);
-  const today = new Date().toISOString().split('T')[0];
+  const today = menuToday();
 
   const offersCountMap = new Map<string, number>();
 
   if (restaurantIds.length > 0) {
     const { data: offerCounts, error: offersError } = await supabase
-      .from('lunch_offers')
+      .from('visible_lunch_offers')
       .select('restaurant_id')
       .in('restaurant_id', restaurantIds)
       .gte('available_date', today);

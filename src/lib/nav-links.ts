@@ -11,7 +11,7 @@ export const navLinks: readonly NavLink[] = [
 ];
 
 export const contributionLink: NavLink = { href: "/add", label: "Dodaj ofertę" };
-export const userNavLinks: readonly NavLink[] = [{ href: "/my-offers", label: "Moje oferty" }];
+export const userNavLinks: readonly NavLink[] = [{ href: "/my-menus", label: "Moje menu" }, { href: "/my-offers", label: "Moje oferty" }];
 export const adminNavLinks: readonly NavLink[] = [{ href: "/admin/offers", label: "Panel admina" }];
 
 /** Presentation only; permissions remain enforced by the server and RLS. */
