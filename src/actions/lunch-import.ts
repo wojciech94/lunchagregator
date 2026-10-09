@@ -2,8 +2,7 @@
 
 import { lunchImportRequestSchema } from '@/lib/validations/lunch-import';
 import { getAdmin } from '@/lib/auth';
-import { createClient } from '@/lib/supabase/server';
-import { getImportSource } from '@/lib/lunch-import/sources';
+import { resolveImportSource } from '@/lib/lunch-import/bindings';
 import type { ImportPreviewResult } from '@/lib/lunch-import/types';
 import { fetchMenuHtml } from '@/services/lunch-import/fetch-html';
 import { extractSofaMenu } from '@/services/lunch-import/sofa';
@@ -19,16 +18,10 @@ export async function previewLunchImport(input: unknown): Promise<ImportPreviewR
   if (!parsed.success) {
     return { success: false, error: 'Nieprawidłowe źródło importu.' };
   }
-  const source = getImportSource(parsed.data.sourceId);
-  if (!source) return { success: false, error: 'Źródło nie zostało przypisane do restauracji.' };
   try {
-    const client = await createClient();
-    const { data: restaurant, error } = await client.from('restaurants')
-      .select('id,name,address').eq('id', source.restaurantId).single();
-    if (error || !restaurant) throw new Error('Nie można odczytać przypisanej restauracji.');
-    if (restaurant.name !== source.restaurantName || restaurant.address !== source.branchAddress) {
-      throw new Error('Dane przypisanego lokalu zmieniły się. Sprawdź konfigurację źródła.');
-    }
+    const resolved = await resolveImportSource(parsed.data.sourceId);
+    if (!resolved) return { success: false, error: 'Źródło jest wyłączone lub wymaga potwierdzenia oddziału.' };
+    const { source, restaurant } = resolved;
     const html = await fetchMenuHtml(source.id);
     const fetchedAt = new Date().toISOString();
     const adapter = source.id === 'sofa' ? extractSofaMenu : extractSushiMenu;

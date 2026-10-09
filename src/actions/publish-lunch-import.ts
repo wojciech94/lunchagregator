@@ -2,9 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { getAdmin } from '@/lib/auth';
-import { createClient } from '@/lib/supabase/server';
 import { importPublicationSchema } from '@/lib/validations/lunch-import';
-import { getImportSource } from '@/lib/lunch-import/sources';
+import { resolveImportSource } from '@/lib/lunch-import/bindings';
 import { createOffer, type ActionResult } from '@/services/offers';
 import type { ImportPublicationSummary } from '@/lib/lunch-import/types';
 
@@ -19,20 +18,16 @@ export async function publishLunchImport(input: unknown): Promise<ActionResult<I
     if (previewAge > 30 * 60 * 1000 || previewAge < -60000) {
       return { success: false, error: 'Podgląd wygasł. Pobierz menu ponownie.' };
     }
-    const source = getImportSource(parsed.data.sourceId);
-    if (!source || source.restaurantId !== parsed.data.restaurantId) {
+    const resolved = await resolveImportSource(parsed.data.sourceId);
+    if (!resolved || resolved.source.restaurantId !== parsed.data.restaurantId
+      || resolved.source.bindingRevision !== parsed.data.bindingRevision) {
       return { success: false, error: 'Konfiguracja źródła zmieniła się. Pobierz menu ponownie.' };
     }
     // Admin-reviewed metadata is trusted input, not a cryptographic proof of origin.
     if (new Set(dishes.map(dish => dish.itemKey)).size !== dishes.length) {
       return { success: false, error: 'Pozycje nie odpowiadają pobranemu menu. Pobierz je ponownie.' };
     }
-    const client = await createClient();
-    const { data: restaurant, error } = await client.from('restaurants').select('id,name,address')
-      .eq('id', source.restaurantId).single();
-    if (error || !restaurant || restaurant.name !== source.restaurantName || restaurant.address !== source.branchAddress) {
-      return { success: false, error: 'Dane lokalu zmieniły się. Pobierz menu ponownie.' };
-    }
+    const { source, restaurant } = resolved;
     const summary: ImportPublicationSummary = { saved: [], failed: [] };
     for (const dish of dishes) {
       try {
@@ -41,7 +36,8 @@ export async function publishLunchImport(input: unknown): Promise<ActionResult<I
           restaurantId: restaurant.id, restaurantName: restaurant.name, restaurantAddress: restaurant.address,
           sourceType: 'link', dietaryTags: [], allergens: [], cuisineType: null,
         }, admin.id, { inferCuisine: false, import: { sourceId: source.id,
-          itemKey: dish.itemKey, fetchedAt, expectedName: source.restaurantName, expectedAddress: source.branchAddress } });
+          itemKey: dish.itemKey, fetchedAt, bindingRevision: source.bindingRevision,
+          expectedName: restaurant.name, expectedAddress: restaurant.address } });
         if (result.success) summary.saved.push({ itemKey: dish.itemKey, offerId: result.data.id,
           existing: !!result.alreadyImported, missingCoordinates: !!result.locationWarning });
         else summary.failed.push({ itemKey: dish.itemKey, error: result.error });

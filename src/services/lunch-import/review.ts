@@ -8,5 +8,5 @@ export function createImportReview(source: ImportSource, fetchedAt: string, dish
   const reviewDishes = dishes.map(dish => ({ ...dish, itemKey: createHash('sha256')
     .update(dish.name!.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('pl')).digest('hex') }));
   if (new Set(reviewDishes.map(dish => dish.itemKey)).size !== reviewDishes.length) return null;
-  return { sourceId: source.id, restaurantId: source.restaurantId, fetchedAt, dishes: reviewDishes };
+  return { sourceId: source.id, restaurantId: source.restaurantId, bindingRevision: source.bindingRevision, fetchedAt, dishes: reviewDishes };
 }

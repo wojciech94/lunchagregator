@@ -1,26 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ admin: vi.fn(), single: vi.fn(), create: vi.fn(), revalidate: vi.fn() }));
+const mocks = vi.hoisted(() => ({ admin: vi.fn(), resolve: vi.fn(), create: vi.fn(), revalidate: vi.fn() }));
 vi.mock('@/lib/auth', () => ({ getAdmin: mocks.admin }));
-vi.mock('@/lib/supabase/server', () => ({ createClient: async () => ({ from: () => ({
-  select: () => ({ eq: () => ({ single: mocks.single }) }),
-}) }) }));
+vi.mock('@/lib/lunch-import/bindings', () => ({ resolveImportSource: mocks.resolve }));
 vi.mock('@/services/offers', () => ({ createOffer: mocks.create }));
 vi.mock('next/cache', () => ({ revalidatePath: mocks.revalidate }));
 import { publishLunchImport } from './publish-lunch-import';
 import { createImportReview } from '@/services/lunch-import/review';
-import { getImportSource } from '@/lib/lunch-import/sources';
+import { IMPORT_SOURCES } from '@/lib/lunch-import/sources';
 
 const restaurant = { id: '1070afce-ff35-4861-b940-f4eb783b9e40', name: 'Sofa Lounge & Restaurant', address: 'al. Paderewskiego 35, Wrocław' };
 beforeEach(() => {
-  vi.stubEnv('SOFA_IMPORT_RESTAURANT_ID', restaurant.id);
+  mocks.resolve.mockResolvedValue({ restaurant, source: { ...IMPORT_SOURCES.sofa, restaurantId: restaurant.id, bindingRevision: '1070afce-ff35-4861-b940-f4eb783b9e41' } });
   mocks.admin.mockResolvedValue({ id: 'admin-id' });
-  mocks.single.mockResolvedValue({ data: restaurant, error: null });
   mocks.create.mockResolvedValue({ success: true, data: { id: 'offer-id' } });
 });
 afterEach(() => vi.unstubAllEnvs());
 function input() {
-  const review = createImportReview(getImportSource('sofa')!, new Date().toISOString(), [{ name: 'Set 1', price: 31 }, { name: 'Set 2', price: 32 }])!;
-  return { sourceId: review.sourceId, restaurantId: review.restaurantId, fetchedAt: review.fetchedAt, availableDate: new Date().toISOString().slice(0, 10), confirmed: true,
+  const review = createImportReview({ ...IMPORT_SOURCES.sofa, restaurantId: restaurant.id, bindingRevision: '1070afce-ff35-4861-b940-f4eb783b9e41' }, new Date().toISOString(), [{ name: 'Set 1', price: 31 }, { name: 'Set 2', price: 32 }])!;
+  return { sourceId: review.sourceId, restaurantId: review.restaurantId, bindingRevision: review.bindingRevision, fetchedAt: review.fetchedAt, availableDate: new Date().toISOString().slice(0, 10), confirmed: true,
     dishes: review.dishes.map(dish => ({ itemKey: dish.itemKey, dishName: dish.name, price: dish.price, items: [] })) };
 }
 describe('approved import publication', () => {
@@ -38,7 +35,8 @@ describe('approved import publication', () => {
     expect((await publishLunchImport({ ...data, sourceId: 'unknown' })).success).toBe(false);
     expect((await publishLunchImport({ ...data, dishes: [data.dishes[0], data.dishes[0]] })).success).toBe(false);
     expect((await publishLunchImport({ ...data, restaurantId: '2070afce-ff35-4861-b940-f4eb783b9e40' })).success).toBe(false);
-    mocks.single.mockResolvedValueOnce({ data: { ...restaurant, address: 'Other branch' }, error: null });
+    expect((await publishLunchImport({ ...data, bindingRevision: '2070afce-ff35-4861-b940-f4eb783b9e41' })).success).toBe(false);
+    mocks.resolve.mockResolvedValueOnce(null);
     expect((await publishLunchImport(data)).success).toBe(false);
     expect(mocks.create).not.toHaveBeenCalled();
   });
@@ -47,7 +45,7 @@ describe('approved import publication', () => {
     for (const fetchedAt of [new Date(Date.now() - 31 * 60000).toISOString(), new Date(Date.now() + 2 * 60000).toISOString(), 'not-a-date']) {
       expect((await publishLunchImport({ ...data, fetchedAt })).success).toBe(false);
     }
-    vi.stubEnv('SOFA_IMPORT_RESTAURANT_ID', '');
+    mocks.resolve.mockResolvedValueOnce(null);
     expect((await publishLunchImport(data)).success).toBe(false);
     expect(mocks.create).not.toHaveBeenCalled();
   });

@@ -11,7 +11,7 @@ export interface LunchImportPreview {
   extractionMethod: 'ai' | 'html';
   dishes: Pick<ExtractedDish, 'name' | 'price' | 'description' | 'items'>[];
   warnings: string[];
-  review?: { sourceId: SourceId; restaurantId: string; fetchedAt: string; dishes: (LunchImportPreview['dishes'][number] & { itemKey: string })[] } | null;
+  review?: { sourceId: SourceId; restaurantId: string; bindingRevision: string; fetchedAt: string; dishes: (LunchImportPreview['dishes'][number] & { itemKey: string })[] } | null;
 }
 
 export interface ImportPublicationSummary {
