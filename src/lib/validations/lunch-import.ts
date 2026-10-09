@@ -9,6 +9,7 @@ export const lunchImportRequestSchema = z.object({
 export const importPublicationSchema = z.object({
   sourceId: lunchImportRequestSchema.shape.sourceId,
   restaurantId: z.string().uuid(),
+  bindingRevision: z.string().uuid(),
   // Shared with the browser: freshness requires the server's authoritative clock.
   fetchedAt: z.string().datetime(),
   availableDate: importAvailableDateSchema,

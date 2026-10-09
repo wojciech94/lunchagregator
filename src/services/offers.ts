@@ -267,7 +267,7 @@ export async function createOffer(
   userId: string,
   options?: { presetLocation?: string | null; inferCuisine?: boolean; import?: {
     sourceId: 'sofa' | 'sushi'; itemKey: string; fetchedAt: string;
-    expectedName: string; expectedAddress: string;
+    expectedName: string; expectedAddress: string; bindingRevision: string;
   } }
 ): Promise<ActionResultWithLocationWarning<LunchOffer>> {
   // Validate input with Zod
@@ -376,7 +376,7 @@ export async function createOffer(
     const { data, error } = await supabase.rpc('create_lunch_import_offer', {
       p_source_id: provenance.sourceId, p_item_key: provenance.itemKey,
       p_fetched_at: provenance.fetchedAt, p_expected_name: provenance.expectedName,
-      p_expected_address: provenance.expectedAddress, p_offer: dbRow,
+        p_expected_address: provenance.expectedAddress, p_binding_revision: provenance.bindingRevision, p_offer: dbRow,
     });
     if (error) return { success: false, error: 'Nie udało się zapisać pozycji importu. Spróbuj ponownie.' };
     const saved = data as { created: boolean; offer: DbLunchOffer | null };

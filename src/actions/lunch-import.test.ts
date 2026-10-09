@@ -1,27 +1,29 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  getAdmin: vi.fn(), single: vi.fn(), from: vi.fn(), fetch: vi.fn(), analyze: vi.fn(),
+  getAdmin: vi.fn(), resolve: vi.fn(), fetch: vi.fn(), analyze: vi.fn(),
 }));
 vi.mock('@/lib/auth', () => ({ getAdmin: mocks.getAdmin }));
-vi.mock('@/lib/supabase/server', () => ({ createClient: async () => ({ from: mocks.from }) }));
+vi.mock('@/lib/lunch-import/bindings', () => ({ resolveImportSource: mocks.resolve }));
 vi.mock('@/services/lunch-import/fetch-html', () => ({ fetchMenuHtml: mocks.fetch }));
 vi.mock('@/services/ai-analyzer', () => ({ analyzeText: mocks.analyze }));
 import { previewLunchImport } from './lunch-import';
+import { IMPORT_SOURCES, type SourceId } from '@/lib/lunch-import/sources';
 import { EXTRACTION_ERROR_MESSAGES } from '@/lib/ai/extraction-errors';
 import { extractSofaMenu } from '@/services/lunch-import/sofa';
 import { extractSushiMenu } from '@/services/lunch-import/sushi';
+const bindingRevision = '1070afce-ff35-4861-b940-f4eb783b9e41';
+function resolved(restaurant: { id: string; name: string; address: string }, sourceId: SourceId = 'sofa') {
+  return { restaurant, source: { ...IMPORT_SOURCES[sourceId], restaurantId: restaurant.id, bindingRevision } };
+}
 
 const restaurant = { id: '1070afce-ff35-4861-b940-f4eb783b9e40', name: 'Sofa Lounge & Restaurant', address: 'al. Paderewskiego 35, Wrocław' };
 beforeEach(() => {
-  vi.stubEnv('SOFA_IMPORT_RESTAURANT_ID', restaurant.id);
   mocks.getAdmin.mockResolvedValue({ id: 'operator' });
-  mocks.single.mockResolvedValue({ data: restaurant, error: null });
-  mocks.from.mockReturnValue({ select: () => ({ eq: () => ({ single: mocks.single }) }) });
+  mocks.resolve.mockResolvedValue(resolved(restaurant));
   mocks.fetch.mockResolvedValue('<div id="menu-zestawy-lunch-owe"><div class="m-list__description">12–17</div><li class="m-list__item"><h4 class="m-item__title">Zestaw 1</h4><button class="add-button">40,31 zł</button></li></div>');
   mocks.analyze.mockResolvedValue({ offers: [{ restaurantName: 'AI name', dishes: [{ name: 'Zestaw 1', price: 40.31, dietaryTags: ['vegan'], allergens: ['mleko'], dayOfWeek: 'monday' }] }], sourceType: 'text', confidence: 1, missingFields: [] });
 });
-afterEach(() => vi.unstubAllEnvs());
 
 describe('import preview authorization and provenance', () => {
   describe.each(['sofa', 'sushi'] as const)('%s complete analyzer input length', sourceId => {
@@ -30,8 +32,7 @@ describe('import preview authorization and provenance', () => {
         id: '2070afce-ff35-4861-b940-f4eb783b9e40',
         name: 'Sushi Friends Bar & Resto', address: 'ul. Marco Polo 9e, Wrocław',
       };
-      if (sourceId === 'sushi') vi.stubEnv('SUSHI_IMPORT_RESTAURANT_ID', branch.id);
-      mocks.single.mockResolvedValue({ data: branch, error: null });
+      mocks.resolve.mockResolvedValue(resolved(branch, sourceId));
       const menuHtml = (description: string) => sourceId === 'sofa'
         ? `<div id="menu-zestawy-lunch-owe"><li class="m-list__item"><h4 class="m-item__title">Zestaw</h4><p class="m-item__description">${description}</p><button class="add-button">31 zł</button></li></div>`
         : `<section id="lunch"><div class="lunches__item"><p class="lunches__title">Zestaw</p><p class="lunches__desc">${description}</p><p class="lunches__price">31 zł</p></div></section>`;
@@ -61,8 +62,7 @@ describe('import preview authorization and provenance', () => {
   });
 
   it('binds Sushi to its configured branch and uses its own adapter on AI unavailability', async () => {
-    vi.stubEnv('SUSHI_IMPORT_RESTAURANT_ID', '2070afce-ff35-4861-b940-f4eb783b9e40');
-    mocks.single.mockResolvedValue({ data: { id: '2070afce-ff35-4861-b940-f4eb783b9e40', name: 'Sushi Friends Bar & Resto', address: 'ul. Marco Polo 9e, Wrocław' }, error: null });
+    mocks.resolve.mockResolvedValue(resolved({ id: '2070afce-ff35-4861-b940-f4eb783b9e40', name: 'Sushi Friends Bar & Resto', address: 'ul. Marco Polo 9e, Wrocław' }, 'sushi'));
     mocks.fetch.mockResolvedValue('<section id="lunch"><div class="lunches__item"><p class="lunches__title">Lunch I</p><p class="lunches__price">31 zł</p><p class="lunches__desc">Kurczak</p></div></section>');
     mocks.analyze.mockResolvedValue({ offers: [], message: EXTRACTION_ERROR_MESSAGES.unavailable });
     const result = await previewLunchImport({ sourceId: 'sushi' });
@@ -71,20 +71,18 @@ describe('import preview authorization and provenance', () => {
   });
 
   it('does not fetch an unbound Sushi source or accept an arbitrary source ID', async () => {
-    vi.stubEnv('SUSHI_IMPORT_RESTAURANT_ID', '');
+    mocks.resolve.mockResolvedValueOnce(null);
     expect((await previewLunchImport({ sourceId: 'sushi' })).success).toBe(false);
     expect((await previewLunchImport({ sourceId: 'other' })).success).toBe(false);
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
 
   it('checks an explicitly reviewed stored address without weakening the branch guard', async () => {
-    vi.stubEnv('SUSHI_IMPORT_RESTAURANT_ID', '2070afce-ff35-4861-b940-f4eb783b9e40');
-    vi.stubEnv('SUSHI_IMPORT_BRANCH_ADDRESS', 'ul. Marco Polo 9e');
-    mocks.single.mockResolvedValue({ data: { id: '2070afce-ff35-4861-b940-f4eb783b9e40', name: 'Sushi Friends Bar & Resto', address: 'ul. Marco Polo 9e' }, error: null });
+    mocks.resolve.mockResolvedValue(resolved({ id: '2070afce-ff35-4861-b940-f4eb783b9e40', name: 'Sushi Friends Bar & Resto', address: 'ul. Marco Polo 9e' }, 'sushi'));
     mocks.fetch.mockResolvedValue('<section id="lunch"><div class="lunches__item"><p class="lunches__title">Lunch I</p><p class="lunches__price">31 zł</p></div></section>');
     expect((await previewLunchImport({ sourceId: 'sushi' })).success).toBe(true);
     mocks.fetch.mockClear();
-    mocks.single.mockResolvedValue({ data: { name: 'Sushi Friends Bar & Resto', address: 'Other branch' }, error: null });
+    mocks.resolve.mockResolvedValueOnce(null);
     expect((await previewLunchImport({ sourceId: 'sushi' })).success).toBe(false);
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
@@ -107,22 +105,22 @@ describe('import preview authorization and provenance', () => {
   it('refuses a non-admin before reading the database or calling external services', async () => {
     mocks.getAdmin.mockResolvedValue(null);
     expect((await previewLunchImport({ sourceId: 'sofa' })).success).toBe(false);
-    expect(mocks.from).not.toHaveBeenCalled();
+    expect(mocks.resolve).not.toHaveBeenCalled();
     expect(mocks.fetch).not.toHaveBeenCalled();
     expect(mocks.analyze).not.toHaveBeenCalled();
   });
 
   it('rejects arbitrary URLs and disabled sources', async () => {
     expect((await previewLunchImport({ sourceId: 'sofa', url: 'https://evil.test' })).success).toBe(false);
-    vi.stubEnv('SOFA_IMPORT_RESTAURANT_ID', '');
+    mocks.resolve.mockResolvedValueOnce(null);
     expect((await previewLunchImport({ sourceId: 'sofa' })).success).toBe(false);
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
 
   it('refuses a missing or changed branch before fetching', async () => {
-    mocks.single.mockResolvedValue({ data: null, error: { message: 'missing' } });
+    mocks.resolve.mockResolvedValueOnce(null);
     expect((await previewLunchImport({ sourceId: 'sofa' })).success).toBe(false);
-    mocks.single.mockResolvedValue({ data: { ...restaurant, address: 'Another branch' }, error: null });
+    mocks.resolve.mockResolvedValueOnce(null);
     expect((await previewLunchImport({ sourceId: 'sofa' })).success).toBe(false);
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
@@ -136,8 +134,7 @@ describe('import preview authorization and provenance', () => {
     expect(result.data.dishes).toEqual([{ name: 'Zestaw 1', price: 40.31 }]);
     expect(result.data.excerpt).toContain('40,31 zł');
     expect(result.data.warnings.length).toBeGreaterThan(0);
-    expect(mocks.from).toHaveBeenCalledTimes(1);
-    expect(mocks.from).toHaveBeenCalledWith('restaurants');
+    expect(mocks.resolve).toHaveBeenCalledExactlyOnceWith('sofa');
   });
 
   it('distinguishes provider failure from successfully finding no dishes', async () => {

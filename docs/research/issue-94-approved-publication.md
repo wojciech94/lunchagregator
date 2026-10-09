@@ -47,7 +47,10 @@ is appropriate for the trusted Admin pilot, whose operators already have offer
 publication permissions. Database idempotency guarantees apply to the submitted
 Restaurant/source/item/date key, not to arbitrary equivalent dishes.
 
-Both actions require `getAdmin()`. Publication re-reads the Restaurant using the
+Both actions require `getAdmin()`. #128 additionally requires a current, active,
+Admin-verified database binding and its preview revision. The Restaurant UUID
+anchors the relationship; normalized identity snapshots protect verification
+without relying on exact source-address text equality. Publication re-reads the Restaurant using the
 session client. `createOffer` retains its Zod validation, authoritative Snapshot
 mapping, coordinate reuse/geocoding and missing-coordinate warning. Its optional
 import path calls an atomic SQL function instead of a plain insert; ordinary
@@ -71,6 +74,13 @@ only to authenticated callers. RPC also enforces Admin, current binding,
 date range and preview age. Public offer reading follows existing policies.
 
 ## Deployment and local setup
+
+Follow-up #128 supersedes the environment UUID/address binding setup below with
+Admin-verified database bindings. See [verified binding rollout](issue-128-verified-import-bindings.md).
+Apply `20261009000000_verified_lunch_import_bindings.sql` and deploy matching code
+before enabling sources from Restaurant details. Legacy binding environment
+variables are ignored and no configuration is activated automatically. Pending
+previews must be fetched again; publication requires the current binding revision.
 
 Apply `20261008000000_create_lunch_import_items.sql` before enabling publication.
 Configure the existing environment-specific Restaurant bindings. No publication

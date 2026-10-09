@@ -14,8 +14,8 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export type AuditAction = 'update' | 'delete';
-export type AuditTable = 'lunch_offers' | 'restaurants';
+export type AuditAction = 'insert' | 'update' | 'delete';
+export type AuditTable = 'lunch_offers' | 'restaurants' | 'lunch_import_bindings';
 
 export interface AuditEntry {
   action: AuditAction;

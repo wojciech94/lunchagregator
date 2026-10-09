@@ -102,8 +102,8 @@ export async function listAdminRestaurants(
 
 export interface AuditRow {
   id: string;
-  actorId: string;
-  action: 'update' | 'delete';
+  actorId: string | null;
+  action: 'insert' | 'update' | 'delete';
   tableName: string;
   recordId: string;
   before: unknown;
@@ -156,7 +156,7 @@ export async function listAuditLog(
       const r = row as Record<string, unknown>;
       return {
         id: String(r.id),
-        actorId: String(r.actor_id),
+        actorId: r.actor_id == null ? null : String(r.actor_id),
         action: r.action as AuditRow['action'],
         tableName: String(r.table_name),
         recordId: String(r.record_id),

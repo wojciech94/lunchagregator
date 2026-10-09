@@ -35,7 +35,7 @@ export default async function AdminLogsPage({
       <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Log administracji</h1>
 
       <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-        Każda edycja i każde usunięcie wykonane przez administratora. Wpisów nie
+        Zmiany wykonane przez administratora, w tym konfiguracja źródeł importu. Wpisów nie
         da się zmienić ani usunąć — tabela ma polityki tylko do odczytu.
       </p>
 
@@ -73,6 +73,7 @@ export default async function AdminLogsPage({
                   <th scope="col" className="py-2 pr-4 font-medium">Akcja</th>
                   <th scope="col" className="py-2 pr-4 font-medium">Tabela</th>
                   <th scope="col" className="py-2 pr-4 font-medium">Rekord</th>
+                  <th scope="col" className="py-2 pr-4 font-medium">Administrator / szczegóły</th>
                 </tr>
               </thead>
               <tbody>
@@ -82,15 +83,15 @@ export default async function AdminLogsPage({
                       {new Date(row.createdAt).toLocaleString('pl-PL')}
                     </td>
                     <td className="py-2 pr-4 align-top">
-                      {row.action === 'delete' ? 'usunięcie' : 'edycja'}
+                      {row.action === 'delete' ? 'usunięcie' : row.action === 'insert' ? 'utworzenie' : 'edycja'}
                     </td>
                     <td className="py-2 pr-4 align-top">
-                      {row.tableName === 'restaurants' ? 'restauracje' : 'oferty'}
+                      {row.tableName === 'restaurants' ? 'restauracje' : row.tableName === 'lunch_import_bindings' ? 'źródła importu' : 'oferty'}
                     </td>
                     <td className="py-2 align-top">
                       <Link
                         href={
-                          row.tableName === 'restaurants'
+                          row.tableName !== 'lunch_offers'
                             ? `/restaurants/${row.recordId}`
                             : `/offers/${row.recordId}`
                         }
@@ -98,6 +99,17 @@ export default async function AdminLogsPage({
                       >
                         {row.recordId.slice(0, 8)}
                       </Link>
+                    </td>
+                    <td className="py-2 pr-4 align-top">
+                      <span className="font-mono text-xs">{row.actorId ?? 'konto usunięte'}</span>
+                      {row.tableName === 'lunch_import_bindings' && (
+                        <details className="mt-2">
+                          <summary className="cursor-pointer">Stan przed i po zmianie</summary>
+                          <pre className="mt-2 max-w-md overflow-auto whitespace-pre-wrap text-xs">
+                            {JSON.stringify({ before: row.before, after: row.after }, null, 2)}
+                          </pre>
+                        </details>
+                      )}
                     </td>
                   </tr>
                 ))}

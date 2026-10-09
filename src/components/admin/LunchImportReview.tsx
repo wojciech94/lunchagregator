@@ -33,7 +33,7 @@ export function LunchImportReview({ review, onBusyChange }: {
   }
 
   async function publish() {
-    const input = { sourceId: review.sourceId, restaurantId: review.restaurantId, fetchedAt: review.fetchedAt, availableDate: date, confirmed,
+    const input = { sourceId: review.sourceId, restaurantId: review.restaurantId, bindingRevision: review.bindingRevision, fetchedAt: review.fetchedAt, availableDate: date, confirmed,
       dishes: pending.map(row => ({ itemKey: row.itemKey, dishName: row.dishName,
         price: Number(row.price.replace(',', '.')), description: row.description,
         items: row.items.split('\n').map(item => item.trim()).filter(Boolean) })) };
