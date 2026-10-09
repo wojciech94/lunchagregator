@@ -21,6 +21,7 @@ export const metadata = { title: "Moje oferty — Lunch Agregator" };
 // ============================================================================
 
 interface MyOfferRow {
+  menu_entry_id?: string | null;
   id: string;
   dish_name: string;
   price: number;
@@ -64,10 +65,10 @@ function OfferRow({ row }: { row: MyOfferRow }) {
         </p>
       </div>
       <Link
-        href={`/offers/${row.id}/edit`}
+        href={row.menu_entry_id ? '/my-menus' : `/offers/${row.id}/edit`}
         className="text-sm text-primary underline underline-offset-4 hover:text-primary/80 shrink-0 min-h-[44px] flex items-center"
       >
-        Edytuj
+        {row.menu_entry_id ? 'Edytuj menu' : 'Edytuj'}
       </Link>
     </li>
   );
@@ -111,7 +112,7 @@ export default async function MyOffersPage({
     supabase
       .from("lunch_offers")
       .select(
-        "id, dish_name, price, restaurant_id, restaurant_name, available_date"
+        "id, dish_name, price, restaurant_id, restaurant_name, available_date, menu_entry_id"
       )
       .eq("user_id", user.id)
       .gte("available_date", today)
@@ -120,7 +121,7 @@ export default async function MyOffersPage({
     supabase
       .from("lunch_offers")
       .select(
-        "id, dish_name, price, restaurant_id, restaurant_name, available_date"
+        "id, dish_name, price, restaurant_id, restaurant_name, available_date, menu_entry_id"
       )
       .eq("user_id", user.id)
       .lt("available_date", today)
@@ -249,7 +250,7 @@ export default async function MyOffersPage({
                     {group.offers.length} {offersPlural(group.offers.length)}
                   </p>
                 </div>
-                {tab === "expired" && group.restaurantId !== null && (
+                {tab === "expired" && group.restaurantId !== null && !group.offers.some(offer => rows.find(row => row.id === offer.id)?.menu_entry_id) && (
                   <RenewMenuButton
                     restaurantId={group.restaurantId}
                     restaurantName={group.name}

@@ -9,7 +9,7 @@ Funkcjonalność zarządzania restauracjami wprowadza osobną encję `Restaurant
 - **Nowa tabela `restaurants`** — osobna encja z pełnymi metadanymi, powiązana z ofertami przez opcjonalny FK
 - **Snapshot pattern** — przy tworzeniu oferty dane restauracji są kopiowane do oferty (denormalizacja dla stabilności historycznej)
 - **Kompatybilność wsteczna** — istniejące oferty bez `restaurant_id` nadal działają poprawnie
-- **Account ownership** — `user_id`, independent application authorization and RLS; `session_token` remains for legacy-data migration.
+- **Account ownership** — `user_id`, niezależna autoryzacja w aplikacji i RLS; `session_token` pozostaje na potrzeby migracji danych historycznych.
 - **PostGIS** — ponowne wykorzystanie istniejącej infrastruktury geolokalizacji
 - **Server Actions** — spójne z istniejącą architekturą (Next.js App Router)
 
@@ -53,22 +53,22 @@ Rozszerzenie ekstrakcji AI i przepływu dodawania ofert o obsługę menu na cał
 ### Infrastruktura bazy danych
 
 - Migracje uczyniono idempotentnymi (`ADD COLUMN IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`).
-- Current RLS from `20250101000000` restricts mutations to authorized Users; application code checks permissions independently. Permissive policies from `20240202000000` have been superseded.
+- Obecny RLS z `20250101000000` ogranicza mutacje do uprawnionych Userów; kod aplikacji sprawdza uprawnienia niezależnie. Permisywne polityki z `20240202000000` zostały zastąpione.
 - `mapOfferToDbRow` pomija `restaurant_id` gdy brak wartości (kompatybilność z bazą przed migracją FK).
 - Timeout serwisu AI zwiększony do 30s.
 
-## Current publication scope (2026-10-08, #101–#105)
+## Bieżący zakres publikacji (2026-10-08, #101–#105)
 
-The implementation notes above and architecture examples below describe the original project stage. Edit pages, offer lists and the deletion dialog already exist. Current ownership uses `user_id` with independent application authorization and RLS from `20250101000000`; anonymous publication and permissive policies have been superseded. New publication requires Restaurant assignment; historical offers without a Restaurant FK remain compatible.
+Notatki implementacyjne powyżej i przykłady architektury poniżej opisują pierwotny etap projektu. Strony edycji, listy ofert i dialog usunięcia już istnieją. Obecna własność używa `user_id` z niezależną autoryzacją w aplikacji i RLS z `20250101000000`; anonimowa publikacja i permisywne polityki zostały zastąpione. Nowa publikacja wymaga przypisania Restaurant; historyczne oferty bez FK do Restaurant pozostają kompatybilne.
 
-- **#101:** `WeeklyMenuPreview` maintains offer drafts with stable indices, dates and selection. The User can correct names, prices, set components and dates, and exclude individual offers. Every selected offer is checked against `createOfferSchema`; invalid selections are never silently discarded. Metadata and edits survive rejected publication. Writes use the existing `onConfirm` contract.
-- **#102:** the `/add` server page validates `restaurantId` and resolves the Restaurant. The client wizard preserves assignment through Extraction and manual entry; explicit reassignment opens the existing assignment flow. Publication still resolves the authoritative Snapshot on the server. The input selector remains mounted to preserve retry input, as introduced in #96.
-- **#103:** preview and server share a 50-offer limit, checked before the publication loop. Per-offer validation and partial-success reporting remain. Importer idempotency belongs to #94.
-- **#104:** opening the dialog loads the count of all linked offers, independently of `activeOffersCount`. Count failures block confirmation. The count describes the read instant and cannot guarantee stability under concurrent changes.
-- **#105, User decision 2026-10-07:** deletion preserves existing offer Snapshots even after Restaurant renaming or relocation. After authentication and authorization, `deleteRestaurant` deletes the Restaurant and retains the existing Admin audit. `ON DELETE SET NULL` detaches offers in the same database transaction, including other owners' offers. No preceding offer update can leave overwritten Snapshots when deletion fails. This contract supersedes the historical copy-on-delete examples below. Previously overwritten historical records are not automatically repaired.
-- GPS reverse geocoding is deferred; the general Restaurant catalog date filter is withdrawn. Tests address the specific #101–#105 contracts. Importer #94 is separate work.
+- **#101:** `WeeklyMenuPreview` utrzymuje szkice ofert ze stabilnymi indeksami, datami i wyborem. User może poprawiać nazwy, ceny, ustawiać składniki i daty oraz wykluczać pojedyncze oferty. Każda wybrana oferta jest sprawdzana względem `createOfferSchema`; nieprawidłowe wybory nie są po cichu odrzucane. Metadane i edycje przetrwają odrzuconą publikację. Zapis używa istniejącego kontraktu `onConfirm`.
+- **#102:** serwerowa strona `/add` waliduje `restaurantId` i rozwiązuje Restaurant. Kreator po stronie klienta zachowuje przypisanie przez ekstrakcję i ręczne wpisanie; jawne przepisanie otwiera istniejący przepływ przypisania. Publikacja nadal rozwiązuje autorytatywny Snapshot po stronie serwera. Selektor wejścia pozostaje zamontowany, aby zachować dane przy ponowieniu, jak wprowadzono w #96.
+- **#103:** podgląd i serwer współdzielą limit 50 ofert, sprawdzany przed pętlą publikacji. Walidacja per oferta i raportowanie częściowego sukcesu pozostają. Idempotencja importera należy do #94.
+- **#104:** otwarcie dialogu ładuje liczbę wszystkich powiązanych ofert, niezależnie od `activeOffersCount`. Błędy zliczania blokują potwierdzenie. Liczba opisuje chwilę odczytu i nie gwarantuje stabilności przy równoczesnych zmianach.
+- **#105, decyzja Usera 2026-10-07:** usunięcie zachowuje istniejące snapshoty ofert nawet po zmianie nazwy lub lokalizacji Restaurant. Po uwierzytelnieniu i autoryzacji `deleteRestaurant` usuwa Restaurant i zachowuje istniejący audyt Admina. `ON DELETE SET NULL` odłącza oferty w tej samej transakcji bazy, w tym oferty innych właścicieli. Żadna wcześniejsza aktualizacja ofert nie może zostawić nadpisanych snapshotów, gdy usunięcie się nie powiedzie. Ten kontrakt zastępuje historyczne przykłady kopiowania-przy-usuwaniu poniżej. Wcześniej nadpisane historyczne rekordy nie są automatycznie naprawiane.
+- Odwrotne geokodowanie GPS jest odroczone; ogólny filtr daty w katalogu Restaurant zostaje wycofany. Testy dotyczą konkretnych kontraktów #101–#105. Importer #94 to osobna praca.
 
-## Architecture (historical reference)
+## Architektura (odniesienie historyczne)
 
 ### Diagram komponentów
 

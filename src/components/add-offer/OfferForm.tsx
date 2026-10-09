@@ -43,6 +43,9 @@ export interface OfferFormProps {
   onSubmit: (data: CreateOfferInput) => void;
   isSubmitting?: boolean;
   className?: string;
+  menuDishMode?: boolean;
+  initialCuisine?: CuisineType | null;
+  onRecurring?: (data: CreateOfferInput) => void;
 }
 
 // ============================================================================
@@ -142,6 +145,9 @@ export function OfferForm({
   onSubmit,
   isSubmitting = false,
   className,
+  menuDishMode = false,
+  initialCuisine,
+  onRecurring,
 }: OfferFormProps) {
   const missingFields = prefilledData.missingFields;
   const {
@@ -152,7 +158,7 @@ export function OfferForm({
     formState: { errors },
   } = useForm<CreateOfferInput>({
     resolver: zodResolver(createOfferSchema),
-    defaultValues: buildDefaultValues(prefilledData, sourceType, assignedRestaurant),
+    defaultValues: { ...buildDefaultValues(prefilledData, sourceType, assignedRestaurant), cuisineType: initialCuisine ?? undefined },
   });
 
   const dietaryTags = watch("dietaryTags") ?? [];
@@ -285,7 +291,7 @@ export function OfferForm({
       </div>
 
       {/* Available Date */}
-      <FormField
+      {!menuDishMode && <FormField
         label="Data dostępności"
         htmlFor="availableDate"
         error={errors.availableDate?.message}
@@ -301,8 +307,7 @@ export function OfferForm({
           }
           {...register("availableDate")}
         />
-      </FormField>
-
+      </FormField>}
       {/* Description */}
       <FormField
         label="Opis"
@@ -448,8 +453,9 @@ export function OfferForm({
         disabled={isSubmitting}
         className="self-start mt-2"
       >
-        {isSubmitting ? "Publikowanie..." : "Opublikuj ofertę"}
+          {isSubmitting ? "Zapisywanie..." : menuDishMode ? "Zapisz danie" : "Opublikuj ofertę"}
       </Button>
+      {onRecurring && <Button type="button" variant="outline" disabled={isSubmitting} onClick={handleSubmit(onRecurring)}>Powtarzaj automatycznie</Button>}
     </form>
   );
 }

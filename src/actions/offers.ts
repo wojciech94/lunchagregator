@@ -102,8 +102,8 @@ export async function getOfferWithAccessAction(
       success: true,
       data: {
         offer: existing.data,
-        canModify: canModify(user, recordUserId),
-        canDelete: canDelete(user, recordUserId),
+        canModify: !existing.data.menuEntryId && canModify(user, recordUserId),
+        canDelete: !existing.data.menuEntryId && canDelete(user, recordUserId),
       },
     };
   } catch (error) {
@@ -422,6 +422,7 @@ export async function updateOfferAction(
       return existing;
     }
 
+    if (existing.data.menuEntryId) return { success: false, error: 'Ta oferta pochodzi z menu cyklicznego. Edytuj menu w zakładce Moje menu.' };
     const recordUserId = existing.data.userId ?? null;
 
     // The user object, not just its id: an admin is recognised by app_metadata,
@@ -490,6 +491,7 @@ export async function deleteOfferAction(
       return existing;
     }
 
+    if (existing.data.menuEntryId) return { success: false, error: 'Ta oferta pochodzi z menu cyklicznego. Edytuj menu w zakładce Moje menu.' };
     const recordUserId = existing.data.userId ?? null;
 
     const actorIsAdmin = isAdmin(user);

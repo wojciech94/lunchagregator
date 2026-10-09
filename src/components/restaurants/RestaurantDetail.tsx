@@ -240,7 +240,7 @@ export function RestaurantDetail({ restaurant, canEdit, canDelete, offers = [] }
           <div className="flex items-center gap-2">
             <UtensilsCrossed className="size-5 text-primary" />
             <h2 className="text-lg font-semibold text-foreground">
-              Aktywne oferty
+              Menu na wybrany dzień
             </h2>
           </div>
           <Link
@@ -254,7 +254,7 @@ export function RestaurantDetail({ restaurant, canEdit, canDelete, offers = [] }
 
         {offers.length === 0 ? (
           <p className="p-5 text-sm text-muted-foreground">
-            Brak aktywnych ofert dla tej restauracji.
+            Brak ofert dla tej restauracji na wybrany dzień.
           </p>
         ) : (
           <ul className="divide-y divide-border">

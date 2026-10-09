@@ -9,7 +9,7 @@ import { MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OfferFilters } from "./OfferFilters";
 import { OfferList } from "./OfferList";
-import { upcomingDays, todayISO } from "@/utils/day-of-week";
+import { menuDates, menuToday, nextMenuMonday } from '@/lib/recurring-menu';
 import { cn } from "@/lib/utils";
 import { priceFilterSchema } from "@/lib/validations/filters";
 import {
@@ -44,7 +44,7 @@ export function OffersPage({ initialData }: OffersPageProps) {
     () => parseFiltersFromSearchParams(new URLSearchParams(searchParams.toString())),
     [searchParams]
   );
-  const selectedDate = filters.date ?? todayISO();
+  const selectedDate = filters.date ?? menuToday();
 
   // Rendered by the server from these props rather than mirrored into state.
   // Nothing to synchronise, and nothing that can disagree with the URL.
@@ -57,7 +57,7 @@ export function OffersPage({ initialData }: OffersPageProps) {
   };
   const isLoading = isPending;
 
-  const days = React.useMemo(() => upcomingDays(7), []);
+  const days = menuDates(menuToday(), 14).map((date, index) => ({ date, label: index === 0 ? 'Dziś' : index === 1 ? 'Jutro' : new Date(`${date}T12:00:00Z`).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', timeZone: 'UTC' }), weekday: new Date(`${date}T12:00:00Z`).toLocaleDateString('pl-PL', { weekday: 'short', timeZone: 'UTC' }) }));
 
   /**
    * One write path. `mode` is the whole difference between a filter the User
@@ -235,6 +235,7 @@ export function OffersPage({ initialData }: OffersPageProps) {
           Requirement 7.1 now forbids. Wrapping fits all seven at every width
           and leaves the layout unchanged from 768px up. */}
       <div className="flex flex-wrap gap-2 pb-1">
+        <Button variant="outline" onClick={() => handleDayChange(nextMenuMonday(menuToday()))}>Następny tydzień</Button>
         {days.map((d) => {
           const active = d.date === selectedDate;
           return (

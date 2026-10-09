@@ -7,13 +7,18 @@ import { RestaurantDetail } from '@/components/restaurants/RestaurantDetail';
 import { getAdmin } from '@/lib/auth';
 import { listImportBindings } from '@/lib/lunch-import/bindings';
 import { RestaurantImportSettings } from '@/components/admin/RestaurantImportSettings';
+import { createClient } from '@/lib/supabase/server';
+import { menuDateSchema, menuDates, menuToday } from '@/lib/recurring-menu';
 
 interface RestaurantDetailPageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ date?: string }>;
 }
 
-export default async function RestaurantDetailPage({ params }: RestaurantDetailPageProps) {
+export default async function RestaurantDetailPage({ params, searchParams }: RestaurantDetailPageProps) {
   const { id } = await params;
+  const requested = await searchParams;
+  const date = menuDateSchema.safeParse(requested.date).success ? requested.date! : menuToday();
   const restaurant = await getRestaurant(id);
 
   if (!restaurant) {
@@ -24,7 +29,12 @@ export default async function RestaurantDetailPage({ params }: RestaurantDetailP
   // caller. The component renders them; it does not derive them.
   const [capabilities, offers] = await Promise.all([
     capabilitiesFor(restaurant.userId ?? null),
-    getOffersByRestaurant(id),
+    getOffersByRestaurant(id, date),
+  ]);
+  const client = await createClient();
+  const [exception, schedule] = await Promise.all([
+    client.from('menu_exceptions').select('kind').eq('restaurant_id', id).eq('date', date).maybeSingle(),
+    client.from('menu_schedules').select('active,updated_at').eq('restaurant_id', id).maybeSingle(),
   ]);
   const admin = await getAdmin();
   let bindings;
@@ -35,6 +45,12 @@ export default async function RestaurantDetailPage({ params }: RestaurantDetailP
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+      <div className="mb-4 space-y-3">
+        <form className="flex flex-wrap items-end gap-2"><label className="text-sm">Menu na dzień<input type="date" name="date" defaultValue={date} min={menuToday()} max={menuDates(menuToday()).at(-1)} className="ml-2 rounded-md border border-border bg-card p-2" /></label><button className="rounded-md border border-border px-3 py-2 text-sm">Pokaż menu</button></form>
+        {schedule.data?.active && <p className="text-sm text-muted-foreground">Menu cykliczne · Zaktualizowano {schedule.data.updated_at.slice(0,10)}</p>}
+        {exception.data?.kind === 'closed' && <p>Tego dnia nie ma lunchu.</p>}
+        {(exception.error || schedule.error) && <p role="alert" className="text-destructive">Nie udało się pobrać informacji o menu.</p>}
+      </div>
       <RestaurantDetail
         restaurant={restaurant}
         canEdit={capabilities.canEdit}

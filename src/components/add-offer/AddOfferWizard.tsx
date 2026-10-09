@@ -17,6 +17,8 @@ import type { AssignedRestaurant } from "@/lib/restaurant-match";
 import type { ExtractedOffers } from "@/services/ai-analyzer";
 import type { CreateOfferInput } from "@/lib/validations/offer";
 import type { InputType } from "@/components/add-offer/InputSelector";
+import { MenuEditor, contentFromExtraction } from "@/components/menus/MenuEditor";
+import type { MenuContent } from "@/lib/recurring-menu";
 
 // ============================================================================
 // Types
@@ -36,7 +38,7 @@ function locationWarningFor(count: number): string {
   return `${LOCATION_WARNING} Dotyczy to ${count} ${count === 1 ? "oferty" : "ofert"} z tego menu.`;
 }
 
-type Step = "input" | "analyzing" | "assignment" | "preview" | "weekly" | "form" | "saving" | "success";
+type Step = "input" | "analyzing" | "assignment" | "preview" | "weekly" | "form" | "saving" | "success" | "recurring";
 
 interface PageState {
   step: Step;
@@ -83,6 +85,13 @@ export default function AddOfferWizard({ initialRestaurant = null, restaurantErr
   });
 
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [menuDraft, setMenuDraft] = React.useState<MenuContent | null>(null);
+  const recurrenceReturnStep = React.useRef<Step>("preview");
+  function openRecurring() {
+    recurrenceReturnStep.current = state.step;
+    setMenuDraft(contentFromExtraction(state.prefilledData?.dishes ?? [], state.sourceType));
+    setState((previous) => ({ ...previous, step: "recurring", error: null }));
+  }
 
   // Redirect to main page after success -- unless there is something to read.
   //
@@ -480,6 +489,7 @@ export default function AddOfferWizard({ initialRestaurant = null, restaurantErr
             confidence={state.confidence}
             onEdit={handleEditFromPreview}
           />
+          <Button variant="outline" onClick={openRecurring}>Powtarzaj automatycznie</Button>
           <Button
             variant="ghost"
             size="sm"
@@ -501,6 +511,7 @@ export default function AddOfferWizard({ initialRestaurant = null, restaurantErr
             onConfirm={handleWeeklyConfirm}
             isSubmitting={isSubmitting}
           />
+          <Button variant="outline" disabled={isSubmitting} onClick={openRecurring}>Powtarzaj automatycznie</Button>
           <Button
             variant="ghost"
             size="sm"
@@ -522,6 +533,27 @@ export default function AddOfferWizard({ initialRestaurant = null, restaurantErr
             sourceType={state.sourceType}
             assignedRestaurant={state.assigned}
             onSubmit={handleFormSubmit}
+            onRecurring={(data) => {
+              recurrenceReturnStep.current = "form";
+              setMenuDraft({
+                kind: "fixed",
+                entries: [
+                  {
+                    id: crypto.randomUUID(),
+                    dishName: data.dishName,
+                    price: data.price,
+                    description: data.description ?? null,
+                    items: data.items,
+                    dietaryTags: data.dietaryTags,
+                    allergens: data.allergens,
+                    cuisineType: data.cuisineType ?? null,
+                    sourceType: data.sourceType,
+                    days: [1, 2, 3, 4, 5],
+                  },
+                ],
+              });
+              setState((previous) => ({ ...previous, step: "recurring", error: null }));
+            }}
             isSubmitting={isSubmitting}
           />
           <Button
@@ -534,6 +566,18 @@ export default function AddOfferWizard({ initialRestaurant = null, restaurantErr
             Wróć do wprowadzania danych
           </Button>
         </div>
+      )}
+
+      {/* Step: Recurring menu publication (#139) */}
+      {state.step === "recurring" && state.assigned && menuDraft && (
+        <MenuEditor
+          restaurant={state.assigned}
+          initialContent={menuDraft}
+          onCancel={() =>
+            setState((previous) => ({ ...previous, step: recurrenceReturnStep.current }))
+          }
+          onSaved={() => router.push("/my-menus")}
+        />
       )}
 
       {/* Step: Success */}

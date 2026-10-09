@@ -32,7 +32,7 @@ export default async function OfferDetailsPage({ params }: OfferDetailsPageProps
   // about: it answers "is this the owner?" and so hides the admin branch, leaving
   // an admin looking at a record nobody owns with no way to act on it. The admin
   // panel links here, so this is where that dead end would have shown up.
-  const mayModify = canModify(user, offer.userId ?? null);
+  const mayModify = !offer.menuEntryId && canModify(user, offer.userId ?? null);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">

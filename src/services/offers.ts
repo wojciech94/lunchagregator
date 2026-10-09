@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { parsePostGisPoint } from '@/lib/postgis';
 import { geocodeAddress } from '@/services/geocoding';
 import { importAvailableDateSchema } from '@/lib/validations/import-date';
+import { menuToday } from '@/lib/recurring-menu';
 import {
   addDaysISO,
   anchorIsTooOld,
@@ -52,6 +53,7 @@ export type ActionResultWithLocationWarning<T> =
 
 // Database row type (snake_case)
 interface DbLunchOffer {
+  menu_entry_id?: string | null;
   id: string;
   dish_name: string;
   items: string[];
@@ -78,6 +80,7 @@ interface DbLunchOffer {
  */
 function mapDbRowToOffer(row: DbLunchOffer): LunchOffer {
   return {
+    menuEntryId: row.menu_entry_id ?? undefined,
     id: row.id,
     dishName: row.dish_name,
     items: (row.items as string[]) ?? [],
@@ -196,7 +199,7 @@ export async function getOffer(
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from('lunch_offers')
+    .from('visible_lunch_offers')
     .select('*')
     .eq('id', id)
     .single();
@@ -216,18 +219,21 @@ export async function getOffer(
  * by its FK. Used on the restaurant detail page. Sorted by availability date ascending.
  */
 export async function getOffersByRestaurant(
-  restaurantId: string
+  restaurantId: string,
+  date?: string
 ): Promise<LunchOffer[]> {
   const supabase = await createClient();
   const today = getTodayDate();
 
-  const { data, error } = await supabase
-    .from('lunch_offers')
+  let query = supabase
+    .from('visible_lunch_offers')
     .select('*')
     .eq('restaurant_id', restaurantId)
     .gte('available_date', today)
     .order('available_date', { ascending: true })
     .limit(50);
+  if (date) query = query.eq('available_date', date);
+  const { data, error } = await query;
 
   if (error || !data) {
     return [];
@@ -483,7 +489,7 @@ export async function renewRestaurantMenu(
   const { data: rows, error: offersError } = await supabase
     .from('lunch_offers')
     .select(
-      'id, dish_name, available_date, price, description, items, dietary_tags, allergens, source_type, cuisine_type'
+      'id, dish_name, available_date, price, description, items, dietary_tags, allergens, source_type, cuisine_type, menu_entry_id, withdrawn'
     )
     .eq('restaurant_id', restaurantId)
     .eq('user_id', userId)
@@ -498,7 +504,7 @@ export async function renewRestaurantMenu(
     };
   }
 
-  const offerRows = rows ?? [];
+  const offerRows = (rows ?? []).filter(row => !row.menu_entry_id && !row.withdrawn);
 
   if (offerRows.length === 0) {
     return { success: false, error: 'Brak ofert tej restauracji do wznowienia.' };
@@ -812,15 +818,11 @@ function mapDbRowToOfferWithDistance(
 /**
  * Returns today's date in YYYY-MM-DD format.
  *
- * UTC on purpose: every date this service compares against the database --
- * whose `CURRENT_DATE` is also UTC -- must use the same calendar, or the
- * offer-listing boundary drifts by a day around midnight. The *local*
- * calendar (`todayISO()` in day-of-week.ts) is the form-default convention
- * and stays there.
+ * Warsaw is the restaurant business calendar, independent of the server or
+ * visitor timezone. Generated dates stay inside the existing UTC insert bound.
  */
 export function getTodayDate(): string {
-  const now = new Date();
-  return now.toISOString().split('T')[0];
+  return menuToday();
 }
 
 /** The full row `get_offers_filtered` returns, plus the computed distance. */
@@ -844,7 +846,7 @@ async function countFilteredOffers(
   signal?: AbortSignal
 ): Promise<number> {
   let query = supabase
-    .from('lunch_offers')
+    .from('visible_lunch_offers')
     .select('*', { count: 'exact', head: true })
     .eq('available_date', date);
 

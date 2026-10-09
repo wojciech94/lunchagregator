@@ -20,7 +20,7 @@ export interface Restaurant {
   websiteUrl: string | null;
   sessionToken: string | null;
   userId: string | null;
-  /** Req 8.7: "menu tygodniowe, do odwołania" — intent marker, no automation. */
+  /** Derived from the recurring schedule: true while automatic repetition is active. */
   menuRecursWeekly: boolean;
   createdAt: string;
   updatedAt: string;
@@ -60,7 +60,6 @@ export interface UpdateRestaurantInput {
   cuisineTypes?: CuisineType[];
   phoneNumber?: string | null;
   websiteUrl?: string | null;
-  menuRecursWeekly?: boolean;
 }
 
 export interface RestaurantFilters {

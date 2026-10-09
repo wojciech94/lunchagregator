@@ -2,18 +2,18 @@
 
 ## Introduction
 
-Restaurants are independent entities with address, location, price level, lunch hours and cuisine metadata. New offers require Restaurant assignment and store its publication Snapshot. Historical unlinked offers remain compatible. Authenticated Users manage their own Restaurants; Admins have additional capabilities. Application authorization and RLS independently protect ownership.
+Restauracje to samodzielne encje z adresem, lokalizacją, poziomem cenowym, godzinami lunchowymi i metadanymi kuchni. Nowe oferty wymagają przypisania Restaurant i zapisują jego Snapshot z chwili publikacji. Historyczne oferty bez powiązania pozostają kompatybilne. Zalogowani Users zarządzają własnymi Restaurantami; Admin ma dodatkowe uprawnienia. Autoryzacja w aplikacji i RLS chronią własność niezależnie.
 
 ## Glossary
 
 - **System**: Aplikacja webowa agregująca oferty lunchowe (Lunch Agregator)
-- **User**: An authenticated account managing its own Restaurants; Visitors may browse. Full definitions live in `GLOSSARY.md`.
+- **User**: Zalogowane konto zarządzające własnymi Restaurantami; Visitors mogą przeglądać. Pełne definicje znajdują się w `GLOSSARY.md`.
 - **Restaurant**: Samodzielna encja reprezentująca restaurację z metadanymi (nazwa, adres, lokalizacja, poziom cenowy, godziny lunchowe, typ kuchni)
 - **Lunch_Offer**: Pojedyncza oferta lunchowa powiązana z Restaurant
 - **Location_Service**: Moduł odpowiedzialny za geokodowanie adresów i obliczanie odległości
 - **Price_Level**: Kategoria cenowa restauracji (budżetowa, średnia, premium) określająca ogólny poziom cen
 - **Lunch_Hours**: Przedział czasowy w którym restauracja serwuje lunch (np. 12:00-16:00)
-- **Session_Token**: Legacy anonymous-data identifier retained for migration; current ownership uses `user_id`.
+- **Session_Token**: Historyczny identyfikator danych anonimowych zachowany na potrzeby migracji; obecna własność używa `user_id`.
 
 ## Requirements
 
@@ -93,7 +93,7 @@ Restaurants are independent entities with address, location, price level, lunch 
 4. WHEN a Restaurant's data is updated, THE System SHALL NOT retroactively change the restaurant data embedded in previously created Lunch_Offers (offers retain a snapshot of restaurant data at creation time)
 5. THE System SHALL display on the Restaurant detail page a list of all active Lunch_Offers associated with that Restaurant
 
-### Requirement 8: Review and publication in restaurant context
+### Requirement 8: Przegląd i publikacja w kontekście restauracji
 
 1. WHEN creation starts from a Restaurant detail page, THE System SHALL preserve the requested Restaurant through any required login redirect, resolve it on the server and preserve its assignment through manual entry, extraction, preview and publication. The User may explicitly change that assignment before publication.
 2. IF the requested Restaurant identifier is invalid or no longer exists, THE System SHALL explain the problem and allow the normal assignment flow.
@@ -102,7 +102,7 @@ Restaurants are independent entities with address, location, price level, lunch 
 5. THE System SHALL count selected offers rather than selected days and accept at most 50 offers per publication batch. Oversized requests SHALL be rejected on the server before any offer is written; the preview SHALL explain the limit.
 6. Before deleting a Restaurant, THE System SHALL show the total number of linked offers, including expired offers, and explain that they will be detached rather than deleted. Failure to obtain the count SHALL be visible and SHALL block confirmation rather than appear as zero.
 
-These requirements cover #101–#104. Import source fetching, explicit source-week interpretation, idempotency and safe retries belong to #94. GPS reverse geocoding is deferred; a date filter on the Restaurant catalog is outside this scope.
+Te wymagania obejmują #101–#104. Pobieranie źródeł importu, jawna interpretacja tygodnia źródłowego, idempotencja i bezpieczne ponowienia należą do #94. Odwrotne geokodowanie GPS jest odroczone; filtr daty w katalogu restauracji jest poza tym zakresem.
 
 ### Requirement 7: Walidacja godzin lunchowych
 
