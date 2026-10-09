@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import sharp from 'sharp';
 const mocks = vi.hoisted(() => ({ fetch: vi.fn(), analyze: vi.fn(), cache: new Map<string, unknown>() }));
 vi.mock('./fetch-generic-html', async original => ({ ...await original<typeof import('./fetch-generic-html')>(), fetchPublicResource: mocks.fetch }));
@@ -8,10 +8,12 @@ vi.mock('next/cache', () => ({ unstable_cache: (fn: () => Promise<unknown>, keys
 } }));
 import { readMeatologiaMenu, requireMeatologiaBranch, resolveMeatologiaLunch, validateMeatologiaUrl, validateMenuImage } from './meatologia';
 import { MEATOLOGIA_URL, MEATOLOGIA_ADDRESS } from '@/lib/lunch-import/meatologia';
+import { EXTRACTION_ERROR_MESSAGES } from '@/lib/ai/extraction-errors';
 const asset = 'https://cdn.shopify.com/s/files/1/0930/9054/5989/files/lunch.jpg?v=1';
 const card = (url = asset, title = 'WROCŁAW, WŁODKOWICA', address = MEATOLOGIA_ADDRESS) => `<div class="mto-card" data-index="99"><div class="mto-title">${title}</div><div class="mto-address">${address}</div><div class="mto-actions"><a href="main.pdf">Menu główne</a><a href="\n${url}\n">Menu lunch</a></div></div>`;
 const branch = { name: 'Meatologia Włodkowica', address: MEATOLOGIA_ADDRESS };
 let bytes: Buffer;
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 beforeEach(async () => {
   mocks.cache.clear(); mocks.fetch.mockReset(); mocks.analyze.mockReset();
   bytes = await sharp({ create: { width: 20, height: 20, channels: 3, background: '#ff0000' } }).jpeg().toBuffer();
@@ -21,6 +23,37 @@ beforeEach(async () => {
   mocks.analyze.mockResolvedValue({ offers: [{ dishes: [{ name: 'Stek', price: 59, description: 'Frytki' }] }], availability: 'w dni robocze do 16:00' });
 });
 describe('Meatologia image menu pilot', () => {
+  it.each(['ul. Włodkowica 27, Wrocław', 'ul. Włodkowica 27, 50-072 Wrocław'])('accepts the known shortened street name: %s', address => {
+    expect(() => requireMeatologiaBranch({ ...branch, address })).not.toThrow();
+  });
+  it.each(['ul. Włodkowica 28, Wrocław', 'ul. Włodkowica 27A, Wrocław', 'ul. Włodkowica 27, Kraków'])('still rejects a different branch: %s', address => {
+    expect(() => requireMeatologiaBranch({ ...branch, address })).toThrow();
+  });
+  it.each(Object.values(EXTRACTION_ERROR_MESSAGES))('retains a safe classified AI failure in the trial: %s', async message => {
+    mocks.analyze.mockResolvedValueOnce({ offers: [], message });
+    await expect(readMeatologiaMenu(branch)).rejects.toThrow(message);
+    await expect(readMeatologiaMenu(branch)).resolves.toBeDefined();
+    expect(mocks.analyze).toHaveBeenCalledTimes(2);
+  });
+  it('does not expose arbitrary provider messages', async () => {
+    mocks.analyze.mockResolvedValueOnce({ offers: [], message: 'secret provider request body' });
+    await expect(readMeatologiaMenu(branch)).rejects.toThrow('Nie udało się przeanalizować obrazu menu. Spróbuj ponownie.');
+  });
+  it.each([400, 503])('retains the real image SDK classification for HTTP %i', async status => {
+    vi.stubEnv('GOOGLE_GENERATIVE_AI_API_KEY', 'isolated-test-key');
+    const report = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const provider = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({
+      error: { code: status, message: 'private provider details', status: 'UNAVAILABLE' },
+    }), { status, headers: { 'content-type': 'application/json' } }));
+    const real = await vi.importActual<typeof import('@/services/ai-analyzer')>('@/services/ai-analyzer');
+    mocks.analyze.mockImplementationOnce(real.analyzeImage);
+    await expect(readMeatologiaMenu(branch)).rejects.toThrow(status === 400
+      ? EXTRACTION_ERROR_MESSAGES.configuration : EXTRACTION_ERROR_MESSAGES.unavailable);
+    expect(provider).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith('AI extraction failed', {
+      kind: status === 400 ? 'configuration' : 'unavailable', statusCode: status,
+    });
+  });
   it('finds the branch by identity, ignores order and main PDF, resolves updated URLs', () => {
     const other = card(asset, 'WROCŁAW, ZWYCIĘSKA', 'Zwycięska 45');
     expect(resolveMeatologiaLunch(other + card())).toMatchObject({ assetUrl: asset });
