@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.0](https://github.com/wojciech94/lunchagregator/compare/v0.4.2...v0.5.0) (2026-10-09)
+
+
+### Features
+
+* **import:** configure verified sources from Restaurant details ([#128](https://github.com/wojciech94/lunchagregator/issues/128)) ([3c7a77d](https://github.com/wojciech94/lunchagregator/commit/3c7a77de4993f74b8a836ddd0cf9943bedbb96c8))
+* **import:** manage verified Restaurant source bindings ([#128](https://github.com/wojciech94/lunchagregator/issues/128)) ([6cab83d](https://github.com/wojciech94/lunchagregator/commit/6cab83db0914efa6041623bb9b70de61232fa3d5))
+
+
+### Bug Fixes
+
+* **import:** audit source binding mutations atomically ([1ada5cb](https://github.com/wojciech94/lunchagregator/commit/1ada5cb1f8ce05c9cc1a9e4a04a2c5ba31103207))
+
 ## [0.4.2](https://github.com/wojciech94/lunchagregator/compare/v0.4.1...v0.4.2) (2026-10-09)
 
 
