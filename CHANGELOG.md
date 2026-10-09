@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/wojciech94/lunchagregator/compare/v0.7.0...v0.7.1) (2026-10-09)
+
+
+### Bug Fixes
+
+* retain Meatologia AI failure diagnostics and street alias ([0f53b7c](https://github.com/wojciech94/lunchagregator/commit/0f53b7c3dcc6636a9c096b6b7874d049b75d2818))
+
 ## [0.7.0](https://github.com/wojciech94/lunchagregator/compare/v0.6.0...v0.7.0) (2026-10-09)
 
 
