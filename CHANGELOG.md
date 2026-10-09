@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/wojciech94/lunchagregator/compare/v0.5.0...v0.6.0) (2026-10-09)
+
+
+### Features
+
+* **import:** onboard verified generic HTML source pilots ([d3b5ee9](https://github.com/wojciech94/lunchagregator/commit/d3b5ee90dedcbf240b9a8f025b426a25ab51f694))
+
 ## [0.5.0](https://github.com/wojciech94/lunchagregator/compare/v0.4.2...v0.5.0) (2026-10-09)
 
 
