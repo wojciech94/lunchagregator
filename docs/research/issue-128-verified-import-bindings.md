@@ -45,7 +45,7 @@ the existing Restaurant deletion behavior for offers/linkage.
 
 1. Inspect migration history and apply predecessors, including Admin roles and
    `20261008000000_create_lunch_import_items.sql`, before
-   `20261009000000_verified_lunch_import_bindings.sql`. Use the environment's
+   `20261009000001_audit_lunch_import_bindings.sql`. Use the environment's
    normal reviewed migration procedure. Do not reset a database containing data.
 2. Deploy the matching application. The migration removes the legacy publication
    RPC signature, so old clients fail closed. Discard pending previews and refetch.
@@ -83,12 +83,32 @@ data migration or automatic production configuration is part of this change.
 
 ## Follow-up
 
+### Activation audit history
+
+Migration `20261009000001` extends the existing append-only Admin log to binding
+creation, updates and deletion. A database trigger writes the authenticated Admin,
+timestamp and complete before/after states in the mutation's transaction, including
+direct Admin writes and cascaded Restaurant deletion. The log's `record_id` is the
+Restaurant UUID; snapshots include the source ID, revision and verification evidence.
+Re-confirming or disabling never removes previous evidence. `/admin/logs` displays
+the actor and expandable binding snapshots and links to the Restaurant.
+Account deletion retains history with a null actor, matching the existing FK's
+`ON DELETE SET NULL` intent; snapshots retain the original verifier UUID. Ordinary
+owner edits and service-role maintenance are not Admin actions and do not create
+Admin log entries. Existing Admin read/insert-only RLS is unchanged.
+Apply both #128 migrations before deploying the matching application.
+
 #129 covers new Admin-entered HTML sources and the additional fetching/extraction
 controls they require. It does not block #94 on its two supported sources.
 Scheduling, OCR, browser extraction and automatic publication remain outside this
 stage. An undated menu still requires explicit date/availability confirmation.
 
 ## Implementation verification (2026-10-09)
+
+- Review follow-up adds atomic append-only binding auditing. The final import
+  database suite passed 16 tests; the existing audit suite passed 10 tests.
+  Six focused audit/action/log-view unit tests, typecheck and affected lint passed.
+  Existing import/UI/build evidence below remains applicable to unchanged flows.
 
 - 41 focused action, identity and UI tests passed on the final implementation.
 - The full unit/property run had 1,039 passes, six opt-in skips and one unrelated

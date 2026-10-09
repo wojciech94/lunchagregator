@@ -24,6 +24,7 @@ export async function configureImportBinding(input: unknown): Promise<ActionResu
       error: 'Nie zapisano konfiguracji. Odśwież stronę: lokal lub powiązanie mogło się zmienić, albo źródło przypisano już gdzie indziej.' };
     revalidatePath(`/restaurants/${data.restaurantId}`);
     revalidatePath('/admin/import');
+    revalidatePath('/admin/logs');
     return { success: true, data: binding };
   } catch {
     return { success: false, error: 'Nie udało się zapisać konfiguracji. Sprawdź połączenie i migrację bazy.' };
