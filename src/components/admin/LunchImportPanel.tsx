@@ -5,11 +5,11 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { previewLunchImport } from '@/actions/lunch-import';
 import type { ImportPreviewResult } from '@/lib/lunch-import/types';
-import type { SourceId } from '@/lib/lunch-import/sources';
+import type { AnySourceId } from '@/lib/lunch-import/sources';
 import { LunchImportReview } from './LunchImportReview';
 
 export function LunchImportPanel({ enabled, sourceId = 'sofa', name = 'Sofa Lounge & Restaurant', address = 'al. Paderewskiego 35, Wrocław', label = 'Sofa' }: {
-  enabled: boolean; sourceId?: SourceId; name?: string; address?: string; label?: string;
+  enabled: boolean; sourceId?: AnySourceId; name?: string; address?: string; label?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [publishing, setPublishing] = useState(false);

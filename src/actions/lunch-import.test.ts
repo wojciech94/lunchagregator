@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  getAdmin: vi.fn(), resolve: vi.fn(), fetch: vi.fn(), analyze: vi.fn(),
+  getAdmin: vi.fn(), resolve: vi.fn(), fetch: vi.fn(), genericFetch: vi.fn(), analyze: vi.fn(),
 }));
 vi.mock('@/lib/auth', () => ({ getAdmin: mocks.getAdmin }));
 vi.mock('@/lib/lunch-import/bindings', () => ({ resolveImportSource: mocks.resolve }));
 vi.mock('@/services/lunch-import/fetch-html', () => ({ fetchMenuHtml: mocks.fetch }));
+vi.mock('@/services/lunch-import/fetch-generic-html', () => ({ fetchGenericHtml: mocks.genericFetch }));
 vi.mock('@/services/ai-analyzer', () => ({ analyzeText: mocks.analyze }));
 import { previewLunchImport } from './lunch-import';
 import { IMPORT_SOURCES, type SourceId } from '@/lib/lunch-import/sources';
@@ -26,6 +27,19 @@ beforeEach(() => {
 });
 
 describe('import preview authorization and provenance', () => {
+  it('routes an active generic source through protected fetching and retains literal review items despite AI differences', async () => {
+    const sourceId = `html-${restaurant.id}`;
+    mocks.resolve.mockResolvedValue({ restaurant, source: { ...IMPORT_SOURCES.sofa, id: sourceId,
+      restaurantId: restaurant.id, bindingRevision, url: 'https://example.org/menu' } });
+    mocks.genericFetch.mockResolvedValue({ html: '<section><h2>Lunch</h2><li><strong>Literal set</strong> 31 PLN</li></section>', finalUrl: 'https://example.org/menu' });
+    const result = await previewLunchImport({ sourceId });
+    expect(result).toMatchObject({ success: true, data: { sourceUrl: 'https://example.org/menu', date: null,
+      review: { sourceId, bindingRevision, dishes: [{ name: 'Literal set', price: 31 }] } } });
+    expect(mocks.genericFetch).toHaveBeenCalledWith('https://example.org/menu');
+    expect(mocks.fetch).not.toHaveBeenCalled();
+    mocks.genericFetch.mockResolvedValueOnce({ html: '<section><h2>Lunch</h2><li><strong>Old set</strong> 31 PLN 2020-01-01</li></section>' });
+    expect((await previewLunchImport({ sourceId })).success).toBe(false);
+  });
   describe.each(['sofa', 'sushi'] as const)('%s complete analyzer input length', sourceId => {
     it.each([4999, 5000, 5001, 6000])('handles %i characters without truncating the source', async inputLength => {
       const branch = sourceId === 'sofa' ? restaurant : {

@@ -3,7 +3,7 @@ import { createOfferSchema } from './offer';
 import { importAvailableDateSchema } from './import-date';
 
 export const lunchImportRequestSchema = z.object({
-  sourceId: z.enum(['sofa', 'sushi']),
+  sourceId: z.union([z.enum(['sofa', 'sushi']), z.string().regex(/^html-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/).transform(value => value as `html-${string}`)]),
 }).strict();
 
 export const importPublicationSchema = z.object({

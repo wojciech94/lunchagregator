@@ -266,7 +266,7 @@ export async function createOffer(
   data: unknown,
   userId: string,
   options?: { presetLocation?: string | null; inferCuisine?: boolean; import?: {
-    sourceId: 'sofa' | 'sushi'; itemKey: string; fetchedAt: string;
+    sourceId: import('@/lib/lunch-import/sources').AnySourceId; itemKey: string; fetchedAt: string;
     expectedName: string; expectedAddress: string; bindingRevision: string;
   } }
 ): Promise<ActionResultWithLocationWarning<LunchOffer>> {

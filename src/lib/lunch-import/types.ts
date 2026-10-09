@@ -1,4 +1,4 @@
-import type { SourceId } from './sources';
+import type { AnySourceId } from './sources';
 import type { ExtractedDish } from '@/services/ai-analyzer';
 
 export interface LunchImportPreview {
@@ -11,7 +11,7 @@ export interface LunchImportPreview {
   extractionMethod: 'ai' | 'html';
   dishes: Pick<ExtractedDish, 'name' | 'price' | 'description' | 'items'>[];
   warnings: string[];
-  review?: { sourceId: SourceId; restaurantId: string; bindingRevision: string; fetchedAt: string; dishes: (LunchImportPreview['dishes'][number] & { itemKey: string })[] } | null;
+  review?: { sourceId: AnySourceId; restaurantId: string; bindingRevision: string; fetchedAt: string; dishes: (LunchImportPreview['dishes'][number] & { itemKey: string })[] } | null;
 }
 
 export interface ImportPublicationSummary {

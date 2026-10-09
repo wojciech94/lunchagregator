@@ -9,8 +9,12 @@ export const IMPORT_SOURCES = {
 } as const;
 export type SourceId = keyof typeof IMPORT_SOURCES;
 
-/** Fixed adapters only; Restaurant bindings live in the database. */
-export type ImportSource = typeof IMPORT_SOURCES[SourceId] & {
-  restaurantId: string;
-  bindingRevision: string;
+export type AnySourceId = SourceId | `html-${string}`;
+export type ImportSource = {
+ id: AnySourceId; label: string; restaurantName: string; branchAddress: string; url: string;
+ restaurantId: string; bindingRevision: string;
 };
+export function fixedSource(id: string) {
+  if (id === 'sofa' || id === 'sushi') return IMPORT_SOURCES[id];
+  return undefined;
+}

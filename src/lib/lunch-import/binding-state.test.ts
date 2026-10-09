@@ -13,6 +13,15 @@ const binding: ImportBinding = {
   verified_at: '2026-10-09T08:00:00Z', verified_by: 'admin-id',
 };
 describe('verified source identity', () => {
+  it('requires a supported generic trial as well as the verified Restaurant snapshot', () => {
+    const generic: ImportBinding = { ...binding, source_id: `html-${binding.restaurant_id}`,
+      source_url: 'https://example.org/menu', trial: { supported: true, fetchedAt: binding.verified_at!,
+        excerpt: 'Lunch Set 31 PLN', finalUrl: 'https://example.org/menu', identityEvidence: 'Branch',
+        limitations: [], dishes: [{ name: 'Set', price: 31 }] } };
+    expect(bindingIsActive(generic, restaurant)).toBe(true);
+    expect(bindingIsActive({ ...generic, trial: null }, restaurant)).toBe(false);
+    expect(bindingIsActive({ ...generic, trial: { ...generic.trial!, limitations: ['Ambiguous branch'] } }, restaurant)).toBe(false);
+  });
   it('retains formatting-equivalent addresses but does not normalize away typos or branch numbers', () => {
     expect(bindingIsActive(binding, { ...restaurant, address: 'ULICA Marco Polo 9e Wrocław' })).toBe(true);
     for (const address of ['ul. Marco Polo 99, Wrocław', 'ul. Marco Pollo 9e, Wrocław', 'ul. Marco Polo 9e']) {

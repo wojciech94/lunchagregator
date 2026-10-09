@@ -30,7 +30,7 @@ describe('Admin branch verification', () => {
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'sushi' } });
     expect(screen.getByRole('checkbox')).not.toBeChecked();
     fireEvent.click(screen.getByRole('checkbox'));
-    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Updated evidence' } });
+    fireEvent.change(screen.getByRole('textbox', { name: /Podstawa potwierdzenia/ }), { target: { value: 'Updated evidence' } });
     expect(screen.getByRole('checkbox')).not.toBeChecked();
   });
   it('disables without publishing and removes the old preview after success', async () => {
