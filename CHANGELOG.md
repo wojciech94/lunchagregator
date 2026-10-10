@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.10.1](https://github.com/wojciech94/lunchagregator/compare/v0.10.0...v0.10.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* clarify Admin import states and block hidden Sofa lunches ([d66f034](https://github.com/wojciech94/lunchagregator/commit/d66f0340f0f5d6853fd8f7beb98f91773eecd975))
+* handle missing addresses in Admin source inventory ([8e30d0a](https://github.com/wojciech94/lunchagregator/commit/8e30d0a3a74d756232c579a083136558432c6603))
+* require reverification for invalidated source identities ([9a7aa6b](https://github.com/wojciech94/lunchagregator/commit/9a7aa6bfab365072199356deaa3314eeb9e62704))
+
 ## [0.10.0](https://github.com/wojciech94/lunchagregator/compare/v0.9.2...v0.10.0) (2026-10-10)
 
 
