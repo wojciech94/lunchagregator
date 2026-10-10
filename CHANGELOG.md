@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.10.0](https://github.com/wojciech94/lunchagregator/compare/v0.9.2...v0.10.0) (2026-10-10)
+
+
+### Features
+
+* import Sushi Corner lunch menu from linked PDF ([ccb68fe](https://github.com/wojciech94/lunchagregator/commit/ccb68fe5a71ed654dadef26fa14d84b72290f40d))
+* import Sushi Corner Wlodkowica lunch PDF ([a925a58](https://github.com/wojciech94/lunchagregator/commit/a925a581f3a586e653055c816c1c7335d8e77d9c))
+
+
+### Bug Fixes
+
+* exempt PDF fixtures from text normalization ([d345197](https://github.com/wojciech94/lunchagregator/commit/d345197ed6fea52bdeeaa0b8dd315028e73e5fcb))
+* preserve exact binary PDF fixture bytes ([62eaf53](https://github.com/wojciech94/lunchagregator/commit/62eaf53f800cea600ceb343afb9b5ede6362815d))
+* store downloaded PDF fixture without newline conversion ([7b6da47](https://github.com/wojciech94/lunchagregator/commit/7b6da47d734e3d3867e20af807a1765fb1db1975))
+
 ## [0.9.2](https://github.com/wojciech94/lunchagregator/compare/v0.9.1...v0.9.2) (2026-10-10)
 
 
