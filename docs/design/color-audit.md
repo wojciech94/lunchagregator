@@ -18,3 +18,13 @@ The post-change source scan checks raw hex/RGB/HSL colors, Tailwind named palett
 The standalone HTML prototype under `docs/design` deliberately owns its offline specimen palette and is outside production source scope. No arbitrary palette change was made to that artifact.
 
 Validation includes typecheck/lint, the unit/property suite, browser inspection of restaurant metadata and action hover in both themes, plus computed contrast for warning and success token pairs. This is a source/style audit, not a complete screen-reader, contrast or accessibility certification of every rendered screen. No database mutations or migrations are required.
+
+## Action consistency and dark palette follow-up
+
+The follow-up from `d66f034` replaces the admin restaurant row's handwritten edit-link styles and the restaurant date-menu submit button with shared Button variants. The date field now uses Input. Outline and ghost buttons explicitly own their foreground, avoiding inherited muted text. Every Button variant reserves the same 1px border, and small/default buttons share 44px height and 8px corners; large buttons use 48px height. Destructive actions retain their distinct semantic color.
+
+Dark surfaces now use warm charcoal/espresso with cream text and a terracotta primary/focus accent. Sidebar and chart-primary tokens follow the same palette. Success remains green to preserve its status meaning. Light colors are unchanged. DESIGN.md records the current production tokens; the offline prototype retains its historical palette.
+
+Validation: `npm run lint` (two existing unused-variable warnings outside the changed files), `npm run typecheck`, and `npm test` (1179 passed, 8 skipped). A temporary local route rendered the real RestaurantDetail and shared controls with fixture data, including a muted-text parent. Browser checks covered light/dark foregrounds, edit/delete geometry, outline hover, keyboard focus, disabled controls, and no horizontal overflow at 320px. The fixture route was removed after inspection; no delete or publish action was invoked. Primary text contrast is 8.47:1 in dark mode, muted text is 6.79:1, and input outlines against cards are 4.86:1. Authenticated admin data loading was not exercised; its action composition was verified in source and uses the same rendered Button variants.
+
+The public Pizza Si detail page also passed a 320px date-form check: submitting October 12 updated the date query, retained dark mode across navigation, and kept both Input and Button at 44px without horizontal overflow.
