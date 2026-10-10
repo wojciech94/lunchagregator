@@ -9,6 +9,10 @@ const parts = excerpt.split(/(?=<h4)/);
 const html = `<div id="menu-zestawy-lunch-owe">${parts[0]}${parts.slice(1).map(part => `<li class="m-list__item">${part}</li>`).join('')}</div>`;
 
 describe('Sofa HTML adapter', () => {
+  it.each(['class="hidden"', 'hidden', 'aria-hidden="true"', 'style="display: none"', 'style="color:red; visibility: hidden !important;"'])('rejects a hidden lunch section or ancestor: %s', attribute => {
+    expect(() => extractSofaMenu(html.replace('id="menu-zestawy-lunch-owe"', `id="menu-zestawy-lunch-owe" ${attribute}`))).toThrow('ukryta');
+    expect(() => extractSofaMenu(`<div ${attribute}>${html}</div>`)).toThrow('ukryta');
+  });
   it('reads literal names, prices and descriptions for the unavailable-AI fallback', () => {
     const { dishes } = extractSofaMenu(html);
     expect(dishes.map(dish => dish.name)).toEqual(['Zestaw 1', 'Zestaw 2', 'Zestaw 3']);

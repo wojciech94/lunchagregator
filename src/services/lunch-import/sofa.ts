@@ -9,6 +9,12 @@ export function extractSofaMenu(html: string) {
   $('br').replaceWith('\n');
   const section = $('#menu-zestawy-lunch-owe');
   if (section.length !== 1) throw new Error('Nie znaleziono sekcji lunchowej Sofa.');
+  const hidden = section.parents().addBack().toArray().some(node => {
+    const element = $(node);
+    return element.is('[hidden], [aria-hidden="true"]') || element.hasClass('hidden')
+      || /(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*hidden)\s*(?:!important\s*)?(?:;|$)/i.test(element.attr('style') ?? '');
+  });
+  if (hidden) throw new Error('Sekcja lunchowa Sofa jest oznaczona jako ukryta. Nie można przygotować podglądu z niepotwierdzonego menu. Sprawdź widoczne oficjalne menu i aktualną dostępność.');
   const clean = (text: string) => text.replace(/\s+/g, ' ').trim();
   const conditions = clean(section.find('.m-list__description').text());
   const dishes: LunchImportPreview['dishes'] = [];
