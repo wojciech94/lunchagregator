@@ -34,7 +34,7 @@ export function AccountMenu({ email, isAdmin, logout }: { email: string; isAdmin
     <>
       <Popover.Root open={open} onOpenChange={setOpen}>
         <Popover.Trigger asChild>
-          <Button ref={trigger} variant="ghost" className={cn("min-h-[44px] max-w-[240px] text-[#f7f8f8] hover:bg-white/10 hover:text-[#f7f8f8] data-[state=open]:bg-white/10", active && "bg-white/10")} aria-label="Menu profilu">
+          <Button ref={trigger} variant="ghost" className={cn("min-h-[44px] max-w-[240px] text-foreground hover:bg-accent hover:text-foreground data-[state=open]:bg-accent", active && "bg-accent")} aria-label="Menu profilu">
             <UserRound className="size-4 shrink-0" />
             <span className="truncate">{email}</span>
             <ChevronDown className="size-4 shrink-0" />

@@ -24,7 +24,7 @@ export function AuthNavLinks() {
   const suffix = `redirectTo=${encodeURIComponent(returnTo)}`;
 
   const className =
-    'rounded-[4px] px-3 py-2 text-sm font-medium text-[#62666d] hover:text-primary transition-colors min-h-[44px] flex items-center';
+    'rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:text-primary transition-colors min-h-[44px] flex items-center';
 
   return (
     <>

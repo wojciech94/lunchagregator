@@ -26,17 +26,28 @@ async function seedLocation(context: BrowserContext) {
 async function ready(page: Page) {
   await expect(page.getByRole("list", { name: "Lista ofert lunchowych" })).toBeVisible();
   // Wait for hydration/location refresh before comparing positions.
-  await expect(page.getByLabel(/Maksymalna odległość/)).toBeAttached();
+  await expect(page.getByRole("button", { name: "Pokaż filtry" })).toBeVisible();
+  await expect(page.getByText("Określanie lokalizacji...")).toHaveCount(0);
   await page.getByLabel("Szukaj ofert").focus();
 }
 async function geometry(page: Page) {
-  return page.evaluate(() => {
-    const panel = document.getElementById("offer-filters-panel")!;
-    const chip = [...panel.querySelectorAll("button")].find(b => b.textContent === "Wegetariańskie")!;
-    return { chip: chip.getBoundingClientRect().top + scrollY, panel: panel.getBoundingClientRect().height, results: document.querySelector('[role="list"]')!.getBoundingClientRect().top + scrollY };
-  });
+  return page.locator('[role="list"]').evaluate(node => ({
+    top: node.getBoundingClientRect().top + scrollY,
+    height: node.getBoundingClientRect().height,
+  }));
 }
-
+async function openFilters(page: Page) {
+  // Cold dev navigation can expose the server-rendered trigger before React
+  // hydrates it. Retry the interaction until the actual dialog is mounted.
+  await expect(async () => {
+    await page.getByRole("button", { name: "Pokaż filtry" }).click();
+    await expect(page.getByRole("dialog", { name: "Twój lunch, Twoje zasady" })).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 15_000 });
+}
+async function applyFilters(page: Page) {
+  await page.getByRole("button", { name: "Pokaż oferty", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+}
 test.describe("audit #88 offer filters", () => {
   test.setTimeout(60_000);
   test.skip(process.env.NEXT_PUBLIC_SUPABASE_URL !== "http://127.0.0.1:54330", "requires isolated HTTP fixture; see file header");
@@ -71,64 +82,76 @@ test.describe("audit #88 offer filters", () => {
   test.beforeEach(() => { delay = 0; requests.length = 0; heldSearch = null; releaseSearch = undefined; });
   test.afterEach(() => { releaseSearch?.(); releaseSearch = undefined; });
 
-  for (const width of [1280, 390]) {
-    test(`stable filter and results geometry at ${width}px, including pending navigation`, async ({ page, context }) => {
+  for (const width of [320, 1280]) {
+    test(`filter drafts preserve results and apply/cancel work at ${width}px`, async ({ page, context }) => {
       await seedLocation(context);
       await page.setViewportSize({ width, height: 900 });
       await page.goto(origin);
       await ready(page);
-      if (width < 768) await page.getByRole("button", { name: "Pokaż filtry" }).click();
+      const beforeUrl = page.url();
+      await openFilters(page);
       await expect(page.getByLabel(/Maksymalna odległość/)).toBeVisible();
       const before = await geometry(page);
+      await page.getByRole("button", { name: "Wegetariańskie", exact: true }).click();
+      await page.getByRole("checkbox", { name: "Polska", exact: true }).check();
+      expect(page.url()).toBe(beforeUrl);
+      expect(await geometry(page)).toEqual(before);
       delay = 500;
-      const vegetarian = page.getByRole("button", { name: "Wegetariańskie", exact: true });
-      await vegetarian.click();
-      await expect(vegetarian).toHaveAttribute("aria-pressed", "true");
-      // Check while the server is still pending, as well as after it settles.
-      expect(await geometry(page)).toEqual(before);
+      await applyFilters(page);
       await expect(page).toHaveURL(/diets=vegetarian/);
-      expect(await geometry(page)).toEqual(before);
-      await page.getByRole("button", { name: "Polska", exact: true }).click();
       await expect(page).toHaveURL(/cuisines=polska/);
-      expect(await geometry(page)).toEqual(before);
-      await page.getByRole("button", { name: "Wyczyść filtry" }).click();
-      await expect(vegetarian).toHaveAttribute("aria-pressed", "false");
-      await expect(page).not.toHaveURL(/diets=|cuisines=/);
-      expect(await geometry(page)).toEqual(before);
-      await vegetarian.click();
+      await expect(page.getByRole("listitem")).toHaveCount(50);
+      await openFilters(page);
+      await page.getByRole("button", { name: "Wegetariańskie", exact: true }).click();
+      await page.getByRole("button", { name: "Anuluj", exact: true }).click();
       await expect(page).toHaveURL(/diets=vegetarian/);
-      await vegetarian.click();
-      await expect(page).not.toHaveURL(/diets=/);
-      expect(await geometry(page)).toEqual(before);
+      await openFilters(page);
+      await expect(page.getByRole("button", { name: "Wegetariańskie", exact: true })).toHaveAttribute("aria-pressed", "true");
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("button", { name: "Pokaż filtry" })).toBeFocused();
+      await page.getByRole("button", { name: "Wyczyść filtry", exact: true }).click();
+      await expect(page).not.toHaveURL(/diets=|cuisines=/);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     });
   }
-
   test("day, unrelated criteria, pagination, history, refresh and default reset stay consistent", async ({ page, context }) => {
     await seedLocation(context);
     const date = dateAfter(2);
     await page.goto(`${origin}/?date=${date}&cuisines=polska&priceMin=20&priceMax=50&q=zupa&radius=5&page=2`);
     await ready(page);
+    await openFilters(page);
     await page.getByRole("button", { name: "Wegetariańskie", exact: true }).click();
+    await applyFilters(page);
     await expect(page).toHaveURL(/diets=vegetarian/);
     let params = new URL(page.url()).searchParams;
     for (const [key, value] of Object.entries({ date, cuisines: "polska", priceMin: "20", priceMax: "50", q: "zupa", radius: "5" })) expect(params.get(key)).toBe(value);
     expect(params.has("page")).toBe(false);
     await page.goBack();
+    await expect(page).toHaveURL(/page=2/);
+    await openFilters(page);
     await expect(page.getByRole("button", { name: "Wegetariańskie", exact: true })).toHaveAttribute("aria-pressed", "false");
     await expect(page).toHaveURL(/page=2/);
+    await page.getByRole("button", { name: "Anuluj", exact: true }).click();
     await page.goForward();
+    await expect(page).toHaveURL(/diets=vegetarian/);
+    await openFilters(page);
     await expect(page.getByRole("button", { name: "Wegetariańskie", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("button", { name: "Anuluj", exact: true }).click();
     await page.reload();
+    await openFilters(page);
     await expect(page.getByLabel("Cena minimalna")).toHaveValue("20");
+    await page.getByRole("button", { name: "Anuluj", exact: true }).click();
     await page.getByRole("combobox", { name: "Sortowanie" }).click();
     await page.getByRole("option", { name: "Cena rosnąco" }).click();
     await expect(page).toHaveURL(/sort=price_asc/);
     await page.getByRole("combobox", { name: "Sortowanie" }).click();
-    await page.getByRole("option", { name: /Domyślnie/ }).click();
+    await page.getByRole("option", { name: "Najbliżej", exact: true }).click();
     await expect(page).not.toHaveURL(/sort=/);
     await page.getByRole("button", { name: "Wyczyść filtry" }).click();
     await expect(page).toHaveURL(`${origin}/?date=${date}`);
+    await openFilters(page);
     await expect(page.getByLabel("Cena minimalna")).toHaveValue("");
+    await page.getByRole("button", { name: "Anuluj", exact: true }).click();
     expect(requests.filter(request => request.p_date === date).at(-1)).toMatchObject({ p_date: date, p_price_min: null, p_price_max: null, p_radius_km: null, p_sort_by: "distance" });
   });
 
@@ -136,31 +159,34 @@ test.describe("audit #88 offer filters", () => {
     await seedLocation(context);
     const date = dateAfter(2);
     await page.goto(`${origin}/?date=${date}&priceMin=50&priceMax=30&cuisines=polska`);
+    await expect(page.locator("main").getByRole("alert").filter({ hasText: /minimalna.*maksymalnej/i })).toBeVisible();
+    expect(requests.filter(request => request.p_date === date)).toHaveLength(0);
+    await openFilters(page);
     await expect(page.getByLabel("Cena minimalna")).toHaveValue("50");
     await expect(page.getByLabel("Cena maksymalna")).toHaveValue("30");
-    await expect(page.locator("main").getByRole("alert")).toContainText(/minimalna.*maksymalnej/i);
-    // Navigation links may prefetch today's unfiltered page. They must not
-    // be mistaken for a query for this invalid, selected-day search.
-    expect(requests.filter(request => request.p_date === date)).toHaveLength(0);
-    await expect(page.locator("main").getByRole("list")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Pokaż oferty", exact: true })).toBeDisabled();
     await page.getByLabel("Cena maksymalna").fill("60");
+    await applyFilters(page);
     await expect(page).toHaveURL(/priceMax=60/);
-    await expect(page.locator("main").getByRole("alert")).toHaveCount(0);
     expect(new URL(page.url()).searchParams.get("date")).toBe(date);
     expect(new URL(page.url()).searchParams.get("cuisines")).toBe("polska");
     await expect(page.getByRole("list")).toBeVisible();
+    await openFilters(page);
     await page.getByLabel("Cena maksymalna").fill("30");
-    await expect(page.locator("main").getByRole("alert")).toBeVisible();
-    await expect(page.getByLabel("Cena minimalna")).toHaveValue("50");
+    await expect(page.getByRole("dialog").getByRole("alert")).toContainText(/minimalna.*maksymalnej/i);
+    await expect(page.getByRole("button", { name: "Pokaż oferty", exact: true })).toBeDisabled();
+    await page.getByRole("button", { name: "Anuluj", exact: true }).click();
+    await expect(page).toHaveURL(/priceMax=60/);
   });
-
   test("search replaces history and cannot resurrect a reset or overwrite a committed diet", async ({ page, context }) => {
     await seedLocation(context);
     const date = dateAfter(1);
     await page.goto(`${origin}/?date=${date}`);
     await ready(page);
     await page.getByLabel("Szukaj ofert").fill("zupa");
+    await openFilters(page);
     await page.getByRole("button", { name: "Wegetariańskie", exact: true }).click();
+    await applyFilters(page);
     await expect(page).toHaveURL(/diets=vegetarian/);
     await page.waitForTimeout(400);
     expect(new URL(page.url()).searchParams.get("diets")).toBe("vegetarian");
@@ -192,7 +218,9 @@ test.describe("audit #88 offer filters", () => {
     await page.goto(`${origin}/?date=${date}&radius=5&sort=distance`);
     await expect(page.getByRole("heading", { level: 1 })).not.toHaveText("Oferty lunchowe na dziś");
     await expect(page.getByTestId("distance-needs-location")).toBeVisible();
+    await openFilters(page);
     await page.getByRole("button", { name: "Wegetariańskie", exact: true }).click();
+    await applyFilters(page);
     await expect(page).toHaveURL(/diets=vegetarian/);
     expect(new URL(page.url()).searchParams.get("radius")).toBe("5");
     expect(new URL(page.url()).searchParams.get("sort")).toBe("distance");

@@ -36,12 +36,12 @@ export function OfferList({
   return (
     <div className={cn("flex flex-col gap-6", className)}>
       <div
-        className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:grid-cols-3"
+        className="grid grid-cols-1 gap-4 min-[640px]:grid-cols-2 lg:grid-cols-3"
         role="list"
         aria-label="Lista ofert lunchowych"
       >
         {offers.map((offer) => (
-          <div key={offer.id} role="listitem">
+          <div key={offer.id} role="listitem" className="min-w-0">
             <OfferCard offer={offer} />
           </div>
         ))}

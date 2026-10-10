@@ -41,8 +41,13 @@ export default async function Home({ searchParams }: HomeProps) {
   });
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-bold tracking-tight sm:text-3xl mb-6">
+    <div className="mx-auto w-full max-w-[1200px] px-4 py-8 md:px-8 md:py-12">
+      <div className="mb-8 flex flex-col gap-3">
+        <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Twoja przerwa na coś dobrego</p>
+        <p className="text-3xl font-semibold leading-tight tracking-tight md:text-4xl">Dobry lunch. Blisko Ciebie.</p>
+        <p className="text-base text-muted-foreground">Wybierz dzień. Znajdź danie. Zrób sobie przerwę.</p>
+      </div>
+      <h1 className="mb-6 text-xl font-semibold tracking-tight md:text-2xl">
         Oferty lunchowe na {dayLabel}
       </h1>
       {!result.success && <p role="alert" className="mb-4 text-destructive">Nie udało się pobrać ofert. Spróbuj ponownie.</p>}

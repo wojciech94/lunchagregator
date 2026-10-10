@@ -42,85 +42,82 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 }
 
 :root {
-  --radius: 0.375rem;
-  /* Linear-inspired light theme */
-  --background: #ffffff;
-  --foreground: #08090a;
+  --radius: 1rem;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --background: #f7f6f2;
+  --foreground: #202c25;
   --card: #ffffff;
-  --card-foreground: #08090a;
+  --card-foreground: #202c25;
   --popover: #ffffff;
-  --popover-foreground: #08090a;
-  --primary: #6366f1;
+  --popover-foreground: #202c25;
+  --primary: #245c3d;
   --primary-foreground: #ffffff;
-  --secondary: #f4f4f5;
-  --secondary-foreground: #08090a;
-  --muted: #f4f4f5;
-  --muted-foreground: #62666d;
-  --accent: #f4f4f5;
-  --accent-foreground: #08090a;
-  --destructive: #eb5757;
+  --secondary: #edefe8;
+  --secondary-foreground: #202c25;
+  --muted: #edefe8;
+  --muted-foreground: #59665d;
+  --accent: #edefe8;
+  --accent-foreground: #202c25;
+  --destructive: #a52b26;
   --destructive-foreground: #ffffff;
-  --border: #e5e5e6;
-  --input: #e5e5e6;
-  --ring: #6366f1;
-  --chart-1: #6366f1;
-  --chart-2: #8b5cf6;
-  --chart-3: #39b350;
-  --chart-4: #eb5757;
-  --chart-5: #5e6ad2;
-  --sidebar: #fafafa;
-  --sidebar-foreground: #08090a;
-  --sidebar-primary: #6366f1;
+  --border: #d9ded6;
+  --input: #839287;
+  --ring: #245c3d;
+  --chart-1: #245c3d;
+  --chart-2: #8c5938;
+  --chart-3: #526d92;
+  --chart-4: #a52b26;
+  --chart-5: #786293;
+  --sidebar: #f7f6f2;
+  --sidebar-foreground: #202c25;
+  --sidebar-primary: #245c3d;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f4f4f5;
-  --sidebar-accent-foreground: #08090a;
-  --sidebar-border: #e5e5e6;
-  --sidebar-ring: #6366f1;
+  --sidebar-accent: #edefe8;
+  --sidebar-accent-foreground: #202c25;
+  --sidebar-border: #d9ded6;
+  --sidebar-ring: #245c3d;
 }
-
 .dark {
-  /* Linear-inspired dark theme (primary mode) */
-  --background: #0f1011;
-  --foreground: #f7f8f8;
-  --card: #161719;
-  --card-foreground: #f7f8f8;
-  --popover: #161719;
-  --popover-foreground: #f7f8f8;
-  --primary: #6366f1;
-  --primary-foreground: #ffffff;
-  --secondary: #1e2023;
-  --secondary-foreground: #f7f8f8;
-  --muted: #1e2023;
-  --muted-foreground: #62666d;
-  --accent: #1e2023;
-  --accent-foreground: #f7f8f8;
-  --destructive: #eb5757;
-  --destructive-foreground: #ffffff;
-  --border: #24282c;
-  --input: #24282c;
-  --ring: #6366f1;
-  --chart-1: #6366f1;
-  --chart-2: #8b5cf6;
-  --chart-3: #39b350;
-  --chart-4: #eb5757;
-  --chart-5: #5e6ad2;
-  --sidebar: #0f1011;
-  --sidebar-foreground: #f7f8f8;
-  --sidebar-primary: #6366f1;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1e2023;
-  --sidebar-accent-foreground: #f7f8f8;
-  --sidebar-border: #24282c;
-  --sidebar-ring: #6366f1;
+  --background: #141c18;
+  --foreground: #f1f4ef;
+  --card: #1d2922;
+  --card-foreground: #f1f4ef;
+  --popover: #1d2922;
+  --popover-foreground: #f1f4ef;
+  --primary: #b9dec1;
+  --primary-foreground: #14291c;
+  --secondary: #29372e;
+  --secondary-foreground: #f1f4ef;
+  --muted: #29372e;
+  --muted-foreground: #b4c2b7;
+  --accent: #29372e;
+  --accent-foreground: #f1f4ef;
+  --destructive: #ffa8a1;
+  --destructive-foreground: #361511;
+  --border: #46574b;
+  --input: #819887;
+  --ring: #b9dec1;
+  --chart-1: #b9dec1;
+  --chart-2: #e1b28b;
+  --chart-3: #adc4e4;
+  --chart-4: #ffa8a1;
+  --chart-5: #c9b9df;
+  --sidebar: #141c18;
+  --sidebar-foreground: #f1f4ef;
+  --sidebar-primary: #b9dec1;
+  --sidebar-primary-foreground: #14291c;
+  --sidebar-accent: #29372e;
+  --sidebar-accent-foreground: #f1f4ef;
+  --sidebar-border: #46574b;
+  --sidebar-ring: #b9dec1;
 }
-
 @layer base {
   * {
     @apply border-border;
@@ -129,6 +126,15 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 
   /* Requirement 7.4: inherited body text is at least 16px on narrow viewports.

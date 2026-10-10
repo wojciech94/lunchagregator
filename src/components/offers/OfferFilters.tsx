@@ -3,14 +3,17 @@
 import * as React from "react";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Chip } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { FieldGroup, Field, FieldLabel, FieldSet, FieldLegend, FieldError } from "@/components/ui/field";
+import { InputGroup, InputGroupInput, InputGroupAddon } from "@/components/ui/input-group";
+import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
   SelectItem,
+  SelectGroup,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -61,7 +64,7 @@ const SORT_OPTIONS: { value: OfferFiltersType["sortBy"]; label: string }[] = [
 const DEFAULT_SORT: OfferFiltersType["sortBy"] = undefined;
 
 interface OfferFiltersProps {
-  onChange: (filters: OfferFiltersType) => void;
+  onChange: (filters: OfferFiltersType, options?: { clearRadius?: boolean }) => void;
   onReset?: () => void;
   initialRadius?: number;
   /**
@@ -111,6 +114,7 @@ export function OfferFilters({
     null
   );
   const searchRevision = React.useRef(0);
+  const draftSnapshot = React.useRef({ searchQuery, distance, priceMin, priceMax, cuisineTypes, dietaryTags, sortBy });
   const searchNavigations = React.useRef<{ query: string | null; context: string; revision: number }[]>([]);
 
   // Follow the URL. Without this the form keeps whatever was typed while the
@@ -162,6 +166,7 @@ export function OfferFilters({
     setCuisineTypes(next.ct);
     setDietaryTags(next.dt);
     setSortBy(next.sort ?? DEFAULT_SORT);
+    setIsOpen(false);
   }, [incoming]);
 
   React.useEffect(() => {
@@ -235,9 +240,10 @@ export function OfferFilters({
     (overrides?: Parameters<typeof buildFilters>[0]) => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       searchNavigations.current = [];
+      if (isOpen) return;
       onChange(buildFilters(overrides));
     },
-    [onChange, buildFilters]
+    [onChange, buildFilters, isOpen]
   );
 
   // Debounced search
@@ -295,14 +301,6 @@ export function OfferFilters({
     emitChange({ cuisineTypes: updated });
   };
 
-  const handleDietaryToggle = (tag: DietaryTag) => {
-    const updated = dietaryTags.includes(tag)
-      ? dietaryTags.filter((t) => t !== tag)
-      : [...dietaryTags, tag];
-    setDietaryTags(updated);
-    emitChange({ dietaryTags: updated });
-  };
-
   const handleSortChange = (value: string) => {
     const newSort = value === "default" ? undefined : value as OfferFiltersType["sortBy"];
     setSortBy(newSort);
@@ -342,174 +340,135 @@ export function OfferFilters({
   });
   const priceError = parsedPrice.success ? undefined : parsedPrice.error.issues[0].message;
 
+  const committed = initialFilters ?? {};
+  const activeCriteria = [
+    ...(committed.price ? [{ key: "price", label: `${committed.price.min}–${committed.price.max} zł` }] : []),
+    ...(committed.cuisineTypes ?? []).map(value => ({ key: `cuisine:${value}`, label: CUISINE_TYPES.find(c => c.value === value)!.label })),
+    ...(committed.dietaryTags ?? []).map(value => ({ key: `diet:${value}`, label: DIETARY_TAGS.find(d => d.value === value)!.label })),
+    ...(initialRadius !== undefined ? [{ key: "radius", label: `Do ${initialRadius} km` }] : []),
+  ];
+
+  const changePanel = (open: boolean) => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    if (open) {
+      draftSnapshot.current = { searchQuery, distance, priceMin, priceMax, cuisineTypes, dietaryTags, sortBy };
+    } else {
+      const saved = draftSnapshot.current;
+      setDistance(saved.distance); setPriceMin(saved.priceMin); setPriceMax(saved.priceMax);
+      setCuisineTypes(saved.cuisineTypes); setDietaryTags(saved.dietaryTags);
+      if (saved.searchQuery !== (initialFilters?.searchQuery ?? "")) handleSearchChange(saved.searchQuery);
+    }
+    setIsOpen(open);
+  };
+
+  const removeCriterion = (key: string) => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    searchNavigations.current = [];
+    const next = buildFilters();
+    if (key === "price") { delete next.price; setPriceMin(""); setPriceMax(""); }
+    if (key.startsWith("cuisine:")) { next.cuisineTypes = cuisineTypes.filter(v => v !== key.slice(8)); setCuisineTypes(next.cuisineTypes); }
+    if (key.startsWith("diet:")) { next.dietaryTags = dietaryTags.filter(v => v !== key.slice(5)); setDietaryTags(next.dietaryTags); }
+    if (key === "radius") { delete next.distance; setDistance(10); }
+    onChange(next, { clearRadius: key === "radius" });
+  };
+
   return (
-    <div className="w-full space-y-4">
-      {/* Search and mobile toggle row */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Szukaj dań (min. 2 znaki)..."
-            value={searchQuery}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="pl-9"
-            aria-label="Szukaj ofert"
-          />
+    <Sheet open={isOpen} onOpenChange={changePanel}>
+      <div className="flex w-full flex-col gap-3">
+        <div className="flex flex-col gap-3 min-[640px]:flex-row min-[640px]:items-center">
+          <InputGroup className="flex-1">
+            <InputGroupInput type="search" placeholder="Szukaj dań (min. 2 znaki)…" value={searchQuery}
+              onChange={e => handleSearchChange(e.target.value)} aria-label="Szukaj ofert" />
+            <InputGroupAddon><Search aria-hidden="true" /></InputGroupAddon>
+          </InputGroup>
+          <div className="flex flex-wrap items-center gap-2">
+            <SheetTrigger asChild>
+              <Button variant="outline" aria-label="Pokaż filtry">
+                <SlidersHorizontal data-icon="inline-start" aria-hidden="true" />
+                Filtry{activeCriteria.length > 0 ? ` (${activeCriteria.length})` : ""}
+              </Button>
+            </SheetTrigger>
+            <Select value={sortBy ?? "default"} onValueChange={handleSortChange}>
+              <SelectTrigger className="w-[180px]" aria-label="Sortowanie"><SelectValue placeholder="Sortuj" /></SelectTrigger>
+              <SelectContent><SelectGroup>
+                <SelectItem value="default">{userLocation ? "Najbliżej" : "Restauracja A–Z"}</SelectItem>
+                {SORT_OPTIONS.map(option => <SelectItem key={option.value} value={option.value!}>{option.label}</SelectItem>)}
+              </SelectGroup></SelectContent>
+            </Select>
+          </div>
         </div>
-
-        <div className="flex items-center gap-2">
-          <Select value={sortBy ?? "default"} onValueChange={handleSortChange}>
-            <SelectTrigger className="w-[180px]" aria-label="Sortowanie">
-              <SelectValue placeholder="Sortuj" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="default">
-                {userLocation ? "Domyślnie (odległość)" : "Domyślnie (restauracja)"}
-              </SelectItem>
-              {SORT_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value!}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Mobile toggle button */}
-          <Button
-            variant="outline"
-            size="default"
-            className="md:hidden min-w-[44px] min-h-[44px]"
-            onClick={() => setIsOpen(!isOpen)}
-            aria-expanded={isOpen}
-            aria-controls="offer-filters-panel"
-            aria-label={isOpen ? "Ukryj filtry" : "Pokaż filtry"}
-          >
-            <SlidersHorizontal className="size-4" />
-            <span className="ml-1 text-base">Filtry</span>
-          </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {activeCriteria.map(criterion => <Button key={criterion.key} variant="secondary" size="sm"
+            aria-label={`Usuń filtr: ${criterion.label}`} onClick={() => removeCriterion(criterion.key)}>
+            {criterion.label}<X data-icon="inline-end" aria-hidden="true" />
+          </Button>)}
+          <Button variant="ghost" size="sm" onClick={handleClearFilters} disabled={!hasActiveFilters}>Wyczyść filtry</Button>
         </div>
+        {priceError && !isOpen && <FieldError>{priceError}</FieldError>}
       </div>
-
-      {/* Filters panel - collapsible on mobile */}
-      <div
-        id="offer-filters-panel"
-        className={cn(
-          "space-y-6 rounded-md border border-border bg-card p-5 shadow-[0_1.2px_0_0_rgba(0,0,0,0.03)]",
-          isOpen ? "block" : "hidden md:block"
-        )}
-      >
-        {/* Reserve the reset row even when inactive, so controls stay put. */}
-        <div className="flex justify-end">
-          <Button variant="ghost" size="sm" onClick={handleClearFilters} disabled={!hasActiveFilters}>
-            <X className="size-3.5" />
-            Wyczyść filtry
-          </Button>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {/* Distance slider - only shown when user location is available */}
-          {userLocation && (
-            <div className="space-y-3">
-              <Label htmlFor="distance-slider" className="text-base font-medium uppercase tracking-wider text-muted-foreground">
-                Odległość: {distance} km
-              </Label>
-              <Slider
-                id="distance-slider"
-                min={0.5}
-                max={25}
-                step={0.5}
-                value={[distance]}
-                onValueChange={handleDistanceChange}
-                aria-label={`Maksymalna odległość: ${distance} km`}
-              />
-              <div className="flex justify-between text-xs text-muted-foreground/60">
-                <span>0.5 km</span>
-                <span>25 km</span>
-              </div>
-            </div>
-          )}
-
-          {/* Price range */}
-          <div className="space-y-3">
-            <Label className="text-base font-medium uppercase tracking-wider text-muted-foreground">
-              Zakres cen (PLN)
-            </Label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                placeholder="Min"
-                value={priceMin}
-                onChange={(e) => handlePriceMinChange(e.target.value)}
-                min={0.01}
-                max={999.99}
-                step={0.01}
-                className="w-full bg-card border-border focus:border-primary"
-                aria-label="Cena minimalna"
-                aria-invalid={!!priceError}
-                aria-describedby={priceError ? "offer-price-error" : undefined}
-              />
-              <span className="text-muted-foreground">—</span>
-              <Input
-                type="number"
-                placeholder="Max"
-                value={priceMax}
-                onChange={(e) => handlePriceMaxChange(e.target.value)}
-                min={0.01}
-                max={999.99}
-                step={0.01}
-                className="w-full bg-card border-border focus:border-primary"
-                aria-label="Cena maksymalna"
-                aria-invalid={!!priceError}
-                aria-describedby={priceError ? "offer-price-error" : undefined}
-              />
-            </div>
-            {priceError && <p id="offer-price-error" role="alert" className="text-sm text-destructive">{priceError}</p>}
-          </div>
-
-          {/* Cuisine type multi-select */}
-          <div className="space-y-3 md:col-span-2 lg:col-span-1">
-            <Label className="text-base font-medium uppercase tracking-wider text-muted-foreground">
-              Typ kuchni
-            </Label>
-            <div className="flex flex-wrap gap-2">
-              {CUISINE_TYPES.map((cuisine) => {
-                const active = cuisineTypes.includes(cuisine.value);
-                return (
-                  <Chip
-                    key={cuisine.value}
-                    active={active}
-                    onClick={() => handleCuisineToggle(cuisine.value)}
-                  >
-                    {cuisine.label}
-                  </Chip>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Dietary tags multi-select */}
-          <div className="space-y-3 md:col-span-2 lg:col-span-1">
-            <Label className="text-base font-medium uppercase tracking-wider text-muted-foreground">
-              Dieta
-            </Label>
-            <div className="flex flex-wrap gap-2">
-              {DIETARY_TAGS.map((tag) => {
-                const active = dietaryTags.includes(tag.value);
-                return (
-                  <Chip
-                    key={tag.value}
-                    active={active}
-                    onClick={() => handleDietaryToggle(tag.value)}
-                  >
-                    {tag.label}
-                  </Chip>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-lg md:inset-y-0 md:left-auto md:right-0 md:h-full md:max-h-dvh md:w-[440px] md:rounded-none md:border-l md:border-t-0">
+        <SheetHeader>
+          <SheetTitle>Twój lunch, Twoje zasady</SheetTitle>
+          <SheetDescription>Wybierz kryteria i zastosuj je do listy.</SheetDescription>
+        </SheetHeader>
+        <form onSubmit={event => {
+          event.preventDefault();
+          if (priceError) return;
+          if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+          searchNavigations.current = [];
+          onChange(buildFilters()); setIsOpen(false);
+        }}>
+          <FieldGroup className="px-4">
+            {userLocation && <Field>
+              <FieldLabel htmlFor="distance-slider">Odległość: {distance} km</FieldLabel>
+              <Slider id="distance-slider" min={0.5} max={25} step={0.5} value={[distance]}
+                onValueChange={handleDistanceChange} aria-label={`Maksymalna odległość: ${distance} km`} />
+            </Field>}
+            <FieldSet>
+              <FieldLegend>Zakres cen (PLN)</FieldLegend>
+              <FieldGroup className="grid grid-cols-2 gap-3">
+                <Field data-invalid={!!priceError}>
+                  <FieldLabel htmlFor="offer-price-min">Od</FieldLabel>
+                  <Input id="offer-price-min" type="number" placeholder="Min" value={priceMin}
+                    onChange={e => handlePriceMinChange(e.target.value)} min={0.01} max={999.99} step={0.01}
+                    aria-label="Cena minimalna" aria-invalid={!!priceError} aria-describedby={priceError ? "offer-price-error" : undefined} />
+                </Field>
+                <Field data-invalid={!!priceError}>
+                  <FieldLabel htmlFor="offer-price-max">Do</FieldLabel>
+                  <Input id="offer-price-max" type="number" placeholder="Max" value={priceMax}
+                    onChange={e => handlePriceMaxChange(e.target.value)} min={0.01} max={999.99} step={0.01}
+                    aria-label="Cena maksymalna" aria-invalid={!!priceError} aria-describedby={priceError ? "offer-price-error" : undefined} />
+                </Field>
+              </FieldGroup>
+              {priceError && <FieldError id="offer-price-error">{priceError}</FieldError>}
+            </FieldSet>
+            <FieldSet>
+              <FieldLegend>Typ kuchni</FieldLegend>
+              <FieldGroup className="grid grid-cols-2 gap-3">
+                {CUISINE_TYPES.map(cuisine => <Field key={cuisine.value} orientation="horizontal">
+                  <Checkbox id={`cuisine-${cuisine.value}`} checked={cuisineTypes.includes(cuisine.value)}
+                    onCheckedChange={() => handleCuisineToggle(cuisine.value)} />
+                  <FieldLabel className="min-w-0 [overflow-wrap:anywhere]" htmlFor={`cuisine-${cuisine.value}`}>{cuisine.label}</FieldLabel>
+                </Field>)}
+              </FieldGroup>
+            </FieldSet>
+            <FieldSet>
+              <FieldLegend>Dieta</FieldLegend>
+              <ToggleGroup type="multiple" value={dietaryTags} variant="outline" spacing={2} className="flex-wrap"
+                aria-label="Dieta" onValueChange={values => {
+                  const next = values as DietaryTag[];
+                  setDietaryTags(next); emitChange({ dietaryTags: next });
+                }}>
+                {DIETARY_TAGS.map(tag => <ToggleGroupItem key={tag.value} value={tag.value}>{tag.label}</ToggleGroupItem>)}
+              </ToggleGroup>
+            </FieldSet>
+          </FieldGroup>
+          <SheetFooter>
+            <Button type="submit" disabled={!!priceError}>Pokaż oferty</Button>
+            <Button type="button" variant="outline" onClick={() => changePanel(false)}>Anuluj</Button>
+          </SheetFooter>
+        </form>
+      </SheetContent>
+    </Sheet>
   );
 }

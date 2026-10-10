@@ -68,7 +68,7 @@ describe("OfferCard", () => {
 
     expect(screen.getByText("Pierogi ruskie")).toBeInTheDocument();
     expect(screen.getByText("Restauracja Polska")).toBeInTheDocument();
-    expect(screen.getByText("24.99 PLN")).toBeInTheDocument();
+    expect(screen.getByText(/24,99\s*zł/)).toBeInTheDocument();
   });
 
   it("renders description when available", () => {
@@ -103,7 +103,7 @@ describe("OfferCard", () => {
     const offer = createMockOffer({ distanceKm: 2.5 });
     render(<OfferCard offer={offer} />);
 
-    expect(screen.getByText("2.5 km")).toBeInTheDocument();
+    expect(screen.getByText("2,5 km")).toBeInTheDocument();
   });
 
   it("hides distance when null", () => {

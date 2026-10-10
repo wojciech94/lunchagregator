@@ -56,8 +56,8 @@ export function NavMobileMenu({ isAdmin = false, isAuthenticated = false, email,
 
   const renderLink = (link: { href: string; label: string }) => (
     <Link key={link.href} href={link.href} aria-current={isNavActive(pathname, link.href) ? "page" : undefined}
-      className={cn("rounded-[4px] px-3 py-3 text-base font-medium transition-colors min-h-[44px] flex items-center",
-        isNavActive(pathname, link.href) ? "text-[#f7f8f8] bg-[#1e2023]" : "text-[#a1a5ad] hover:text-primary")}>
+      className={cn("rounded-md px-3 py-3 text-base font-medium transition-colors min-h-[44px] flex items-center",
+        isNavActive(pathname, link.href) ? "text-foreground bg-accent" : "text-muted-foreground hover:text-primary")}>
       {link.label}
     </Link>
   );
@@ -68,30 +68,30 @@ export function NavMobileMenu({ isAdmin = false, isAuthenticated = false, email,
       }}>
       <button ref={toggleRef} type="button" data-mobile-nav-trigger aria-expanded={open} aria-controls={menuId}
         onClick={() => setOpen(!open)}
-        className="xl:hidden min-h-[44px] min-w-[44px] flex items-center justify-center text-[#f7f8f8]"
+        className="xl:hidden min-h-[44px] min-w-[44px] flex items-center justify-center text-foreground"
         aria-label={open ? "Zamknij menu" : "Otwórz menu"}>
         {open ? <X className="size-5" /> : <Menu className="size-5" />}
       </button>
       {open && (
         <nav id={menuId} aria-label="Nawigacja mobilna"
-          className="xl:hidden max-h-[calc(100dvh-3.5rem)] overflow-y-auto border-t border-border bg-[#0f1011] px-4 py-3 absolute top-14 left-0 right-0 z-50"
+          className="xl:hidden max-h-[calc(100dvh-3.5rem)] overflow-y-auto border-t border-border bg-background px-4 py-3 absolute top-14 left-0 right-0 z-50"
           onClick={(event) => { if ((event.target as Element).closest("a")) setOpen(false); }}
           onSubmit={() => setOpen(false)}>
           <div className="flex flex-col gap-2">
-            <p className="px-3 text-xs text-[#a1a5ad]">Przeglądaj</p>
+            <p className="px-3 text-xs text-muted-foreground">Przeglądaj</p>
             {navLinks.map(renderLink)}
             <AddOfferLink className="my-2 justify-start" />
           </div>
           <div className="flex flex-col gap-2 pt-3 mt-2 border-t border-border">
-            <p className="px-3 text-xs text-[#a1a5ad]">Konto</p>
-            {isAuthenticated && <p className="px-3 text-sm text-[#f7f8f8] [overflow-wrap:anywhere]">{email ?? "Twoje konto"}</p>}
+            <p className="px-3 text-xs text-muted-foreground">Konto</p>
+            {isAuthenticated && <p className="px-3 text-sm text-foreground [overflow-wrap:anywhere]">{email ?? "Twoje konto"}</p>}
             {accountLinksFor(isAdmin, isAuthenticated).map(renderLink)}
             {!isAuthenticated && (accountControls ?? <AuthNavLinks />)}
           </div>
           <div className="pt-3 mt-2 border-t border-border">
-            <p className="px-3 text-xs text-[#a1a5ad]">Lokalizacja</p>
-            <p className="px-3 py-2 text-sm text-[#f7f8f8] [overflow-wrap:anywhere]">{coordinates ? label ?? "Lokalizacja ustawiona" : "Lokalizacja nieustawiona"}</p>
-            <Button variant="ghost" className="min-h-[44px] text-[#f7f8f8]" aria-haspopup="dialog"
+            <p className="px-3 text-xs text-muted-foreground">Lokalizacja</p>
+            <p className="px-3 py-2 text-sm text-foreground [overflow-wrap:anywhere]">{coordinates ? label ?? "Lokalizacja ustawiona" : "Lokalizacja nieustawiona"}</p>
+            <Button variant="ghost" className="min-h-[44px] text-foreground" aria-haspopup="dialog"
               onClick={() => { setLocationOpen(true); setOpen(false); }}>
               {coordinates ? "Zmień lokalizację" : "Ustaw lokalizację"}
             </Button>

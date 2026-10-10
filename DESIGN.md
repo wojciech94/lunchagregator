@@ -1,6 +1,6 @@
 # Lunch Aggregator UI direction
 
-Status: proposed design, 2026-10-10. This is a reviewable direction, not a shipped application redesign. The [interactive prototype](docs/design/lunch-ui.html) uses fictional offers and local state, without APIs, authentication or database writes. Open that file directly in a browser. Polish is the product language; repository design documentation is English.
+Status: approved direction with the browse foundation implemented locally, 2026-10-10. The application now uses these tokens, shared controls, navigation styling and browse interactions. The [interactive prototype](docs/design/lunch-ui.html) remains a standalone design specimen with fictional offers and local state, without APIs, authentication or database writes. Open that file directly in a browser. Polish is the product language; repository design documentation is English.
 
 ## Product intent
 
@@ -10,7 +10,7 @@ The existing application uses Next.js App Router, Tailwind v4, shadcn New York w
 
 ## Foundations
 
-Map these proposed values to existing variables in `src/app/globals.css` when implementing. The prototype scopes equivalent tokens to its screen; it does not change production CSS.
+These values are mapped to existing variables in `src/app/globals.css`. The prototype scopes equivalent tokens to its own screen.
 
 | Token | Light | Dark | Role |
 | --- | --- | --- | --- |
@@ -58,15 +58,15 @@ Spacing scale: 4, 8, 12, 16, 24, 32, 48px. Cards have 24px padding (20px on mobi
 | Main and secondary actions | Existing Button variants; change shared `cva` sizes/styles centrally |
 | Offer | Existing CardHeader, CardTitle, CardDescription, CardContent, CardFooter; Button `asChild` for Next Link |
 | Diet metadata | Existing Badge secondary/outline variants; labels remain readable |
-| Date choices | Add ToggleGroup with single selection; reject empty value so a date stays selected |
-| Search | Add InputGroup + InputGroupInput + InputGroupAddon; visible or screen-reader label |
+| Date choices | ToggleGroup with single selection; reject empty value so a date stays selected |
+| Search | InputGroup + InputGroupInput + InputGroupAddon; visible or screen-reader label |
 | Filter panel | Existing Sheet with SheetTitle, description, FieldGroup + Field; draft/apply/cancel semantics |
-| Diet controls | Add ToggleGroup multiple; use FieldSet/FieldLegend for related checkboxes |
+| Diet controls | ToggleGroup multiple; use FieldSet/FieldLegend for related checkboxes |
 | Sort | Existing Select with SelectGroup containing SelectItem |
 | Location | Existing Dialog with DialogTitle; retain AddressInput and permission fallback |
-| No results / failure / loading | Add Empty / Alert / Skeleton, Spinner; stable results region with aria-busy |
+| No results / failure / loading | Empty / Alert / existing Skeleton / Spinner; stable results region with aria-busy |
 
-Components listed as “add” are not currently installed. Inspect them through CLI search/view before installation. No preset switch or bulk component overwrite is necessary. Do not use per-screen `className` overrides for component colors/typography; change tokens and variants. Keep Lucide icons with `data-icon` in buttons and an accessible label for icon-only actions.
+The listed primitives are installed and use the existing `@/lib/utils` helper. Dependencies and the New York/Radix foundation are preserved. No preset switch or bulk component overwrite is necessary. Do not use per-screen `className` overrides for component colors/typography; change tokens and variants. Keep Lucide icons with `data-icon` in buttons and an accessible label for icon-only actions.
 
 Reference APIs checked via the shadcn CLI: [Button](https://ui.shadcn.com/docs/components/radix/button), [Card](https://ui.shadcn.com/docs/components/radix/card), [ToggleGroup](https://ui.shadcn.com/docs/components/radix/toggle-group), [Sheet](https://ui.shadcn.com/docs/components/radix/sheet), [Select](https://ui.shadcn.com/docs/components/radix/select), [Badge](https://ui.shadcn.com/docs/components/radix/badge). The standalone HTML uses native controls to demonstrate behavior; production must use repository React components.
 
@@ -92,8 +92,10 @@ Every action needs a keyboard-visible focus ring. Use semantic headings/landmark
 
 ## Delivery and remaining work
 
-Delivered: this specification and an offline responsive prototype with date/week selection, search, maximum price, cuisine/diet/distance filtering, sorting, filter apply/cancel/reset, detail modal and light/dark specimens. Fictional distances are straight-line demo values. Prototype navigation is labelled as a specimen rather than connected application navigation.
+Delivered in the application: semantic light/dark tokens; shared Button/Input/Card/Select/Sheet styles; header and account navigation styling; a theme toggle persisted in a cookie and restored server-side; the browse introduction, seven-day selection with next-week/return-to-today actions, responsive offer cards, Polish prices and distances, truthful result counts and empty states. All eight cuisines, five dietary tags, price bounds and location-dependent radius remain available. Filters use a draft panel: apply commits to the URL; cancel/Escape restores the previous criteria; individual chips remove criteria. Search debounce, URL history, pagination and location fallback remain in place.
 
-Next implementation stage: apply global tokens and shared variants; migrate browse/header/location components; preserve existing filter/date/history tests; cover new draft/apply/cancel behavior; inspect offer detail and management screens; validate contrast, keyboard, 320px/desktop reflow and both themes; run affected lint/typecheck and behavioral regressions. Database and ingestion behavior do not need to change for this direction.
+The offline prototype additionally demonstrates a detail modal using fictional offers and straight-line demo distances. Its navigation is labelled as a specimen. Offer detail, restaurant, chat, contribution, management and admin screens inherit shared styles but their screen recipes above still require a dedicated redesign. Location input behavior is preserved rather than replaced. No database, ingestion, ownership or RLS behavior was changed. This stage is a local implementation, not a deployment or merge.
 
-Validation of this proposal: T3 `html_preview` rendered 320px, 728px and 1280px layouts without horizontal overflow or JavaScript errors. The 320px dark specimen was visually inspected. Browser assertions exercised price+cuisine apply, cancellation of a draft, reset, price sorting, empty search, day/week selection, detail open/close and theme switching. Five token contrast pairs per theme passed the thresholds above (lowest checked text ratio 5.57:1; lowest checked control outline ratio 3.27:1). Keyboard/screen-reader testing, 200% zoom and production integration remain for the implementation stage. No production build or database tests were run for this standalone proposal.
+Prototype validation: T3 `html_preview` rendered 320px, 728px and 1280px layouts without horizontal overflow or JavaScript errors. The 320px dark specimen was visually inspected. Assertions exercised filtering, cancellation, reset, sorting, search, date/week selection, detail and theme switching. Five token contrast pairs per theme passed the thresholds above (lowest checked text ratio 5.57:1; lowest checked control outline ratio 3.27:1).
+
+Application validation: the full unit/property suite passed (1,134 tests; seven skipped). Focused filter/theme regressions, typecheck/lint and `npm run build` passed; lint retains two pre-existing unused-variable warnings outside this change. All seven Chromium filter E2E scenarios passed against an isolated HTTP fixture, covering draft/apply/cancel at 320px and 1280px, history, refresh, invalid prices, search races and links without location. Separate browser checks at 320px, 768px and 1440px verified no horizontal overflow, Escape focus return, persisted dark mode, seven-day/week navigation and no page errors. Desktop and dark screenshots were visually inspected. A full screen-reader audit and explicit 200% zoom check remain outside this validation; database tests are not needed for the UI-only scope.

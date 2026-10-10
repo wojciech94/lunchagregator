@@ -91,7 +91,7 @@ describe("OffersPage empty state", () => {
 
     expect(
       screen.getByText(
-        "Brak ofert lunchowych na dziś. Sprawdź później lub dodaj własną ofertę!"
+        /Brak ofert lunchowych na .*\. Sprawdź inny dzień lub dodaj własną ofertę\./
       )
     ).toBeInTheDocument();
   });

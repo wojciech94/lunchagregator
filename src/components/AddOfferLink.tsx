@@ -12,9 +12,9 @@ export function AddOfferLink({ className }: { className?: string }) {
   const active = isNavActive(usePathname(), contributionLink.href);
   return (
     <Button asChild className={cn("min-h-[44px]", className,
-      active && "bg-primary/80 ring-2 ring-primary ring-offset-2 ring-offset-[#0f1011]")}>
+      active && "bg-primary/80 ring-2 ring-primary ring-offset-2 ring-offset-background")}>
       <Link href={contributionLink.href} aria-current={active ? "page" : undefined}>
-        <Plus className="size-4" />{contributionLink.label}
+        <Plus data-icon="inline-start" />{contributionLink.label}
       </Link>
     </Button>
   );

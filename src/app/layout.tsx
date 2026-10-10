@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { cookies } from "next/headers";
 import "./globals.css";
 import { NavHeader } from "@/components/NavHeader";
 import { PostAuthMigrationWarning } from "@/components/auth/PostAuthMigrationWarning";
@@ -30,9 +31,10 @@ export default async function RootLayout({
   // Read once here: the cookie is httpOnly, so this is the only place the
   // server can turn it into something a client component can use.
   const initialLocation = await readStoredLocationCookie();
+  const dark = (await cookies()).get("lunch-theme")?.value === "dark";
 
   return (
-    <html lang="pl">
+    <html lang="pl" className={dark ? "dark" : undefined}>
       <body
         className={`${inter.variable} font-sans antialiased`}
       >

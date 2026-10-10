@@ -1,70 +1,49 @@
 import Link from "next/link";
-import { MapPin } from "lucide-react";
+import { ArrowUpRight, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { LunchOfferWithDistance } from "@/types/offers";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import type { LunchOfferWithDistance, CuisineType, DietaryTag } from "@/types/offers";
 
-interface OfferCardProps {
-  offer: LunchOfferWithDistance;
-  className?: string;
-}
-
-/**
- * Truncates a description to a maximum length, adding ellipsis if needed.
- */
-export function truncateDescription(
-  description: string | null,
-  maxLength: number = 150
-): string | null {
+interface OfferCardProps { offer: LunchOfferWithDistance; className?: string; }
+const cuisines: Record<CuisineType, string> = {
+  polska: "Polska", wloska: "Włoska", azjatycka: "Azjatycka", meksykanska: "Meksykańska",
+  amerykanska: "Amerykańska", indyjska: "Indyjska", srodziemnomorska: "Śródziemnomorska", inne: "Inna",
+};
+const diets: Record<DietaryTag, string> = {
+  vegetarian: "Wegetariańskie", vegan: "Wegańskie", "gluten-free": "Bezglutenowe", "dairy-free": "Bez nabiału", keto: "Keto",
+};
+export function truncateDescription(description: string | null, maxLength = 150): string | null {
   if (!description) return null;
-  if (description.length <= maxLength) return description;
-  return description.slice(0, maxLength) + "...";
+  return description.length <= maxLength ? description : description.slice(0, maxLength) + "...";
 }
-
 export function OfferCard({ offer, className }: OfferCardProps) {
-  const truncatedDescription = truncateDescription(offer.description);
-
+  const description = truncateDescription(offer.description);
+  const price = new Intl.NumberFormat("pl-PL", { style: "currency", currency: offer.currency || "PLN" }).format(offer.price);
   return (
-    <Link
-      href={`/offers/${offer.id}`}
-      className={cn(
-        "block min-h-[44px] rounded-lg border border-border bg-card p-4 shadow-sm",
-        "transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        "active:bg-accent",
-        className
-      )}
-      aria-label={`${offer.dishName} - ${offer.restaurantName}, ${offer.price} PLN`}
-    >
-      <div className="flex flex-col gap-2">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="text-base font-semibold leading-tight text-card-foreground line-clamp-2">
-            {offer.dishName}
-          </h3>
-          <span className="shrink-0 text-base font-bold text-primary whitespace-nowrap">
-            {offer.price.toFixed(2)} PLN
-          </span>
+    <Card className={cn("h-full", className)}>
+      <CardHeader>
+        {offer.cuisineType && <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{cuisines[offer.cuisineType]}</p>}
+        <CardTitle><h3>{offer.dishName}</h3></CardTitle>
+        <CardDescription>{offer.restaurantName}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {description && <p className="text-sm leading-relaxed text-muted-foreground">{description}</p>}
+        {offer.items.length > 0 && <p className="text-sm leading-relaxed text-muted-foreground">{offer.items.join(" · ")}</p>}
+        {offer.dietaryTags.length > 0 && <div className="flex flex-wrap gap-2">{offer.dietaryTags.map(tag => <Badge key={tag} variant="secondary">{diets[tag]}</Badge>)}</div>}
+      </CardContent>
+      <CardFooter className="mt-auto flex-col items-stretch gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
+          <span className="text-2xl font-bold tracking-tight tabular-nums">{price}</span>
+          {offer.distanceKm !== null && <span className="flex items-center gap-1 text-sm text-muted-foreground"><MapPin className="size-4" aria-hidden="true" />{offer.distanceKm.toLocaleString("pl-PL", { maximumFractionDigits: 1, minimumFractionDigits: 1 })} km</span>}
         </div>
-
-        <p className="text-sm text-muted-foreground">{offer.restaurantName}</p>
-
-        {truncatedDescription && (
-          <p className="text-sm text-muted-foreground/80 leading-relaxed">
-            {truncatedDescription}
-          </p>
-        )}
-
-        {offer.items.length > 0 && (
-          <p className="text-xs text-muted-foreground/70 leading-relaxed">
-            {offer.items.join(", ")}
-          </p>
-        )}
-
-        {offer.distanceKm !== null && (
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            <span>{offer.distanceKm.toFixed(1)} km</span>
-          </div>
-        )}
-      </div>
-    </Link>
+        <Button variant="outline" asChild>
+          <Link href={`/offers/${offer.id}`} aria-label={`${offer.dishName} - ${offer.restaurantName}, ${offer.price} PLN`}>
+            Zobacz ofertę <ArrowUpRight data-icon="inline-end" aria-hidden="true" />
+          </Link>
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }

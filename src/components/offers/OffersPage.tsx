@@ -7,10 +7,13 @@ import { LocationIndicator } from "@/components/location/LocationIndicator";
 import { AddressInput } from "@/components/location/AddressInput";
 import { MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyContent } from "@/components/ui/empty";
+import { Spinner } from "@/components/ui/spinner";
 import { OfferFilters } from "./OfferFilters";
 import { OfferList } from "./OfferList";
 import { menuDates, menuToday, nextMenuMonday } from '@/lib/recurring-menu';
-import { cn } from "@/lib/utils";
 import { priceFilterSchema } from "@/lib/validations/filters";
 import {
   filtersToSearchParams,
@@ -57,7 +60,18 @@ export function OffersPage({ initialData }: OffersPageProps) {
   };
   const isLoading = isPending;
 
-  const days = menuDates(menuToday(), 14).map((date, index) => ({ date, label: index === 0 ? 'Dziś' : index === 1 ? 'Jutro' : new Date(`${date}T12:00:00Z`).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', timeZone: 'UTC' }), weekday: new Date(`${date}T12:00:00Z`).toLocaleDateString('pl-PL', { weekday: 'short', timeZone: 'UTC' }) }));
+  const today = menuToday();
+  const [windowStart, setWindowStart] = React.useState(() =>
+    selectedDate >= menuDates(today, 8)[7] || selectedDate < today ? selectedDate : today);
+  React.useEffect(() => {
+    setWindowStart(current => selectedDate < current || selectedDate > menuDates(current, 7)[6] ? selectedDate : current);
+  }, [selectedDate]);
+  const days = menuDates(windowStart, 7).map(date => ({ date,
+    label: date === today ? 'Dziś' : new Date(`${date}T12:00:00Z`).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', timeZone: 'UTC' }),
+    weekday: new Date(`${date}T12:00:00Z`).toLocaleDateString('pl-PL', { weekday: 'short', timeZone: 'UTC' }),
+  }));
+  const fullDate = new Date(`${selectedDate}T12:00:00Z`).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const hasBrowsingCriteria = !!(filters.price || filters.cuisineTypes?.length || filters.dietaryTags?.length || filters.searchQuery || radius !== undefined);
 
   /**
    * One write path. `mode` is the whole difference between a filter the User
@@ -95,8 +109,8 @@ export function OffersPage({ initialData }: OffersPageProps) {
   );
 
   const handleFiltersChange = React.useCallback(
-    (next: OfferFiltersType) =>
-      applyFilters({ date: filters.date, ...next }, next.distance?.radius ?? radius, "push"),
+    (next: OfferFiltersType, options?: { clearRadius?: boolean }) =>
+      applyFilters({ date: filters.date, ...next }, options?.clearRadius ? undefined : next.distance?.radius ?? radius, "push"),
     [applyFilters, filters.date, radius]
   );
 
@@ -184,81 +198,68 @@ export function OffersPage({ initialData }: OffersPageProps) {
     <div className="flex flex-col gap-6">
       {/* Geolocation loading */}
       {geoLoading && (
-        <p className="text-sm text-muted-foreground animate-pulse">
+        <p className="text-sm text-muted-foreground" role="status">
           Określanie lokalizacji...
         </p>
       )}
 
       {distanceRequestedWithoutLocation && (
-        <div
-          className="rounded-md border border-border bg-card p-4 shadow-[0_1.2px_0_0_rgba(0,0,0,0.03)]"
+        <Alert
           role="status"
           data-testid="distance-needs-location"
         >
-          <div className="flex items-center gap-2 mb-3">
-            <MapPin className="size-4 text-primary" />
-            <p className="text-sm text-muted-foreground">
+          <MapPin aria-hidden="true" />
+          <AlertTitle>Podaj lokalizację</AlertTitle>
+          <AlertDescription>
+            <p>
               Ten link prosi o filtrowanie lub sortowanie według odległości, a nie
               znamy Twojej lokalizacji. Parametry zostały w adresie — podaj
               lokalizację, żeby zadziałały.
             </p>
-          </div>
           {permissionState === "prompt" || permissionState === null ? (
             <Button variant="outline" onClick={requestLocation} disabled={geoLoading}>
               Ustal lokalizację
             </Button>
           ) : null}
           <AddressInput onLocationResolved={handleManualLocation} />
-        </div>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Manual address input fallback */}
-      {showAddressInput && (
-        <div className="rounded-md border border-border bg-card p-4 shadow-[0_1.2px_0_0_rgba(0,0,0,0.03)]">
-          <div className="flex items-center gap-2 mb-3">
-            <MapPin className="size-4 text-primary" />
-            <p className="text-sm text-muted-foreground">
+      {showAddressInput && !distanceRequestedWithoutLocation && (
+        <Alert>
+          <MapPin aria-hidden="true" />
+          <AlertTitle>Wpisz adres ręcznie</AlertTitle>
+          <AlertDescription>
+            <p>
               {permissionState === "denied"
                 ? "Lokalizacja odrzucona. Wpisz adres, aby sortować oferty według odległości."
                 : "Nie udało się pobrać lokalizacji. Wpisz adres ręcznie."}
             </p>
-          </div>
           <AddressInput onLocationResolved={handleManualLocation} />
-        </div>
+          </AlertDescription>
+        </Alert>
       )}
 
-      {/* Day selector - browse offers per day (useful for weekly menus).
-
-          Seven 64px buttons plus gaps need 496px; a 320px viewport has 280px
-          for this row. Horizontal scrolling left four of the seven days
-          unreachable with no visual sign that more existed, which is what
-          Requirement 7.1 now forbids. Wrapping fits all seven at every width
-          and leaves the layout unchanged from 768px up. */}
-      <div className="flex flex-wrap gap-2 pb-1">
-        <Button variant="outline" onClick={() => handleDayChange(nextMenuMonday(menuToday()))}>Następny tydzień</Button>
-        {days.map((d) => {
-          const active = d.date === selectedDate;
-          return (
-            <button
-              key={d.date}
-              type="button"
-              onClick={() => handleDayChange(d.date)}
-              aria-pressed={active}
-              className={cn(
-                "flex shrink-0 flex-col items-center rounded-md border px-3 py-2 transition-colors min-w-[64px]",
-                active
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground"
-              )}
-            >
-              <span className="text-base font-medium">{d.label}</span>
-              <span className="text-base capitalize opacity-70">{d.weekday}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      <LocationIndicator />
+      <section className="flex flex-col gap-4" aria-label="Wybór daty lunchu">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <LocationIndicator />
+          <div className="flex flex-wrap gap-2">
+            {windowStart !== today && <Button variant="ghost" onClick={() => { setWindowStart(today); handleDayChange(today); }}>Wróć do dziś</Button>}
+            <Button variant="outline" onClick={() => { const next = nextMenuMonday(windowStart); setWindowStart(next); handleDayChange(next); }}>Następny tydzień</Button>
+          </div>
+        </div>
+        <ToggleGroup type="single" value={selectedDate} variant="outline" spacing={2}
+          className="grid w-full grid-cols-3 min-[400px]:grid-cols-4 md:grid-cols-7"
+          aria-label="Dzień lunchu" onValueChange={date => { if (date) handleDayChange(date); }}>
+          {days.map(d => <ToggleGroupItem key={d.date} value={d.date} className="h-auto flex-col gap-1 py-3"
+            aria-label={`${d.label}, ${d.weekday}`}>
+            <span className="text-sm capitalize">{d.weekday}</span>
+            <span className="text-base font-semibold">{d.label}</span>
+          </ToggleGroupItem>)}
+        </ToggleGroup>
+      </section>
       {/* Filters */}
       <OfferFilters
         onChange={handleFiltersChange}
@@ -281,24 +282,29 @@ export function OffersPage({ initialData }: OffersPageProps) {
 
       {/* Keep the current results in place while the server renders the next
           query. Replacing the list with a spinner collapsed its layout. */}
+      <p className="text-sm text-muted-foreground" role="status" aria-live="polite">{pagination.total} ofert · {fullDate}</p>
       <div className="relative min-h-24" data-testid="offer-results" aria-busy={isLoading}>
         {isLoading && (
-          <div className="absolute inset-0 z-10 flex items-start justify-center bg-background/60 pt-8">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" role="status" aria-label="Ładowanie ofert" />
+          <div className="pointer-events-none absolute inset-0 flex items-start justify-center bg-background/60 pt-8">
+            <Spinner aria-label="Ładowanie ofert" />
           </div>
         )}
 
         {/* Single empty state — context-aware */}
         {offers.length === 0 && (
-          <div className="rounded-lg border border-border bg-muted/50 p-6 text-center">
-            <p className="text-muted-foreground">
+          <Empty className="border border-solid bg-card">
+            <EmptyHeader>
+            <EmptyTitle>Nie znaleźliśmy takiego lunchu</EmptyTitle>
+            <EmptyDescription>
               {filters.price && !priceFilterSchema.safeParse(filters.price).success
                 ? "Popraw zakres cen, aby wyświetlić oferty."
-                : Object.keys(filters).length > 0
+                : hasBrowsingCriteria
                 ? "Brak ofert spełniających wybrane kryteria. Spróbuj zmienić filtry."
-                : "Brak ofert lunchowych na dziś. Sprawdź później lub dodaj własną ofertę!"}
-            </p>
-          </div>
+                : `Brak ofert lunchowych na ${fullDate}. Sprawdź inny dzień lub dodaj własną ofertę.`}
+            </EmptyDescription>
+            </EmptyHeader>
+            {hasBrowsingCriteria && <EmptyContent><Button variant="outline" onClick={handleReset}>Wyczyść kryteria wyszukiwania</Button></EmptyContent>}
+          </Empty>
         )}
 
         {/* Offer list */}

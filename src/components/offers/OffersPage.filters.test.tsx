@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, act } from "@testing-library/react";
 import { mockRouter, setMockSearchParams } from "../../../tests/setup";
 import { OffersPage } from "./OffersPage";
@@ -11,18 +11,54 @@ vi.mock("@/components/ui/select", () => ({
   Select: ({ children, value, onValueChange }: { children: React.ReactNode; value?: string; onValueChange: (v: string) => void }) => <select aria-label="Sortowanie" value={value ?? ""} onChange={e => onValueChange(e.target.value)}>{children}</select>,
   SelectTrigger: () => null, SelectValue: () => null,
   SelectContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  SelectGroup: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   SelectItem: ({ children, value }: { children: React.ReactNode; value: string }) => <option value={value}>{children}</option>,
 }));
 
 const empty = { offers: [], total: 0, page: 1, limit: 50, hasMore: false };
-afterEach(() => { cleanup(); vi.useRealTimers(); });
+// Radix Checkbox measures its control in the sheet; jsdom has no layout observer.
+beforeEach(() => vi.stubGlobal("ResizeObserver", class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}));
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 const pushed = () => new URL(mockRouter.push.mock.calls.at(-1)![0], "https://test.local").searchParams;
 
 describe("real filter form and page URL integration", () => {
+  it("does not navigate until applying the draft, and cancellation restores linked criteria", () => {
+    setMockSearchParams("date=2026-10-08&priceMin=20&priceMax=50&cuisines=polska");
+    render(<OffersPage initialData={empty} />);
+    fireEvent.click(screen.getByRole("button", { name: "Pokaż filtry" }));
+    fireEvent.change(screen.getByLabelText("Cena maksymalna"), { target: { value: "35" } });
+    fireEvent.click(screen.getByRole("button", { name: "Wegetariańskie" }));
+    expect(mockRouter.push).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Anuluj" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pokaż filtry" }));
+    expect(screen.getByLabelText("Cena maksymalna")).toHaveValue(50);
+    expect(screen.getByRole("button", { name: "Wegetariańskie" })).toHaveAttribute("aria-pressed", "false");
+    fireEvent.change(screen.getByLabelText("Cena maksymalna"), { target: { value: "35" } });
+    fireEvent.click(screen.getByRole("button", { name: "Pokaż oferty" }));
+    expect(pushed().get("priceMax")).toBe("35");
+    expect(pushed().get("date")).toBe("2026-10-08");
+  });
+
+  it("removes only the radius even when the visitor has no location", () => {
+    setMockSearchParams("date=2026-10-08&radius=5&cuisines=polska&priceMax=40");
+    render(<OffersPage initialData={empty} />);
+    fireEvent.click(screen.getByRole("button", { name: "Usuń filtr: Do 5 km" }));
+    expect(pushed().get("radius")).toBeNull();
+    expect(pushed().get("date")).toBe("2026-10-08");
+    expect(pushed().get("cuisines")).toBe("polska");
+    expect(pushed().get("priceMax")).toBe("40");
+  });
+
   it("keeps selected day, search, price, cuisine and radius when adding a diet and resets pagination", () => {
     setMockSearchParams("date=2026-10-08&q=zupa&priceMin=20&priceMax=50&cuisines=polska&radius=5&page=3");
     render(<OffersPage initialData={empty} />);
+    fireEvent.click(screen.getByRole("button", { name: "Pokaż filtry" }));
     fireEvent.click(screen.getByRole("button", { name: "Wegetariańskie" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pokaż oferty" }));
     expect(Object.fromEntries(pushed())).toEqual({ date: "2026-10-08", q: "zupa", priceMin: "20", priceMax: "50", cuisines: "polska", diets: "vegetarian", radius: "5" });
   });
 
@@ -45,12 +81,15 @@ describe("real filter form and page URL integration", () => {
   it("shows a Polish price error without erasing the linked inputs or other criteria", () => {
     setMockSearchParams("date=2026-10-08&priceMin=50&priceMax=30&cuisines=polska");
     render(<OffersPage initialData={empty} />);
+    fireEvent.click(screen.getByRole("button", { name: "Pokaż filtry" }));
     expect(screen.getByLabelText("Cena minimalna")).toHaveValue(50);
     expect(screen.getByLabelText("Cena maksymalna")).toHaveValue(30);
     expect(screen.getByRole("alert")).toHaveTextContent(/minimalna.*maksymalnej/i);
     fireEvent.click(screen.getByRole("button", { name: "Wegetariańskie" }));
-    expect(pushed().get("priceMin")).toBe("50");
-    expect(pushed().get("cuisines")).toBe("polska");
+    expect(screen.getByRole("button", { name: "Pokaż oferty" })).toBeDisabled();
+    expect(mockRouter.push).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Cena minimalna")).toHaveValue(50);
+    expect(screen.getByLabelText("Cena maksymalna")).toHaveValue(30);
   });
 
   it("does not let a pending search timer resurrect filters after reset", () => {
@@ -87,7 +126,9 @@ describe("real filter form and page URL integration", () => {
     setMockSearchParams("date=2026-10-08");
     render(<OffersPage initialData={empty} />);
     fireEvent.change(screen.getByLabelText("Szukaj ofert"), { target: { value: "zupa" } });
+    fireEvent.click(screen.getByRole("button", { name: "Pokaż filtry" }));
     fireEvent.click(screen.getByRole("button", { name: "Wegetariańskie" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pokaż oferty" }));
     act(() => vi.advanceTimersByTime(350));
     expect(mockRouter.replace).not.toHaveBeenCalled();
     expect(pushed().get("diets")).toBe("vegetarian");
