@@ -11,6 +11,14 @@ export async function listImportBindings(): Promise<ImportBinding[]> {
 }
 
 /** Session client and RLS; no environment UUID fallback. */
+export async function getImportRestaurant(restaurantId: string): Promise<{ id: string; name: string; address: string } | null> {
+  const client = await createClient();
+  const { data, error } = await client.from('restaurants').select('id,name,address').eq('id', restaurantId).maybeSingle();
+  if (error) throw new Error('Nie można odczytać restauracji źródła.');
+  return data;
+}
+
+/** Active-source resolution stays separate from displaying an inactive identity. */
 export async function resolveImportSource(sourceId: AnySourceId): Promise<{
   source: ImportSource; restaurant: { id: string; name: string; address: string };
 } | null> {

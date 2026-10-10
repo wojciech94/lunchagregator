@@ -1,14 +1,19 @@
 # Admin source clarity and Sofa guard (#94)
 
-Independent base: `origin/main` `db1c22cd993a9c0ae00a11ec2c9706825f968b0e`.
-Sushi Corner PDF implementation is delivered separately in PR #148; this stage
-does not depend on or activate it.
+Initial independent base: `origin/main` `db1c22cd993a9c0ae00a11ec2c9706825f968b0e`.
+Review fixes incorporate externally merged PR #148 through main
+`a925a581f3a586e653055c816c1c7335d8e77d9c`. The latest fetched main
+`8cfb9c5ae1944866033e3277aa63faf32af1f43b` adds only release metadata/version
+changes. This stage does not activate Sushi Corner.
 
 The central Admin import page now names each source's Restaurant/address, links
 its official menu and settings, and distinguishes active configuration, disabled,
-draft, pending verification and unsupported trials. Inactive entries show their
-saved source identity explicitly, rather than claiming those are current Restaurant
-details. Only a successfully resolved active binding shows the fetch panel.
+draft, pending verification and unsupported trials. Inactive entries also read the
+current Restaurant identity and compare it with the retained verification identity.
+Changed or missing identity requires re-verification; a manually disabled binding
+with matching identity remains disabled. The previously confirmed branch is shown
+separately, and missing Restaurants explicitly fall back to the saved source identity.
+Only a successfully resolved active binding shows the fetch panel.
 Configuration state does not attest current menu availability.
 
 Sofa's pilot visibility discrepancy is displayed explicitly. Its adapter rejects
@@ -46,8 +51,11 @@ Focused tests cover hiding markers on sections/ancestors, rejection before AI,
 visible-menu preservation, Admin gating and central source statuses/links/errors.
 No authorization, SQL, publication identity or RLS contract changes are introduced.
 
-The 42 focused adapter/action/Admin-page tests passed, with typecheck and affected
-ESLint clean. A fresh official Sofa browser inspection on 2026-10-10 reproduced
+After the identity-invalidation review fix and incorporating PR #148, 46 focused
+adapter/action/Admin-page tests passed, including name/address changes with a
+retained verification timestamp, missing identity, and matching disabled identity.
+Typecheck and affected ESLint passed; production build passed with two existing
+unrelated lint warnings. A fresh official Sofa browser inspection on 2026-10-10 reproduced
 `hidden`, computed `display:none`, three raw occurrences of `40,31` and no visible
 `40,31` in body text. This corroborates the specific guard; it does not identify
 the site's hiding reason or current weekday lunch availability. The production
