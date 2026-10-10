@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.9.1](https://github.com/wojciech94/lunchagregator/compare/v0.9.0...v0.9.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* **ui:** align action hovers and reorder header controls ([ac7061d](https://github.com/wojciech94/lunchagregator/commit/ac7061df5dd619cd3b2fe3060458123a589af9e2))
+* **ui:** place add-offer action before theme toggle ([c66313a](https://github.com/wojciech94/lunchagregator/commit/c66313a0ae71336a54035bf12e143209a92a9177))
+* **ui:** replace legacy blue hovers with shared button variants ([0b70de0](https://github.com/wojciech94/lunchagregator/commit/0b70de06a255c78161c169eba850c309cc4ab22b))
+
 ## [0.9.0](https://github.com/wojciech94/lunchagregator/compare/v0.8.0...v0.9.0) (2026-10-10)
 
 
