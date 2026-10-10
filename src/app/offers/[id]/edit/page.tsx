@@ -452,13 +452,13 @@ function EditOfferForm({
       </FormField>
 
       {/* Submit */}
-      <button
+      <Button
         type="submit"
         disabled={isSubmitting}
-        className="self-start mt-2 inline-flex min-h-[48px] items-center rounded-[4px] bg-primary px-6 py-3 text-base font-medium text-primary-foreground transition-colors hover:bg-[#5e6ad2] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="mt-2 self-start"
       >
         {isSubmitting ? "Zapisywanie..." : "Zapisz zmiany"}
-      </button>
+      </Button>
     </form>
   );
 }

@@ -243,13 +243,12 @@ export function RestaurantDetail({ restaurant, canEdit, canDelete, offers = [] }
               Menu na wybrany dzień
             </h2>
           </div>
-          <Link
-            href={`/add?restaurantId=${restaurant.id}`}
-            className="inline-flex items-center gap-1.5 rounded-[4px] bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-[#5e6ad2]"
-          >
-            <Plus className="size-3.5" />
-            Dodaj ofertę
-          </Link>
+          <Button asChild>
+            <Link href={`/add?restaurantId=${restaurant.id}`}>
+              <Plus data-icon="inline-start" aria-hidden="true" />
+              Dodaj ofertę
+            </Link>
+          </Button>
         </div>
 
         {offers.length === 0 ? (
