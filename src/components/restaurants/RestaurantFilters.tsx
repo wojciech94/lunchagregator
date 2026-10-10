@@ -170,7 +170,7 @@ export function RestaurantFilters({
       <div
         id="restaurant-filters-panel"
         className={cn(
-          "rounded-md border border-border bg-card p-5 shadow-[0_1.2px_0_0_rgba(0,0,0,0.03)]",
+          "rounded-md border border-border bg-card p-5",
           isOpen ? "block" : "hidden md:block"
         )}
       >
@@ -199,7 +199,7 @@ export function RestaurantFilters({
                 onValueChange={handleDistanceChange}
                 aria-label={`Maksymalna odległość: ${distance} km`}
               />
-              <div className="flex justify-between text-xs text-muted-foreground/60">
+              <div className="flex justify-between text-xs text-muted-foreground">
                 <span>0.5 km</span>
                 <span>25 km</span>
               </div>
@@ -263,7 +263,7 @@ export function RestaurantFilters({
               aria-label="Godzina serwowania lunchu"
             />
             {lunchTimeAt && (
-              <p className="text-xs text-muted-foreground/70">
+              <p className="text-xs text-muted-foreground">
                 Restauracje serwujące o {lunchTimeAt}
               </p>
             )}

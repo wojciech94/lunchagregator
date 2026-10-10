@@ -78,7 +78,7 @@ export function OfferPreview({
           <ConfidenceBadge percent={confidencePercent} />
         </div>
         {hasMissingFields && (
-          <div className="flex items-center gap-2 mt-2 text-sm text-amber-600 dark:text-amber-400">
+          <div className="flex items-center gap-2 mt-2 text-sm text-warning-foreground">
             <AlertTriangle className="size-4 shrink-0" aria-hidden="true" />
             <span>
               Brakujące pola wymagają uzupełnienia przed publikacją
@@ -157,7 +157,7 @@ export function OfferPreview({
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border-2 border-dashed border-amber-400 p-3 text-sm text-amber-600 dark:text-amber-400">
+          <div className="rounded-lg border-2 border-dashed border-warning-border p-3 text-sm text-warning-foreground">
             <AlertTriangle className="inline size-4 mr-1" aria-hidden="true" />
             Nie wykryto żadnych dań — uzupełnij ręcznie
           </div>
@@ -215,10 +215,7 @@ function PreviewField({
       </span>
       {isMissing ? (
         <span
-          className={cn(
-            "inline-flex items-center gap-1 rounded-md border-2 border-dashed border-amber-400 bg-amber-50 px-2 py-1 text-sm text-amber-700",
-            "dark:bg-amber-950/30 dark:text-amber-400"
-          )}
+          className="inline-flex items-center gap-1 rounded-md border-2 border-dashed border-warning-border bg-warning px-2 py-1 text-sm text-warning-foreground"
         >
           <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
           Brak danych — wymagane uzupełnienie

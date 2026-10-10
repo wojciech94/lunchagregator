@@ -11,8 +11,7 @@ import { cn } from "@/lib/utils";
 export function AddOfferLink({ className }: { className?: string }) {
   const active = isNavActive(usePathname(), contributionLink.href);
   return (
-    <Button asChild className={cn("min-h-[44px]", className,
-      active && "bg-primary/80 ring-2 ring-primary ring-offset-2 ring-offset-background")}>
+    <Button asChild className={cn("min-h-[44px]", className)}>
       <Link href={contributionLink.href} aria-current={active ? "page" : undefined}>
         <Plus data-icon="inline-start" />{contributionLink.label}
       </Link>

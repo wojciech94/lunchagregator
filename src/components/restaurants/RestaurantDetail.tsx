@@ -15,6 +15,7 @@ import {
 
 import { DeleteRestaurantButton } from './DeleteRestaurantButton';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { formatLunchHours } from '@/utils/lunch-hours-formatter';
 import type { RestaurantWithDistance } from '@/types/restaurants';
 import type { LunchOffer } from '@/types/offers';
@@ -38,12 +39,6 @@ const priceLevelLabels: Record<string, string> = {
   premium: 'Premium',
 };
 
-const priceLevelColors: Record<string, string> = {
-  budżetowa: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  średnia: 'bg-violet-500/10 text-violet-400 border-violet-500/20',
-  premium: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-};
-
 export function RestaurantDetail({ restaurant, canEdit, canDelete, offers = [] }: RestaurantDetailProps) {
   return (
     <div className="space-y-6">
@@ -57,7 +52,7 @@ export function RestaurantDetail({ restaurant, canEdit, canDelete, offers = [] }
       </Link>
 
       {/* Main card */}
-      <div className="rounded-md border border-border bg-card shadow-[0_1.2px_0_0_rgba(0,0,0,0.03)]">
+      <div className="rounded-md border border-border bg-card ">
         {/* Header section */}
         <div className="flex flex-col gap-4 border-b border-border p-6 md:flex-row md:items-start md:justify-between">
           <div className="space-y-2">
@@ -66,9 +61,9 @@ export function RestaurantDetail({ restaurant, canEdit, canDelete, offers = [] }
             </h1>
             <div className="flex items-center gap-3">
               {restaurant.priceLevel && (
-                <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${priceLevelColors[restaurant.priceLevel]}`}>
+                <Badge variant="outline">
                   {priceLevelLabels[restaurant.priceLevel]}
-                </span>
+                </Badge>
               )}
               {restaurant.activeOffersCount > 0 && (
                 <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -87,7 +82,6 @@ export function RestaurantDetail({ restaurant, canEdit, canDelete, offers = [] }
                   asChild
                   variant="outline"
                   size="sm"
-                  className="rounded-[4px] border-muted-foreground/30 text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
                   <Link href={`/restaurants/${restaurant.id}/edit`}>
                     <Pencil className="size-3.5" />
@@ -203,7 +197,7 @@ export function RestaurantDetail({ restaurant, canEdit, canDelete, offers = [] }
                     href={restaurant.websiteUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary underline underline-offset-4 hover:text-primary/80 break-all text-sm"
+                    className="text-primary underline underline-offset-4 hover:decoration-2 break-all text-sm"
                   >
                     {restaurant.websiteUrl}
                   </a>
@@ -235,7 +229,7 @@ export function RestaurantDetail({ restaurant, canEdit, canDelete, offers = [] }
       </div>
 
       {/* Associated offers */}
-      <div className="rounded-md border border-border bg-card shadow-[0_1.2px_0_0_rgba(0,0,0,0.03)]">
+      <div className="rounded-md border border-border bg-card ">
         <div className="flex items-center justify-between gap-2 border-b border-border p-5">
           <div className="flex items-center gap-2">
             <UtensilsCrossed className="size-5 text-primary" />

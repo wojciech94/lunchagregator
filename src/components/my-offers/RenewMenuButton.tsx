@@ -85,7 +85,7 @@ export function RenewMenuButton({
   const scheduleLink = (
     <Link
       href="/my-menus"
-      className="flex min-h-[44px] items-center self-start text-sm text-primary underline underline-offset-4 hover:text-primary/80"
+      className="flex min-h-[44px] items-center self-start text-sm text-primary underline underline-offset-4 hover:decoration-2"
     >
       {hasWeeklyFlag
         ? "Potwierdź harmonogram w Moje menu"
@@ -102,7 +102,7 @@ export function RenewMenuButton({
         }
       >
         <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-          <CheckCircle2 className="size-4 text-green-500" aria-hidden="true" />
+          <CheckCircle2 className="size-4 text-success" aria-hidden="true" />
           Utworzono {summary.created} {offersPlural(summary.created)} dla{" "}
           {restaurantName}.
         </p>
@@ -119,7 +119,7 @@ export function RenewMenuButton({
           </p>
         )}
         {summary.missingCoordinates > 0 && (
-          <p className="text-xs text-amber-600 dark:text-amber-400">
+          <p className="text-xs text-warning-foreground">
             Uwaga: {summary.missingCoordinates} {offersPlural(summary.missingCoordinates)}{" "}
             zapisano bez lokalizacji — nie pojawią się w sortowaniu po
             odległości. Uzupełnij adres restauracji i wznuż ponownie.

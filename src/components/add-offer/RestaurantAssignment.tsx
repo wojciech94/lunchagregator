@@ -138,7 +138,7 @@ export function RestaurantAssignment({
   return (
     <div
       className={cn(
-        "rounded-md border border-border bg-card p-5 shadow-[0_1.2px_0_0_rgba(0,0,0,0.03)]",
+        "rounded-md border border-border bg-card p-5",
         className
       )}
     >

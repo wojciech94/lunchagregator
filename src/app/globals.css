@@ -29,6 +29,11 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-border: var(--warning-border);
+  --color-success: var(--success);
+  --color-overlay: var(--overlay);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -70,6 +75,11 @@
   --border: #d9ded6;
   --input: #839287;
   --ring: #245c3d;
+  --warning: #fff3dd;
+  --warning-foreground: #8a4b0d;
+  --warning-border: #a87832;
+  --success: #245c3d;
+  --overlay: #000000;
   --chart-1: #245c3d;
   --chart-2: #8c5938;
   --chart-3: #526d92;
@@ -104,6 +114,11 @@
   --border: #46574b;
   --input: #819887;
   --ring: #b9dec1;
+  --warning: #36291c;
+  --warning-foreground: #f0c184;
+  --warning-border: #9f7840;
+  --success: #b9dec1;
+  --overlay: #000000;
   --chart-1: #b9dec1;
   --chart-2: #e1b28b;
   --chart-3: #adc4e4;

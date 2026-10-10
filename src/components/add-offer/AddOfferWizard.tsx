@@ -406,7 +406,7 @@ export default function AddOfferWizard({ initialRestaurant = null, restaurantErr
       </div>
 
       {/* Error message */}
-      {restaurantError && <p className="mb-4 text-sm text-amber-500" role="status">{restaurantError}</p>}
+      {restaurantError && <p className="mb-4 text-sm text-warning-foreground" role="status">{restaurantError}</p>}
       {state.assigned && state.step !== "success" && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-3">
           <div className="text-sm"><p className="font-semibold">{state.assigned.name}</p><p className="text-muted-foreground">{state.assigned.address}</p></div>
@@ -584,7 +584,7 @@ export default function AddOfferWizard({ initialRestaurant = null, restaurantErr
       {state.step === "success" && (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-12">
-            <CheckCircle2 className="size-12 text-green-500" aria-hidden="true" />
+            <CheckCircle2 className="size-12 text-success" aria-hidden="true" />
             <div className="text-center">
               <p className="text-lg font-medium text-foreground">
                 {state.successMessage ?? "Oferta została opublikowana!"}
@@ -603,11 +603,11 @@ export default function AddOfferWizard({ initialRestaurant = null, restaurantErr
             </div>
             {state.locationWarning && (
               <div
-                className="flex items-start gap-3 rounded-lg border border-amber-500/50 bg-amber-500/5 p-4 text-left"
+                className="flex items-start gap-3 rounded-lg border border-warning-border bg-warning p-4 text-left"
                 role="status"
               >
                 <AlertTriangle
-                  className="mt-0.5 size-5 shrink-0 text-amber-500"
+                  className="mt-0.5 size-5 shrink-0 text-warning-foreground"
                   aria-hidden="true"
                 />
                 <p className="text-sm text-foreground">{state.locationWarning}</p>

@@ -30,7 +30,7 @@ export function RestaurantList({
           <p className="text-base text-muted-foreground">
             Brak restauracji spełniających kryteria.
           </p>
-          <p className="mt-1 text-sm text-muted-foreground/60">
+          <p className="mt-1 text-sm text-muted-foreground">
             Spróbuj zmienić lub wyczyścić filtry.
           </p>
         </div>

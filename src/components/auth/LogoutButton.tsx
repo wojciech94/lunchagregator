@@ -18,7 +18,7 @@ export function LogoutButton() {
         type="submit"
         variant="link"
         size="sm"
-        className="text-muted-foreground hover:text-primary min-h-[44px]"
+        className="min-h-[44px]"
       >
         Wyloguj się
       </Button>

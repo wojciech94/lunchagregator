@@ -69,10 +69,7 @@ export function DeleteRestaurantButton({
         <Button
           variant="destructive"
           size="sm"
-          className={
-            className ??
-            "inline-flex items-center gap-1.5 rounded-[4px] bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive transition-colors hover:bg-destructive/20 disabled:opacity-50"
-          }
+          className={className}
         >
           Usuń
         </Button>

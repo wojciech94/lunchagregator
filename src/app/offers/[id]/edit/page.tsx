@@ -369,7 +369,7 @@ function EditOfferForm({
           </div>
         ))}
         <Button type="button" variant="outline" className="self-start" disabled={items.length >= 10} onClick={() => setItems([...items, ''])}>Dodaj pozycję</Button>
-        <p className="text-xs text-muted-foreground/60">
+        <p className="text-xs text-muted-foreground">
           Wpisz każdą pozycję osobno. Przecinki i cudzysłowy pozostają częścią pozycji.
         </p>
       </FormField>
@@ -488,7 +488,7 @@ function FormField({
         {label}
         {required && <span className="text-destructive ml-0.5">*</span>}
         {isOptional && (
-          <span className="font-normal normal-case tracking-normal ml-1.5 text-muted-foreground/60">
+          <span className="font-normal normal-case tracking-normal ml-1.5 text-muted-foreground">
             (opcjonalne)
           </span>
         )}
