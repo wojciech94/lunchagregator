@@ -201,4 +201,10 @@ describe('import preview authorization and provenance', () => {
     expect((await previewLunchImport({ sourceId: 'sofa' })).success).toBe(false);
     expect(mocks.analyze).not.toHaveBeenCalled();
   });
+  it('refuses a hidden Sofa category before AI and editable publication review', async () => {
+    mocks.fetch.mockResolvedValue('<div id="menu-zestawy-lunch-owe" class="hidden"><li class="m-list__item"><h4 class="m-item__title">Zestaw</h4><button class="add-button">40,31 zł</button></li></div>');
+    const result = await previewLunchImport({ sourceId: 'sofa' });
+    expect(result).toMatchObject({ success: false, error: expect.stringContaining('ukryta') });
+    expect(mocks.analyze).not.toHaveBeenCalled();
+  });
 });
