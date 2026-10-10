@@ -12,6 +12,8 @@ The existing application uses Next.js App Router, Tailwind v4, shadcn New York w
 
 These values are mapped to existing variables in `src/app/globals.css`. The standalone prototype retains the original palette as a historical specimen; production dark mode now uses the espresso/terracotta palette below.
 
+The root declares `color-scheme: light`, and `.dark` declares `color-scheme: dark`, so native date/time indicators, picker UI and scrollbars follow the selected application theme. This follows the theme class and cookie rather than the operating system preference.
+
 | Token | Light | Dark | Role |
 | --- | --- | --- | --- |
 | background | `#F7F6F2` | `#1C1917` | Warm canvas |

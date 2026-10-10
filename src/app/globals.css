@@ -54,6 +54,7 @@
 }
 
 :root {
+  color-scheme: light;
   --radius: 1rem;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --background: #f7f6f2;
@@ -95,6 +96,7 @@
   --sidebar-ring: #245c3d;
 }
 .dark {
+  color-scheme: dark;
   --background: #1c1917;
   --foreground: #faf3eb;
   --card: #27221e;
