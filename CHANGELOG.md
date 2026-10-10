@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.2](https://github.com/wojciech94/lunchagregator/compare/v0.10.1...v0.10.2) (2026-10-10)
+
+
+### Bug Fixes
+
+* **ui:** align actions and filters with a warm dark theme ([d795fd3](https://github.com/wojciech94/lunchagregator/commit/d795fd3f02af1d460132e582229b36de9ff55cac))
+
 ## [0.10.1](https://github.com/wojciech94/lunchagregator/compare/v0.10.0...v0.10.1) (2026-10-10)
 
 
