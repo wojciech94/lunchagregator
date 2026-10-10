@@ -14,7 +14,7 @@ export interface ImportBinding {
   verification_note: string;
   verified_at: string | null;
   verified_by: string | null;
-  trial?: { fetchedAt: string; supported: boolean; excerpt: string; identityEvidence: string; limitations: string[]; finalUrl: string; dishes: import("./types").LunchImportPreview["dishes"]; menuImage?: { assetUrl: string; contentHash: string }; conditions?: string } | null;
+  trial?: { fetchedAt: string; supported: boolean; excerpt: string; identityEvidence: string; limitations: string[]; finalUrl: string; dishes: import("./types").LunchImportPreview["dishes"]; menuImage?: { assetUrl: string; contentHash: string }; menuPdf?: { assetUrl: string; contentHash: string; dataUrl?: string }; conditions?: string } | null;
 }
 
 export function bindingIsActive(binding: ImportBinding, restaurant: { name: string; address: string }) {

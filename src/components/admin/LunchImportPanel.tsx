@@ -48,6 +48,12 @@ export function LunchImportPanel({ enabled, sourceId = 'sofa', name = 'Sofa Loun
             <p className="text-sm break-all">SHA-256: {result.data.menuImage.contentHash}</p>
             <p>{result.data.conditions}</p>
           </div>}
+          {result.data.menuPdf && <div className="flex flex-col gap-2">
+            <a href={result.data.menuPdf.dataUrl} download="sushi-corner-lunch.pdf" className="underline">Pobierz dokładny PDF użyty do odczytu</a>
+            <a href={result.data.menuPdf.assetUrl} target="_blank" rel="noreferrer" className="underline break-all">Otwórz PDF na stronie restauracji</a>
+            <p className="text-sm break-all">SHA-256: {result.data.menuPdf.contentHash}</p>
+            <p>{result.data.conditions}</p>
+          </div>}
           <p className="text-sm">Sposób odczytu: {result.data.extractionMethod === 'html' ? 'bezpośrednio ze strony (bez analizy AI)' : 'analiza AI'}</p>
           <ul className="list-disc pl-5 text-sm space-y-1">{result.data.warnings.map(warning => <li key={warning}>{warning}</li>)}</ul>
         </div>
@@ -60,7 +66,7 @@ export function LunchImportPanel({ enabled, sourceId = 'sofa', name = 'Sofa Loun
           {!!dish.items?.length && <ul className="list-disc pl-5 text-sm">{dish.items.map((item, i) => <li key={i}>{item}</li>)}</ul>}
         </li>)}</ul>
         <details open className="rounded-lg border border-border p-4">
-          <summary className="cursor-pointer font-medium">Fragment menu ze źródła</summary>
+          <summary className="cursor-pointer font-medium">{result.data.menuPdf ? 'Odczyt AI z PDF — porównaj z oryginałem' : 'Fragment menu ze źródła'}</summary>
           <pre className="mt-3 whitespace-pre-wrap break-words text-sm font-sans">{result.data.excerpt}</pre>
         </details>
         {result.data.review ? <LunchImportReview key={result.data.review.fetchedAt} review={result.data.review} onBusyChange={setPublishing} />

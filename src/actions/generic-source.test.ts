@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ admin: vi.fn(), rpc: vi.fn(), from: vi.fn(), single: vi.fn(), fetch: vi.fn(), image: vi.fn(), branch: vi.fn() }));
+const mocks = vi.hoisted(() => ({ admin: vi.fn(), rpc: vi.fn(), from: vi.fn(), single: vi.fn(), fetch: vi.fn(), image: vi.fn(), branch: vi.fn(), pdf: vi.fn() }));
+vi.mock('@/services/lunch-import/sushi-corner', async original => ({ ...await original<typeof import('@/services/lunch-import/sushi-corner')>(), readSushiCornerMenu: mocks.pdf }));
 vi.mock('@/services/lunch-import/meatologia', () => ({ readMeatologiaMenu: mocks.image, requireMeatologiaBranch: mocks.branch }));
 vi.mock('@/lib/auth', () => ({ getAdmin: mocks.admin }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
@@ -20,6 +21,26 @@ beforeEach(() => {
   mocks.fetch.mockResolvedValue({ html: '<section><h2>Lunch</h2><ul><li><strong>Zupa</strong> 31 PLN</li></ul></section>', finalUrl: 'https://example.org/menu' });
 });
 describe('generic source Admin actions', () => {
+  it('stores PDF metadata without bytes and returns exact bytes only for the new trial', async () => {
+    const source_url = 'https://sushicorner.pl/wlodkowica/menu-en/lunch/';
+    mocks.single.mockResolvedValue({ data: { restaurant_id: restaurantId, revision, source_url }, error: null });
+    const menuPdf = { assetUrl: 'https://sushicorner.pl/menu.pdf', contentHash: 'a'.repeat(64) };
+    mocks.pdf.mockResolvedValue({ supported: true, limitations: [], dishes: [{ name: 'Lunch set I', price: 40 }],
+      identityEvidence: 'Włodkowica 12a', excerpt: 'AI transcript', fetchedAt: new Date().toISOString(), finalUrl: source_url,
+      menuPdf, conditions: '12–16', pdfDataUrl: 'data:application/pdf;base64,fixture' });
+    mocks.rpc.mockImplementation(async (_name, payload) => ({ data: { trial: structuredClone(payload.p_trial) } }));
+    expect(await configureGenericSource({ ...base, action: 'trial' })).toMatchObject({ success: true,
+      data: { trial: { menuPdf: { ...menuPdf, dataUrl: 'data:application/pdf;base64,fixture' } } } });
+    expect(JSON.stringify(mocks.rpc.mock.calls[0][1])).not.toContain('base64');
+    expect(mocks.fetch).not.toHaveBeenCalled();
+    mocks.pdf.mockRejectedValueOnce(new Error('PDF unavailable'));
+    await configureGenericSource({ ...base, action: 'trial' });
+    expect(mocks.rpc.mock.calls[1][1].p_trial).toMatchObject({ supported: false, dishes: [], limitations: ['PDF unavailable'] });
+  });
+  it('rejects Sushi Corner drafts for a different branch before any write', async () => {
+    expect((await configureGenericSource({ ...base, action: 'draft', url: 'https://sushicorner.pl/wlodkowica/menu-en/lunch/' })).success).toBe(false);
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
   it('routes Meatologia trial through image analysis, stores evidence without image bytes and records failed analysis as unsupported', async () => {
     const source_url = 'https://meatologia.pl/pages/nasze-lokale';
     mocks.single.mockResolvedValue({ data: { restaurant_id: restaurantId, revision, source_url }, error: null });

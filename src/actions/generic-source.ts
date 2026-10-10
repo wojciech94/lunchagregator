@@ -10,6 +10,8 @@ import { fetchGenericHtml, validateGenericUrl } from '@/services/lunch-import/fe
 import { extractGenericMenu } from '@/services/lunch-import/generic-html';
 import { isMeatologiaUrl, MEATOLOGIA_URL } from '@/lib/lunch-import/meatologia';
 import { readMeatologiaMenu, requireMeatologiaBranch } from '@/services/lunch-import/meatologia';
+import { isSushiCornerUrl, SUSHI_CORNER_URL } from '@/lib/lunch-import/sushi-corner';
+import { readSushiCornerMenu, requireSushiCornerBranch } from '@/services/lunch-import/sushi-corner';
 
 export async function configureGenericSource(input: unknown): Promise<ActionResult<ImportBinding>> {
   if (!(await getAdmin())) return { success: false, error: 'Brak uprawnień administratora.' };
@@ -19,8 +21,10 @@ export async function configureGenericSource(input: unknown): Promise<ActionResu
   try {
     const client = await createClient();
     let trial = null;
-    const url = data.action === 'draft' ? (isMeatologiaUrl(data.url!) ? MEATOLOGIA_URL : validateGenericUrl(data.url!).href) : null;
+    let pdfDataUrl: string | undefined;
+    const url = data.action === 'draft' ? (isMeatologiaUrl(data.url!) ? MEATOLOGIA_URL : isSushiCornerUrl(data.url!) ? SUSHI_CORNER_URL : validateGenericUrl(data.url!).href) : null;
     if (url === MEATOLOGIA_URL) requireMeatologiaBranch({ name: data.expectedName, address: data.expectedAddress });
+    if (url === SUSHI_CORNER_URL) requireSushiCornerBranch({ name: data.expectedName, address: data.expectedAddress });
     if (data.action === 'trial') {
       const { data: binding, error } = await client.from('lunch_import_bindings').select('*')
         .eq('source_id', `html-${data.restaurantId}`).single();
@@ -31,6 +35,12 @@ export async function configureGenericSource(input: unknown): Promise<ActionResu
           trial = { supported: menu.supported, limitations: menu.limitations, dishes: menu.dishes,
             identityEvidence: menu.identityEvidence, excerpt: menu.excerpt, fetchedAt: menu.fetchedAt,
             finalUrl: menu.finalUrl, menuImage: menu.menuImage, conditions: menu.conditions };
+        } else if (isSushiCornerUrl(binding.source_url)) {
+          const menu = await readSushiCornerMenu({ name: data.expectedName, address: data.expectedAddress });
+          pdfDataUrl = menu.pdfDataUrl;
+          trial = { supported: menu.supported, limitations: menu.limitations, dishes: menu.dishes,
+            identityEvidence: menu.identityEvidence, excerpt: menu.excerpt, fetchedAt: menu.fetchedAt,
+            finalUrl: menu.finalUrl, menuPdf: menu.menuPdf, conditions: menu.conditions };
         } else {
           const fetched = await fetchGenericHtml(binding.source_url);
           const extracted = extractGenericMenu(fetched.html);
@@ -48,6 +58,8 @@ export async function configureGenericSource(input: unknown): Promise<ActionResu
     });
     if (error || !binding) return { success: false, error: 'Nie zapisano źródła. Odśwież stronę; po zmianie danych lokalu zapisz szkic ponownie. Sprawdź aktualny podgląd i potwierdzenie.' };
     revalidatePath(`/restaurants/${data.restaurantId}`); revalidatePath('/admin/import'); revalidatePath('/admin/logs');
+    // Exact bytes are returned for this trial only, never persisted in trial JSON.
+    if (pdfDataUrl && binding.trial?.menuPdf) binding.trial.menuPdf.dataUrl = pdfDataUrl;
     return { success: true, data: binding };
   } catch (error) { return { success: false, error: error instanceof Error ? error.message : 'Nie zapisano źródła.' }; }
 }

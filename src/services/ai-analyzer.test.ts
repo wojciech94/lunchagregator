@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { analyzeText, analyzeImage } from './ai-analyzer';
+import { analyzeText, analyzeImage, analyzePdf } from './ai-analyzer';
 import { EXTRACTION_ERROR_MESSAGES } from '@/lib/ai/extraction-errors';
 import { validateExtraction } from '@/lib/validations/extraction';
 
@@ -42,6 +42,20 @@ describe('extraction provider boundary', () => {
   function providerResponse(value: unknown) {
     return new Response(JSON.stringify({ candidates: [{ content: { role: 'model', parts: [{ text: JSON.stringify(value) }] }, finishReason: 'STOP' }], usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 10 } }), { headers: { 'content-type': 'application/json' } });
   }
+
+  it('sends exact PDF bytes through the Google SDK as an inline PDF, preserving null prices and availability', async () => {
+    const bytes = Buffer.from('%PDF-1.7\nfixture');
+    const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(providerResponse({
+      offers: [{ restaurantName: 'Sushi Corner', dishes: [{ name: 'Lunch set I', price: null }] }], confidence: 0.9,
+      availability: 'Monday–Friday 12–16',
+    }));
+    const result = await analyzePdf(bytes, 'Transcribe literally.');
+    expect(result.offers[0].dishes[0].price).toBeNull();
+    expect(result.availability).toBe('Monday–Friday 12–16');
+    const body = JSON.parse(String(fetch.mock.calls[0][1]?.body));
+    expect(body.contents[0].parts).toContainEqual({ inlineData: { mimeType: 'application/pdf', data: bytes.toString('base64') } });
+    expect(JSON.stringify(body.systemInstruction)).toContain('Transcribe literally.');
+  });
 
   it('sends downloaded image bytes and literal transcription instructions, retains stated availability', async () => {
     const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(providerResponse({

@@ -54,6 +54,7 @@ export async function fetchPublicResource(raw: string, policy: {
           || (res.headers['content-encoding'] && res.headers['content-encoding'] !== 'identity')) {
           res.destroy(); reject(new Error(policy.allowedTypes.includes('text/html')
             ? 'Wymagany dostępny dokument HTML (HTTP 200). PDF i skompresowane odpowiedzi nie są obsługiwane.'
+            : policy.allowedTypes.includes('application/pdf') ? 'Wymagany dostępny dokument PDF (HTTP 200), bez kompresji odpowiedzi.'
             : 'Wymagany dostępny obraz JPG/PNG (HTTP 200). PDF i skompresowane odpowiedzi nie są obsługiwane.')); return;
         }
         const chunks: Buffer[] = []; let bytes = 0;
