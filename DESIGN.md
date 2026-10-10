@@ -29,13 +29,15 @@ These values are mapped to existing variables in `src/app/globals.css`. The prot
 
 Use semantic tokens throughout components. Input outlines are stronger than decorative card borders. Never reduce text contrast with opacity. Check rendered contrast before production: at least 4.5:1 for normal text, 3:1 for large text and control boundaries/focus indicators. The prototype logs computed token-pair ratios for both themes; this is not a complete accessibility audit.
 
+Contribution and save actions use the shared Button variants, including Add restaurant, restaurant-detail Add offer, the My offers empty-state action and Save changes. Their hover follows `primary` in both themes; do not restore legacy per-screen blue hover colors.
+
 Keep Inter (already configured) for production. Prototype uses a system sans stack to run offline. Typography: page title 36/40 desktop, 28/32 mobile; section 24/30; dish 20/26; body 16/24; metadata 14/20; small label 12/18. Use weight 600 for titles, 700 for price, tabular numerals for prices. No all-caps form labels; small uppercase eyebrow labels are decorative context only.
 
 Spacing scale: 4, 8, 12, 16, 24, 32, 48px. Cards have 24px padding (20px on mobile), 16px radius, 1px borders, no default shadow. Controls have 8px radius and minimum 44px touch targets. Badges use a full radius. Use `flex`/`grid` with `gap`, and `cn()` for conditional classes. Reserve shadows for overlays. Motion: 120–180ms color/opacity only; honor reduced motion.
 
 ## Browse screen recipe
 
-1. Header: product name, Oferty, Restauracje, Czat AI, and account/contribution actions appropriate to auth state. Do not expose administrator actions in the public browsing navigation. Mobile menu retains every destination.
+1. Header: product name, Oferty, Restauracje, Czat AI, and account/contribution actions appropriate to auth state. Desktop actions follow this order: add offer, theme toggle, account controls. The theme toggle remains visible on mobile; add offer stays in the mobile menu. Do not expose administrator actions in the public browsing navigation. Mobile menu retains every destination.
 2. Compact introduction: “Dobry lunch. Blisko Ciebie.” Location appears next to this task context, with explicit change and manual-address entry. Request geolocation only on an intentional action.
 3. Seven-day single selection plus a next-week action. All dates wrap visibly at narrow widths. Use Polish weekday labels and Europe/Warsaw menu dates from existing helpers, not UTC date slicing. Selecting next week replaces the date window and selects its Monday.
 4. Search, filter control with an active count, and sort. Selected criteria remain visible as removable chips. Production requires the full existing price min/max, eight cuisines, five dietary tags and distance radius; the prototype intentionally demonstrates a subset. Search retains the existing minimum-two-character and debounce contract.

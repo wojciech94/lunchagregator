@@ -24,9 +24,11 @@ export async function NavHeader() {
         </Link>
         <NavLinks />
         <div className="flex min-w-0 items-center gap-2">
+          <div className="hidden xl:flex">
+            <AddOfferLink />
+          </div>
           <ThemeToggle />
           <div className="hidden xl:flex xl:items-center xl:gap-3">
-            <AddOfferLink />
             {user ? <AccountMenu key={user.id} email={user.email ?? "Twoje konto"} isAdmin={viewerIsAdmin} logout={<LogoutButton />} /> :
               <><AuthNavLinks /><div className="text-foreground"><LocationIndicator compact /></div></>}
           </div>

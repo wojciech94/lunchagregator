@@ -13,6 +13,7 @@ import {
 import { RenewMenuButton } from "@/components/my-offers/RenewMenuButton";
 import { AssignRestaurantControl } from "@/components/my-offers/AssignRestaurantControl";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 export const metadata = { title: "Moje oferty — Lunch Agregator" };
 
@@ -216,13 +217,12 @@ export default async function MyOffersPage({
               : "Brak wygasłych ofert."}
           </p>
           {tab === "upcoming" && (
-            <Link
-              href="/add"
-              className="mt-4 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-[#5e6ad2] min-h-[44px]"
-            >
-              <Plus className="size-4" aria-hidden="true" />
-              Dodaj ofertę
-            </Link>
+            <Button asChild className="mt-4">
+              <Link href="/add">
+                <Plus data-icon="inline-start" aria-hidden="true" />
+                Dodaj ofertę
+              </Link>
+            </Button>
           )}
         </div>
       )}
