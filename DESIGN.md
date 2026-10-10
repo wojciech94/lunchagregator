@@ -1,6 +1,6 @@
 # Lunch Aggregator UI direction
 
-Status: approved direction with the browse foundation implemented locally, 2026-10-10. The application now uses these tokens, shared controls, navigation styling and browse interactions. The [interactive prototype](docs/design/lunch-ui.html) remains a standalone design specimen with fictional offers and local state, without APIs, authentication or database writes. Open that file directly in a browser. Polish is the product language; repository design documentation is English.
+Status: approved direction with the browse foundation implemented, 2026-10-10. The application now uses these tokens, shared controls, navigation styling and browse interactions. The [interactive prototype](docs/design/lunch-ui.html) remains a standalone design specimen with fictional offers and local state, without APIs, authentication or database writes. Open that file directly in a browser. Polish is the product language; repository design documentation is English.
 
 ## Product intent
 
@@ -94,7 +94,9 @@ Every action needs a keyboard-visible focus ring. Use semantic headings/landmark
 
 Delivered in the application: semantic light/dark tokens; shared Button/Input/Card/Select/Sheet styles; header and account navigation styling; a theme toggle persisted in a cookie and restored server-side; the browse introduction, seven-day selection with next-week/return-to-today actions, responsive offer cards, Polish prices and distances, truthful result counts and empty states. All eight cuisines, five dietary tags, price bounds and location-dependent radius remain available. Filters use a draft panel: apply commits to the URL; cancel/Escape restores the previous criteria; individual chips remove criteria. Search debounce, URL history, pagination and location fallback remain in place.
 
-The offline prototype additionally demonstrates a detail modal using fictional offers and straight-line demo distances. Its navigation is labelled as a specimen. Offer detail, restaurant, chat, contribution, management and admin screens inherit shared styles but their screen recipes above still require a dedicated redesign. Location input behavior is preserved rather than replaced. No database, ingestion, ownership or RLS behavior was changed. This stage is a local implementation, not a deployment or merge.
+The offline prototype additionally demonstrates a detail modal using fictional offers and straight-line demo distances. Its navigation is labelled as a specimen. Offer detail, restaurant, chat, contribution, management and admin screens inherit shared styles but their screen recipes above still require a dedicated redesign. Location input behavior is preserved rather than replaced. No database, ingestion, ownership or RLS behavior was changed.
+
+Production is served at [lunchagregator.vercel.app](https://lunchagregator.vercel.app) through the existing Vercel integration for `main`. Check the GitHub production deployment status and `/api/version` commit before treating a source publication as a completed rollout. This UI update requires no database migrations or new deployment secrets.
 
 Prototype validation: T3 `html_preview` rendered 320px, 728px and 1280px layouts without horizontal overflow or JavaScript errors. The 320px dark specimen was visually inspected. Assertions exercised filtering, cancellation, reset, sorting, search, date/week selection, detail and theme switching. Five token contrast pairs per theme passed the thresholds above (lowest checked text ratio 5.57:1; lowest checked control outline ratio 3.27:1).
 
