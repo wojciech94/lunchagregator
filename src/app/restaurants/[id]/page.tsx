@@ -9,6 +9,8 @@ import { listImportBindings } from '@/lib/lunch-import/bindings';
 import { RestaurantImportSettings } from '@/components/admin/RestaurantImportSettings';
 import { createClient } from '@/lib/supabase/server';
 import { menuDateSchema, menuDates, menuToday } from '@/lib/recurring-menu';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 interface RestaurantDetailPageProps {
   params: Promise<{ id: string }>;
@@ -46,7 +48,13 @@ export default async function RestaurantDetailPage({ params, searchParams }: Res
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
       <div className="mb-4 space-y-3">
-        <form className="flex flex-wrap items-end gap-2"><label className="text-sm">Menu na dzień<input type="date" name="date" defaultValue={date} min={menuToday()} max={menuDates(menuToday()).at(-1)} className="ml-2 rounded-md border border-border bg-card p-2" /></label><button className="rounded-md border border-border px-3 py-2 text-sm">Pokaż menu</button></form>
+        <form className="flex flex-wrap items-end gap-2">
+          <label className="flex flex-col gap-2 text-sm">
+            Menu na dzień
+            <Input type="date" name="date" defaultValue={date} min={menuToday()} max={menuDates(menuToday()).at(-1)} />
+          </label>
+          <Button type="submit" variant="outline" size="sm">Pokaż menu</Button>
+        </form>
         {schedule.data?.active && <p className="text-sm text-muted-foreground">Menu cykliczne · Zaktualizowano {schedule.data.updated_at.slice(0,10)}</p>}
         {exception.data?.kind === 'closed' && <p>Tego dnia nie ma lunchu.</p>}
         {(exception.error || schedule.error) && <p role="alert" className="text-destructive">Nie udało się pobrać informacji o menu.</p>}

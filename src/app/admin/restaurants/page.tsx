@@ -7,6 +7,7 @@ import { OrphanOnlyToggle } from "@/components/admin/OrphanOnlyToggle";
 import { isOrphanOnly } from "@/lib/admin-filters";
 import { DeleteRestaurantButton } from "@/components/restaurants/DeleteRestaurantButton";
 import { getAdmin } from "@/lib/auth";
+import { Button } from "@/components/ui/button";
 
 /**
  * Restaurants, either every one of them or only the ones nobody owns.
@@ -107,12 +108,11 @@ export default async function AdminRestaurantsPage({
               </div>
 
               <div className="flex shrink-0 gap-2">
-                <Link
-                  href={`/restaurants/${restaurant.id}/edit`}
-                  className="inline-flex items-center rounded-[4px] border border-muted-foreground/30 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  Edytuj
-                </Link>
+                <Button asChild variant="outline" size="sm">
+                  <Link href={`/restaurants/${restaurant.id}/edit`}>
+                    Edytuj
+                  </Link>
+                </Button>
                 <DeleteRestaurantButton
                   restaurant={{
                     id: restaurant.id,

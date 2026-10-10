@@ -1,14 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { Search, SlidersHorizontal, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { FieldGroup, Field, FieldLabel, FieldSet, FieldLegend, FieldError } from "@/components/ui/field";
-import { InputGroup, InputGroupInput, InputGroupAddon } from "@/components/ui/input-group";
-import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
+import { FilterToolbar, FilterPanel } from "@/components/filters/FilterControls";
+import { Sheet } from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -374,44 +372,20 @@ export function OfferFilters({
 
   return (
     <Sheet open={isOpen} onOpenChange={changePanel}>
-      <div className="flex w-full flex-col gap-3">
-        <div className="flex flex-col gap-3 min-[640px]:flex-row min-[640px]:items-center">
-          <InputGroup className="flex-1">
-            <InputGroupInput type="search" placeholder="Szukaj dań (min. 2 znaki)…" value={searchQuery}
-              onChange={e => handleSearchChange(e.target.value)} aria-label="Szukaj ofert" />
-            <InputGroupAddon><Search aria-hidden="true" /></InputGroupAddon>
-          </InputGroup>
-          <div className="flex flex-wrap items-center gap-2">
-            <SheetTrigger asChild>
-              <Button variant="outline" aria-label="Pokaż filtry">
-                <SlidersHorizontal data-icon="inline-start" aria-hidden="true" />
-                Filtry{activeCriteria.length > 0 ? ` (${activeCriteria.length})` : ""}
-              </Button>
-            </SheetTrigger>
-            <Select value={sortBy ?? "default"} onValueChange={handleSortChange}>
+      <FilterToolbar searchLabel="Szukaj ofert" searchPlaceholder="Szukaj dań (min. 2 znaki)…"
+        searchQuery={searchQuery} onSearchChange={handleSearchChange} criteria={activeCriteria}
+        onRemove={removeCriterion} onClear={handleClearFilters} clearDisabled={!hasActiveFilters}
+        sortControl={<Select value={sortBy ?? "default"} onValueChange={handleSortChange}>
               <SelectTrigger className="w-[180px]" aria-label="Sortowanie"><SelectValue placeholder="Sortuj" /></SelectTrigger>
               <SelectContent><SelectGroup>
                 <SelectItem value="default">{userLocation ? "Najbliżej" : "Restauracja A–Z"}</SelectItem>
                 {SORT_OPTIONS.map(option => <SelectItem key={option.value} value={option.value!}>{option.label}</SelectItem>)}
               </SelectGroup></SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {activeCriteria.map(criterion => <Button key={criterion.key} variant="secondary" size="sm"
-            aria-label={`Usuń filtr: ${criterion.label}`} onClick={() => removeCriterion(criterion.key)}>
-            {criterion.label}<X data-icon="inline-end" aria-hidden="true" />
-          </Button>)}
-          <Button variant="ghost" size="sm" onClick={handleClearFilters} disabled={!hasActiveFilters}>Wyczyść filtry</Button>
-        </div>
-        {priceError && !isOpen && <FieldError>{priceError}</FieldError>}
-      </div>
-      <SheetContent side="bottom" className="max-h-[85dvh] overflow-y-auto rounded-t-lg md:inset-y-0 md:left-auto md:right-0 md:h-full md:max-h-dvh md:w-[440px] md:rounded-none md:border-l md:border-t-0">
-        <SheetHeader>
-          <SheetTitle>Twój lunch, Twoje zasady</SheetTitle>
-          <SheetDescription>Wybierz kryteria i zastosuj je do listy.</SheetDescription>
-        </SheetHeader>
-        <form onSubmit={event => {
+            </Select>} />
+      {priceError && !isOpen && <FieldError>{priceError}</FieldError>}
+      <FilterPanel title="Twój lunch, Twoje zasady" submitLabel="Pokaż oferty"
+        onCancel={() => changePanel(false)} submitDisabled={!!priceError}
+        onSubmit={event => {
           event.preventDefault();
           if (priceError) return;
           if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -463,12 +437,7 @@ export function OfferFilters({
               </ToggleGroup>
             </FieldSet>
           </FieldGroup>
-          <SheetFooter>
-            <Button type="submit" disabled={!!priceError}>Pokaż oferty</Button>
-            <Button type="button" variant="outline" onClick={() => changePanel(false)}>Anuluj</Button>
-          </SheetFooter>
-        </form>
-      </SheetContent>
+      </FilterPanel>
     </Sheet>
   );
 }

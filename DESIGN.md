@@ -4,26 +4,28 @@ Status: approved direction with the browse foundation implemented, 2026-10-10. T
 
 ## Product intent
 
-Help someone answer “What can I eat nearby on this date, within my budget?” in one scan. Use a warm paper background, forest-green actions, strong dish titles and aligned prices. Content must work without photography: the offer model has no image field. Avoid ratings, walking times, stock counts, “open now” or verified-source labels without supporting data.
+Help someone answer “What can I eat nearby on this date, within my budget?” in one scan. Use a warm paper background and forest-green actions in light mode; dark mode uses an espresso canvas, cream text and terracotta actions. Keep strong dish titles and aligned prices. Content must work without photography: the offer model has no image field. Avoid ratings, walking times, stock counts, “open now” or verified-source labels without supporting data.
 
 The existing application uses Next.js App Router, Tailwind v4, shadcn New York with Radix, and Lucide. Keep that foundation. Preserve offer snapshots, URL filters and navigation history, location fallback, pagination, ownership checks and RLS.
 
 ## Foundations
 
-These values are mapped to existing variables in `src/app/globals.css`. The prototype scopes equivalent tokens to its own screen.
+These values are mapped to existing variables in `src/app/globals.css`. The standalone prototype retains the original palette as a historical specimen; production dark mode now uses the espresso/terracotta palette below.
+
+The root declares `color-scheme: light`, and `.dark` declares `color-scheme: dark`, so native date/time indicators, picker UI and scrollbars follow the selected application theme. This follows the theme class and cookie rather than the operating system preference.
 
 | Token | Light | Dark | Role |
 | --- | --- | --- | --- |
-| background | `#F7F6F2` | `#141C18` | Warm canvas |
-| foreground / card-foreground | `#202C25` | `#F1F4EF` | Titles and body |
-| card / popover | `#FFFFFF` | `#1D2922` | Reading surfaces |
-| primary | `#245C3D` | `#B9DEC1` | Main action, selected day |
-| primary-foreground | `#FFFFFF` | `#14291C` | Text on primary |
-| muted / secondary / accent | `#EDEFE8` | `#29372E` | Quiet surfaces |
-| muted-foreground | `#59665D` | `#B4C2B7` | Supporting text |
-| border | `#D9DED6` | `#46574B` | Decorative separation |
-| input | `#839287` | `#819887` | Control outlines |
-| ring | `#245C3D` | `#B9DEC1` | Keyboard focus |
+| background | `#F7F6F2` | `#1C1917` | Warm canvas |
+| foreground / card-foreground | `#202C25` | `#FAF3EB` | Titles and body |
+| card / popover | `#FFFFFF` | `#27221E` | Reading surfaces |
+| primary | `#245C3D` | `#EDB08C` | Main action, selected day |
+| primary-foreground | `#FFFFFF` | `#301E14` | Text on primary |
+| muted / secondary / accent | `#EDEFE8` | `#36302A` | Quiet surfaces |
+| muted-foreground | `#59665D` | `#C7B9AB` | Supporting text |
+| border | `#D9DED6` | `#5A4D42` | Decorative separation |
+| input | `#839287` | `#A18B78` | Control outlines |
+| ring | `#245C3D` | `#EDB08C` | Keyboard focus |
 | destructive | `#A52B26` | `#FFA8A1` | Errors and destructive actions |
 | destructive-foreground | `#FFFFFF` | `#361511` | Text on destructive |
 | warning | `#FFF3DD` | `#36291C` | Warning surface |
@@ -40,7 +42,7 @@ Status colors use `warning`, `warning-foreground`, `warning-border` and `success
 
 Keep Inter (already configured) for production. Prototype uses a system sans stack to run offline. Typography: page title 36/40 desktop, 28/32 mobile; section 24/30; dish 20/26; body 16/24; metadata 14/20; small label 12/18. Use weight 600 for titles, 700 for price, tabular numerals for prices. No all-caps form labels; small uppercase eyebrow labels are decorative context only.
 
-Spacing scale: 4, 8, 12, 16, 24, 32, 48px. Cards have 24px padding (20px on mobile), 16px radius, 1px borders, no default shadow. Controls have 8px radius and minimum 44px touch targets. Badges use a full radius. Use `flex`/`grid` with `gap`, and `cn()` for conditional classes. Reserve shadows for overlays. Motion: 120–180ms color/opacity only; honor reduced motion.
+Spacing scale: 4, 8, 12, 16, 24, 32, 48px. Cards have 24px padding (20px on mobile), 16px radius, 1px borders, no default shadow. Controls have 8px radius and minimum 44px touch targets. All Button variants reserve a 1px border and own their text color; outline actions use the input border token. Default, small and extra-small buttons are 44px tall; large buttons are 48px. Small sizes reduce padding rather than the touch target. Admin restaurant edit links and the restaurant date-menu submit action use the shared Button, and the date field uses Input. Badges use a full radius. Use `flex`/`grid` with `gap`, and `cn()` for conditional classes. Reserve shadows for overlays. Motion: 120–180ms color/opacity only; honor reduced motion.
 
 ## Browse screen recipe
 
@@ -54,7 +56,7 @@ Spacing scale: 4, 8, 12, 16, 24, 32, 48px. Cards have 24px padding (20px on mobi
 
 ## Other screens
 
-- Restaurants: same header, location, search/filter recipe and quiet cards; show address and cuisine before secondary metadata. Detail introduces restaurant information, then date-specific offers.
+- Restaurants: same header, location, search/filter recipe and quiet cards; show address and cuisine before secondary metadata. Offers and restaurants share FilterToolbar and FilterPanel: search with an icon, a counted filter trigger, removable applied criteria, and a bottom sheet on mobile / side panel on desktop. Restaurant choices are drafts until “Pokaż restauracje”; Cancel, Escape, close and backdrop dismissal discard them. Use the same Field/Checkbox cuisine layout and outline ToggleGroup for price levels. Preserve restaurant-specific distance, price level, cuisine and lunch-time criteria. Only explicitly chosen distance limits are applied; showing a default 10 km slider does not silently add a radius. Restaurant filters remain local page state with debounced search (300 ms, minimum two characters); URL/history persistence belongs to offers. Detail introduces restaurant information, then date-specific offers.
 - Czat AI: short suggested prompts, clear sending/error states and recommendation cards with concrete prices, dates and distances. Recommendation actions lead to actual offers. Keep a visible explanation that results come from available offers; do not promise dietary safety.
 - Add offer: restaurant assignment, extraction input, editable review, then publication. Preserve restaurant-first rules. Extraction suggestions remain editable and distinct from submitted data. Show success counts and recoverable partial failures.
 - Moje menu / Moje oferty: compact management rows, restaurant grouping, date/status, edit action and overflow actions. Generated offers lead to their menu for editing. Show recurring schedule, effective revision date and exceptions explicitly; never infer recurrence from a visual badge alone.
