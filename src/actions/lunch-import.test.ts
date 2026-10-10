@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  getAdmin: vi.fn(), resolve: vi.fn(), fetch: vi.fn(), genericFetch: vi.fn(), analyze: vi.fn(), image: vi.fn(),
+  getAdmin: vi.fn(), resolve: vi.fn(), fetch: vi.fn(), genericFetch: vi.fn(), analyze: vi.fn(), image: vi.fn(), pdf: vi.fn(),
 }));
 vi.mock('@/services/lunch-import/meatologia', () => ({ readMeatologiaMenu: mocks.image }));
+vi.mock('@/services/lunch-import/sushi-corner', () => ({ readSushiCornerMenu: mocks.pdf }));
 vi.mock('@/lib/auth', () => ({ getAdmin: mocks.getAdmin }));
 vi.mock('@/lib/lunch-import/bindings', () => ({ resolveImportSource: mocks.resolve }));
 vi.mock('@/services/lunch-import/fetch-html', () => ({ fetchMenuHtml: mocks.fetch }));
@@ -28,6 +29,23 @@ beforeEach(() => {
 });
 
 describe('import preview authorization and provenance', () => {
+  it('returns exact PDF evidence and review with unknown date, guarded by Admin and active binding', async () => {
+    const sourceId = `html-${restaurant.id}`;
+    mocks.resolve.mockResolvedValue({ restaurant, source: { ...IMPORT_SOURCES.sofa, id: sourceId,
+      restaurantId: restaurant.id, bindingRevision, url: 'https://sushicorner.pl/wlodkowica/menu-en/lunch/' } });
+    mocks.pdf.mockResolvedValue({ fetchedAt: new Date().toISOString(), excerpt: 'AI transcript', conditions: '12–16',
+      dishes: [{ name: 'Lunch set I', price: null }], menuPdf: { assetUrl: 'https://sushicorner.pl/menu.pdf', contentHash: 'a'.repeat(64) },
+      pdfDataUrl: 'data:application/pdf;base64,fixture' });
+    expect(await previewLunchImport({ sourceId })).toMatchObject({ success: true, data: {
+      date: null, menuPdf: { dataUrl: 'data:application/pdf;base64,fixture' },
+      review: { sourceId, bindingRevision, dishes: [{ name: 'Lunch set I', price: null }] },
+    } });
+    expect(mocks.analyze).not.toHaveBeenCalled(); expect(mocks.genericFetch).not.toHaveBeenCalled();
+    mocks.pdf.mockClear(); mocks.resolve.mockResolvedValue(null);
+    expect((await previewLunchImport({ sourceId })).success).toBe(false); expect(mocks.pdf).not.toHaveBeenCalled();
+    mocks.getAdmin.mockResolvedValue(null);
+    expect((await previewLunchImport({ sourceId })).success).toBe(false); expect(mocks.pdf).not.toHaveBeenCalled();
+  });
   it('returns the exact image evidence and editable review from the image adapter without a second AI text pass', async () => {
     const sourceId = `html-${restaurant.id}`;
     mocks.resolve.mockResolvedValue({ restaurant, source: { ...IMPORT_SOURCES.sofa, id: sourceId, restaurantId: restaurant.id,

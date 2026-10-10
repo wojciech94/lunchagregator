@@ -5,6 +5,7 @@ vi.mock('node:dns/promises', () => ({ lookup: mocks.lookup, resolve4: vi.fn() })
 vi.mock('node:https', () => ({ request: mocks.request }));
 import { fetchGenericHtml, fetchPublicResource, isPublicAddress, validateGenericUrl } from './fetch-generic-html';
 import { validateMeatologiaUrl } from './meatologia';
+import { validateSushiCornerUrl } from './sushi-corner';
 beforeEach(() => {
   mocks.lookup.mockResolvedValue([{ address: '93.184.216.34', family: 4 }]);
   mocks.responses = [{}];
@@ -20,6 +21,18 @@ beforeEach(() => {
   });
 });
 describe('arbitrary HTTPS fetch protection', () => {
+  it('protects PDF requests and redirects with the exact Sushi Corner asset policy', async () => {
+    const url = 'https://sushicorner.pl/wp-content/uploads/sites/7/2025/04/sushi-corner-lunch-menu-english.pdf';
+    const policy = { accept: 'application/pdf', allowedTypes: ['application/pdf'], validateUrl: validateSushiCornerUrl };
+    mocks.responses = [{ headers: { 'content-type': 'application/pdf' }, body: '%PDF-fixture' }];
+    expect((await fetchPublicResource(url, policy)).bytes.toString()).toBe('%PDF-fixture');
+    mocks.responses = [{ statusCode: 302, headers: { location: 'https://evil.example/lunch.pdf' } }];
+    await expect(fetchPublicResource(url, policy)).rejects.toThrow('oficjalny');
+    mocks.responses = [{ headers: { 'content-type': 'text/html' } }];
+    await expect(fetchPublicResource(url, policy)).rejects.toThrow('dokument PDF');
+    mocks.responses = [{ peer: '127.0.0.1', headers: { 'content-type': 'application/pdf' } }];
+    await expect(fetchPublicResource(url, policy)).rejects.toThrow('Połączony');
+  });
   it('applies image origin policy before DNS and on redirects, while bounding type and connected destination', async () => {
     const url = 'https://cdn.shopify.com/s/files/1/0930/9054/5989/files/lunch.jpg';
     const policy = { accept: 'image/jpeg,image/png', allowedTypes: ['image/jpeg', 'image/png'], validateUrl: validateMeatologiaUrl };

@@ -6,6 +6,7 @@ import { bindingIsActive, type ImportBinding } from '@/lib/lunch-import/binding-
 import { Button } from '@/components/ui/button';
 import { LunchImportPanel } from './LunchImportPanel';
 import { isMeatologiaUrl, MEATOLOGIA_URL } from '@/lib/lunch-import/meatologia';
+import { isSushiCornerUrl, SUSHI_CORNER_URL } from '@/lib/lunch-import/sushi-corner';
 
 export function GenericSourceSettings({ restaurant, initial }: {
   restaurant: { id: string; name: string; address: string }; initial?: ImportBinding;
@@ -19,6 +20,7 @@ export function GenericSourceSettings({ restaurant, initial }: {
   const [error, setError] = useState('');
   const changed = url !== binding?.source_url;
   const meatologia = isMeatologiaUrl(url);
+  const sushiCorner = isSushiCornerUrl(url);
   const active = !!binding && bindingIsActive(binding, restaurant);
   async function run(action: 'draft' | 'trial' | 'confirm' | 'disable') {
     setBusy(true); setError('');
@@ -34,15 +36,16 @@ export function GenericSourceSettings({ restaurant, initial }: {
   return <section className="space-y-4 border-t pt-4" aria-labelledby={`${id}-title`}>
     <h3 id={`${id}-title`} className="text-lg font-semibold">Nowe źródło menu — pilotaż</h3>
     <p>Ogólne źródła obsługują jedną sekcję lunchową z nazwanymi pozycjami HTML. PDF, obrazy i strony wymagające JavaScript pozostają poza ich zakresem. Zapis szkicu lub nowa próba wyłącza źródło do ponownej weryfikacji; wcześniejsze importy pozostają chronione.</p>
-    <p>Wyjątek: pilot Meatologii przy Włodkowica 27 obsługuje zdjęcie JPG/PNG wskazane na stronie lokali. PDF-y pozostają poza zakresem.</p>
+    <p>Wyjątki: pilot Meatologii przy Włodkowica 27 obsługuje zdjęcie JPG/PNG. Pilot Sushi Corner przy Włodkowica 12a obsługuje jednostronicowy lunchowy PDF wskazany na oficjalnej stronie lokalu.</p>
     <Button variant="outline" disabled={busy} onClick={() => { setUrl(MEATOLOGIA_URL); setConfirmed(false); }}>Wybierz pilot Meatologii — Włodkowica 27</Button>
+    <Button variant="outline" disabled={busy} onClick={() => { setUrl(SUSHI_CORNER_URL); setConfirmed(false); }}>Wybierz pilot Sushi Corner — Włodkowica 12a</Button>
     <label className="block" htmlFor={`${id}-url`}>Oficjalny URL menu HTTPS
       <input id={`${id}-url`} type="url" maxLength={2000} className="block w-full rounded border bg-background p-2" value={url} disabled={busy}
         onChange={event => { setUrl(event.target.value); setConfirmed(false); }} />
     </label>
     <div className="flex flex-wrap gap-3">
       <Button disabled={busy || !url} onClick={() => run('draft')}>Zapisz szkic źródła</Button>
-      <Button variant="outline" disabled={busy || !binding || changed} onClick={() => run('trial')}>{meatologia ? 'Uruchom próbny odczyt zdjęcia menu' : 'Uruchom próbny odczyt HTML'}</Button>
+      <Button variant="outline" disabled={busy || !binding || changed} onClick={() => run('trial')}>{meatologia ? 'Uruchom próbny odczyt zdjęcia menu' : sushiCorner ? 'Uruchom próbny odczyt PDF menu' : 'Uruchom próbny odczyt HTML'}</Button>
       {binding?.enabled && <Button variant="outline" disabled={busy} onClick={() => run('disable')}>Wyłącz nowe źródło</Button>}
     </div>
     <p role="status">{busy ? 'Pobieranie lub zapis…' : `Status: ${active ? 'aktywny' : 'szkic / niezweryfikowany'}. Próba nie publikuje ofert.`}</p>
@@ -61,6 +64,12 @@ export function GenericSourceSettings({ restaurant, initial }: {
         <a className="underline" href={binding.trial.menuImage.assetUrl} target="_blank" rel="noreferrer">Sprawdź oryginalne zdjęcie menu</a>
         <p className="text-sm break-all">SHA-256 pobranego obrazu: {binding.trial.menuImage.contentHash}</p>
         <p>Wynik odczytał model ze zdjęcia. Porównaj nazwy, ceny i godziny z oryginałem; link może wskazywać nowszy plik.</p>
+      </div>}
+      {binding.trial.menuPdf && <div className="flex flex-col gap-2">
+        {binding.trial.menuPdf.dataUrl && <a className="underline" href={binding.trial.menuPdf.dataUrl} download="sushi-corner-lunch.pdf">Pobierz dokładny PDF użyty do odczytu</a>}
+        <a className="underline" href={binding.trial.menuPdf.assetUrl} target="_blank" rel="noreferrer">Sprawdź oryginalny PDF menu</a>
+        <p className="text-sm break-all">SHA-256 pobranego PDF: {binding.trial.menuPdf.contentHash}</p>
+        <p>Wynik odczytał model. Link może wskazywać nowszy plik; porównaj ceny i dopłaty z oryginałem. Pobranie nie potwierdza aktualności.</p>
       </div>}
       <ul>{binding.trial.dishes.map((dish, index) => <li key={index}>{dish.name}: {dish.price === null ? 'cena do uzupełnienia' : `${dish.price} PLN`}</li>)}</ul>
       {binding.trial.supported && <>
