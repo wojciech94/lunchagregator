@@ -35,7 +35,7 @@ Spacing scale: 4, 8, 12, 16, 24, 32, 48px. Cards have 24px padding (20px on mobi
 
 ## Browse screen recipe
 
-1. Header: product name, Oferty, Restauracje, Czat AI, and account/contribution actions appropriate to auth state. Do not expose administrator actions in the public browsing navigation. Mobile menu retains every destination.
+1. Header: product name, Oferty, Restauracje, Czat AI, and account/contribution actions appropriate to auth state. Desktop actions follow this order: add offer, theme toggle, account controls. The theme toggle remains visible on mobile; add offer stays in the mobile menu. Do not expose administrator actions in the public browsing navigation. Mobile menu retains every destination.
 2. Compact introduction: “Dobry lunch. Blisko Ciebie.” Location appears next to this task context, with explicit change and manual-address entry. Request geolocation only on an intentional action.
 3. Seven-day single selection plus a next-week action. All dates wrap visibly at narrow widths. Use Polish weekday labels and Europe/Warsaw menu dates from existing helpers, not UTC date slicing. Selecting next week replaces the date window and selects its Monday.
 4. Search, filter control with an active count, and sort. Selected criteria remain visible as removable chips. Production requires the full existing price min/max, eight cuisines, five dietary tags and distance radius; the prototype intentionally demonstrates a subset. Search retains the existing minimum-two-character and debounce contract.
