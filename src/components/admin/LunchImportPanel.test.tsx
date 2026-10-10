@@ -21,6 +21,20 @@ const preview: ImportPreviewResult = {
 };
 
 describe('operator import preview', () => {
+  it('shows a downloadable exact PDF and hash, and labels the excerpt as AI transcription', async () => {
+    if (!preview.success) throw new Error('Invalid fixture');
+    const dataUrl = 'data:application/pdf;base64,fixture';
+    mocks.preview.mockResolvedValue({ success: true, data: { ...preview.data,
+      menuPdf: { dataUrl, assetUrl: 'https://sushicorner.pl/menu.pdf', contentHash: 'b'.repeat(64) },
+    } });
+    render(<LunchImportPanel enabled />);
+    fireEvent.click(screen.getByRole('button', { name: 'Pobierz menu Sofa' }));
+    expect(await screen.findByRole('link', { name: 'Pobierz dokładny PDF użyty do odczytu' })).toHaveAttribute('href', dataUrl);
+    expect(screen.getByRole('link', { name: 'Otwórz PDF na stronie restauracji' })).toHaveAttribute('href', 'https://sushicorner.pl/menu.pdf');
+    expect(screen.getByText(`SHA-256: ${'b'.repeat(64)}`)).toBeInTheDocument();
+    expect(screen.getByText('Odczyt AI z PDF — porównaj z oryginałem')).toBeInTheDocument();
+    expect(screen.getByText('Data menu: nieznana')).toBeInTheDocument();
+  });
   it('shows the exact downloaded image, asset provenance and availability alongside review', async () => {
     if (!preview.success) throw new Error('Invalid fixture');
     const dataUrl = 'data:image/jpeg;base64,fixture';

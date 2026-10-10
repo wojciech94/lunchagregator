@@ -15,6 +15,8 @@ import { MAX_AI_TEXT_LENGTH } from '@/lib/ai/constants';
 import { createImportReview } from '@/services/lunch-import/review';
 import { isMeatologiaUrl } from '@/lib/lunch-import/meatologia';
 import { readMeatologiaMenu } from '@/services/lunch-import/meatologia';
+import { isSushiCornerUrl } from '@/lib/lunch-import/sushi-corner';
+import { readSushiCornerMenu } from '@/services/lunch-import/sushi-corner';
 
 export async function previewLunchImport(input: unknown): Promise<ImportPreviewResult> {
   if (!(await getAdmin())) return { success: false, error: 'Brak uprawnień administratora.' };
@@ -36,6 +38,18 @@ export async function previewLunchImport(input: unknown): Promise<ImportPreviewR
         warnings: ['Dania i ceny odczytał model z obrazu. Porównaj każdą pozycję z oryginałem.',
           'Sprawdź dni i godziny na obrazie. Data pobrania oraz nazwa pliku nie określają daty ważności.',
           'Niezmienione menu nie potwierdza dostępności na dziś. Wybierz i potwierdź datę przed publikacją.'],
+      } };
+    }
+    if (source.id.startsWith('html-') && isSushiCornerUrl(source.url)) {
+      const menu = await readSushiCornerMenu(restaurant);
+      return { success: true, data: {
+        restaurant, sourceUrl: source.url, fetchedAt: menu.fetchedAt, excerpt: menu.excerpt,
+        conditions: menu.conditions, date: null, extractionMethod: 'ai', dishes: menu.dishes,
+        menuPdf: { ...menu.menuPdf, dataUrl: menu.pdfDataUrl },
+        review: createImportReview(source, menu.fetchedAt, menu.dishes),
+        warnings: ['Dania i ceny odczytał model z PDF. Porównaj każdą pozycję i dopłatę z pobranym oryginałem.',
+          'Data pobrania, ścieżka pliku i niezmieniony PDF nie potwierdzają aktualności menu.',
+          'Potwierdź dostępność, dni, godziny, kanał sprzedaży i datę przed publikacją.'],
       } };
     }
     const generic = source.id.startsWith('html-');

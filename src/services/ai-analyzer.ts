@@ -396,3 +396,20 @@ export async function analyzeImage(imageUrl: string, instruction = ''): Promise<
     (message) => emptyExtraction('photo', message)
   );
 }
+
+/** Downloaded and validated bytes only; the provider never fetches a source URL. */
+export async function analyzePdf(bytes: Uint8Array, instruction = ''): Promise<ExtractedOffers> {
+  return withAIFallback<ExtractedOffers>(async abortSignal => {
+    const { object } = await generateObject({
+      abortSignal, maxRetries: 0, model: modelWithRateLimitFallback(),
+      providerOptions: GEMINI_PROVIDER_OPTIONS, schema: extractionResultSchema,
+      system: EXTRACTION_SYSTEM_PROMPT + '\n' + instruction,
+      messages: [{ role: 'user', content: [
+        { type: 'text', text: 'Read this lunch menu PDF. Match each price to its dish using the visual layout. Preserve alternatives and paid extras. Never infer dates or prices. Output Polish descriptions.' },
+        { type: 'file', data: bytes, mimeType: 'application/pdf' },
+      ] }],
+    });
+    return { offers: object.offers as ExtractedOffer[], sourceType: 'photo' as const,
+      availability: object.availability, confidence: object.confidence, missingFields: identifyMissingFields(object.offers) };
+  }, message => emptyExtraction('photo', message));
+}

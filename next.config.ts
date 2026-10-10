@@ -11,6 +11,10 @@ export default function nextConfig(phase: string): NextConfig {
   return {
     // Isolate local E2E builds from a developer's running Next server.
     distDir: process.env.NEXT_BUILD_DIR ?? ".next",
+    serverExternalPackages: ['pdf-lib'],
+    outputFileTracingIncludes: {
+      '/*': ['./scripts/validate-menu-pdf.cjs', './node_modules/pdf-lib/**/*', './node_modules/@pdf-lib/**/*', './node_modules/pako/**/*', './node_modules/tslib/**/*'],
+    },
     env: {
       NEXT_PUBLIC_APP_BUILD_INFO: snapshot,
     },

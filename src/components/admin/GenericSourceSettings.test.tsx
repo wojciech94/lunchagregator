@@ -16,6 +16,18 @@ const binding: ImportBinding = { source_id: `html-${restaurant.id}`, restaurant_
 afterEach(cleanup);
 beforeEach(() => { mocks.configure.mockResolvedValue({ success: true, data: { ...binding, enabled: true, verified_at: new Date().toISOString(), verified_by: 'admin' } }); });
 describe('generic source onboarding UI', () => {
+  it('selects the PDF pilot and requires explicit verification despite a successful trial', () => {
+    const view = render(<GenericSourceSettings restaurant={restaurant} />);
+    fireEvent.click(screen.getByRole('button', { name: /Wybierz pilot Sushi Corner/ }));
+    expect(screen.getByRole('textbox', { name: /Oficjalny URL/ })).toHaveValue('https://sushicorner.pl/wlodkowica/menu-en/lunch/');
+    expect(screen.getByRole('button', { name: 'Uruchom próbny odczyt PDF menu' })).toBeDisabled();
+    view.unmount();
+    render(<GenericSourceSettings restaurant={restaurant} initial={{ ...binding, source_url: 'https://sushicorner.pl/wlodkowica/menu-en/lunch/',
+      trial: { ...binding.trial!, menuPdf: { assetUrl: 'https://sushicorner.pl/menu.pdf', contentHash: 'b'.repeat(64), dataUrl: 'data:application/pdf;base64,fixture' } } }} />);
+    expect(screen.getByRole('link', { name: 'Pobierz dokładny PDF użyty do odczytu' })).toHaveAttribute('href', 'data:application/pdf;base64,fixture');
+    expect(screen.getByRole('button', { name: 'Zweryfikuj i aktywuj nowe źródło' })).toBeDisabled();
+    expect(screen.queryByText('Active publication review')).not.toBeInTheDocument();
+  });
   it('selects the image pilot, requires a saved draft and displays trial image evidence', () => {
     const view = render(<GenericSourceSettings restaurant={restaurant} />);
     fireEvent.click(screen.getByRole('button', { name: /Wybierz pilot Meatologii/ }));
