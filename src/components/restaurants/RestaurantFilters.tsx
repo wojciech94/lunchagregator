@@ -1,32 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { Search, SlidersHorizontal, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Chip } from "@/components/ui/chip";
+import { FilterToolbar, FilterPanel } from "@/components/filters/FilterControls";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { FieldGroup, Field, FieldLabel, FieldSet, FieldLegend } from "@/components/ui/field";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Sheet } from "@/components/ui/sheet";
 import { Slider } from "@/components/ui/slider";
-import { cn } from "@/lib/utils";
-import type { RestaurantFilters as RestaurantFiltersType, PriceLevel } from "@/types/restaurants";
-import type { Coordinates, CuisineType } from "@/types/offers";
+import { cuisineLabels } from "@/lib/display-labels";
+import { cuisineTypeValues, priceLevelValues } from "@/schemas/restaurant.schema";
+import type { RestaurantFilters as RestaurantFiltersType } from "@/types/restaurants";
+import type { Coordinates } from "@/types/offers";
 
-const PRICE_LEVELS: { value: PriceLevel; label: string }[] = [
-  { value: "budżetowa", label: "Budżetowa" },
-  { value: "średnia", label: "Średnia" },
-  { value: "premium", label: "Premium" },
-];
-
-const CUISINE_TYPES: { value: CuisineType; label: string }[] = [
-  { value: "polska", label: "Polska" },
-  { value: "wloska", label: "Włoska" },
-  { value: "azjatycka", label: "Azjatycka" },
-  { value: "meksykanska", label: "Meksykańska" },
-  { value: "amerykanska", label: "Amerykańska" },
-  { value: "indyjska", label: "Indyjska" },
-  { value: "srodziemnomorska", label: "Śródziemnomorska" },
-  { value: "inne", label: "Inne" },
-];
+const priceLabels = { budżetowa: "Budżetowa", średnia: "Średnia", premium: "Premium" };
 
 interface RestaurantFiltersProps {
   filters: RestaurantFiltersType;
@@ -34,242 +21,121 @@ interface RestaurantFiltersProps {
   userLocation?: Coordinates;
 }
 
-export function RestaurantFilters({
-  filters,
-  onChange,
-  userLocation,
-}: RestaurantFiltersProps) {
+export function RestaurantFilters({ filters, onChange, userLocation }: RestaurantFiltersProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState(filters.searchQuery ?? "");
-  const [distance, setDistance] = React.useState(filters.distance?.radius ?? 10);
-  const [priceLevels, setPriceLevels] = React.useState<PriceLevel[]>(filters.priceLevels ?? []);
-  const [cuisineTypes, setCuisineTypes] = React.useState<CuisineType[]>(filters.cuisineTypes ?? []);
-  const [lunchTimeAt, setLunchTimeAt] = React.useState(filters.lunchTimeAt ?? "");
+  const [draft, setDraft] = React.useState<RestaurantFiltersType>(filters);
+  const debounceTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const committed = React.useRef(filters);
+  committed.current = filters;
 
-  const debounceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const buildFilters = React.useCallback(
-    (overrides?: Partial<{
-      searchQuery: string;
-      distance: number;
-      priceLevels: PriceLevel[];
-      cuisineTypes: CuisineType[];
-      lunchTimeAt: string;
-    }>) => {
-      const q = overrides?.searchQuery ?? searchQuery;
-      const d = overrides?.distance ?? distance;
-      const pl = overrides?.priceLevels ?? priceLevels;
-      const ct = overrides?.cuisineTypes ?? cuisineTypes;
-      const lt = overrides?.lunchTimeAt ?? lunchTimeAt;
-
-      const newFilters: RestaurantFiltersType = {};
-      if (q.length >= 2) newFilters.searchQuery = q;
-      if (userLocation && d > 0) newFilters.distance = { radius: d, from: userLocation };
-      if (pl.length > 0) newFilters.priceLevels = pl;
-      if (ct.length > 0) newFilters.cuisineTypes = ct;
-      if (lt) newFilters.lunchTimeAt = lt;
-      return newFilters;
-    },
-    [searchQuery, distance, priceLevels, cuisineTypes, lunchTimeAt, userLocation]
-  );
-
-  const emitChange = React.useCallback(
-    (overrides?: Parameters<typeof buildFilters>[0]) => {
-      onChange(buildFilters(overrides));
-    },
-    [onChange, buildFilters]
-  );
-
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    debounceTimerRef.current = setTimeout(() => {
-      emitChange({ searchQuery: value });
-    }, 300);
-  };
-
-  React.useEffect(() => {
-    return () => { if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current); };
+  React.useEffect(() => setSearchQuery(filters.searchQuery ?? ""), [filters.searchQuery]);
+  React.useEffect(() => () => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
   }, []);
 
-  const handleDistanceChange = (value: number[]) => {
-    const newDistance = value[0];
-    setDistance(newDistance);
-    emitChange({ distance: newDistance });
+  const cancelSearch = () => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
   };
 
-  const handlePriceLevelToggle = (level: PriceLevel) => {
-    const updated = priceLevels.includes(level)
-      ? priceLevels.filter((l) => l !== level)
-      : [...priceLevels, level];
-    setPriceLevels(updated);
-    emitChange({ priceLevels: updated });
+  const withSearch = (criteria: RestaurantFiltersType, query: string): RestaurantFiltersType => {
+    const next = { ...criteria };
+    delete next.page;
+    if (query.length >= 2) next.searchQuery = query;
+    else delete next.searchQuery;
+    return next;
   };
 
-  const handleCuisineToggle = (cuisine: CuisineType) => {
-    const updated = cuisineTypes.includes(cuisine)
-      ? cuisineTypes.filter((c) => c !== cuisine)
-      : [...cuisineTypes, cuisine];
-    setCuisineTypes(updated);
-    emitChange({ cuisineTypes: updated });
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    cancelSearch();
+    debounceTimer.current = setTimeout(() => onChange(withSearch(committed.current, query)), 300);
   };
 
-  const handleLunchTimeChange = (value: string) => {
-    setLunchTimeAt(value);
-    emitChange({ lunchTimeAt: value });
+  const changePanel = (open: boolean) => {
+    if (open) {
+      cancelSearch();
+      // Finish pending search without leaking uncommitted panel selections.
+      const next = withSearch(filters, searchQuery);
+      if (next.searchQuery !== filters.searchQuery) onChange(next);
+      setDraft(next);
+    }
+    setIsOpen(open);
   };
 
-  const hasActiveFilters =
-    searchQuery.length >= 2 ||
-    (userLocation && distance !== 10) ||
-    priceLevels.length > 0 ||
-    cuisineTypes.length > 0 ||
-    lunchTimeAt !== "";
+  const criteria = [
+    ...(filters.priceLevels ?? []).map(value => ({ key: `price:${value}`, label: priceLabels[value] })),
+    ...(filters.cuisineTypes ?? []).map(value => ({ key: `cuisine:${value}`, label: cuisineLabels[value] })),
+    ...(filters.distance ? [{ key: "radius", label: `Do ${filters.distance.radius} km` }] : []),
+    ...(filters.lunchTimeAt ? [{ key: "time", label: `Lunch o ${filters.lunchTimeAt}` }] : []),
+  ];
 
-  const handleClearFilters = () => {
-    setSearchQuery("");
-    setDistance(10);
-    setPriceLevels([]);
-    setCuisineTypes([]);
-    setLunchTimeAt("");
-    onChange({});
+  const removeCriterion = (key: string) => {
+    cancelSearch();
+    const next = withSearch(filters, searchQuery);
+    if (key.startsWith("price:")) {
+      next.priceLevels = filters.priceLevels?.filter(value => value !== key.slice(6));
+      if (!next.priceLevels?.length) delete next.priceLevels;
+    }
+    if (key.startsWith("cuisine:")) {
+      next.cuisineTypes = filters.cuisineTypes?.filter(value => value !== key.slice(8));
+      if (!next.cuisineTypes?.length) delete next.cuisineTypes;
+    }
+    if (key === "radius") delete next.distance;
+    if (key === "time") delete next.lunchTimeAt;
+    onChange(next);
   };
 
-  return (
-    <div className="w-full space-y-4">
-      {/* Search row */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Szukaj restauracji (min. 2 znaki)..."
-            value={searchQuery}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="pl-9 bg-card border-border focus:border-primary"
-            aria-label="Szukaj restauracji"
-          />
-        </div>
-
-        {/* Mobile toggle */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="md:hidden"
-          onClick={() => setIsOpen(!isOpen)}
-          aria-expanded={isOpen}
-          aria-controls="restaurant-filters-panel"
-          aria-label={isOpen ? "Ukryj filtry" : "Pokaż filtry"}
-        >
-          <SlidersHorizontal className="size-4" />
-          Filtry
-        </Button>
-      </div>
-
-      {/* Filters panel */}
-      <div
-        id="restaurant-filters-panel"
-        className={cn(
-          "rounded-md border border-border bg-card p-5",
-          isOpen ? "block" : "hidden md:block"
-        )}
-      >
-        {/* Clear button */}
-        {hasActiveFilters && (
-          <div className="flex justify-end mb-4">
-            <Button variant="ghost" size="sm" onClick={handleClearFilters}>
-              <X className="size-3.5" />
-              Wyczyść filtry
-            </Button>
-          </div>
-        )}
-
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {/* Distance slider */}
-          {userLocation && (
-            <div className="space-y-3">
-              <Label className="text-base font-medium uppercase tracking-wider text-muted-foreground">
-                Odległość: {distance} km
-              </Label>
-              <Slider
-                min={0.5}
-                max={25}
-                step={0.5}
-                value={[distance]}
-                onValueChange={handleDistanceChange}
-                aria-label={`Maksymalna odległość: ${distance} km`}
-              />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>0.5 km</span>
-                <span>25 km</span>
-              </div>
-            </div>
-          )}
-
-          {/* Price level */}
-          <div className="space-y-3">
-            <Label className="text-base font-medium uppercase tracking-wider text-muted-foreground">
-              Poziom cenowy
-            </Label>
-            <div className="flex flex-wrap gap-2">
-              {PRICE_LEVELS.map((level) => {
-                const active = priceLevels.includes(level.value);
-                return (
-                  <Chip
-                    key={level.value}
-                    active={active}
-                    onClick={() => handlePriceLevelToggle(level.value)}
-                  >
-                    {level.label}
-                  </Chip>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Cuisine types */}
-          <div className="space-y-3 md:col-span-2 lg:col-span-1">
-            <Label className="text-base font-medium uppercase tracking-wider text-muted-foreground">
-              Typ kuchni
-            </Label>
-            <div className="flex flex-wrap gap-2">
-              {CUISINE_TYPES.map((cuisine) => {
-                const active = cuisineTypes.includes(cuisine.value);
-                return (
-                  <Chip
-                    key={cuisine.value}
-                    active={active}
-                    onClick={() => handleCuisineToggle(cuisine.value)}
-                  >
-                    {cuisine.label}
-                  </Chip>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Lunch time */}
-          <div className="space-y-3">
-            <Label className="text-base font-medium uppercase tracking-wider text-muted-foreground">
-              Serwuje lunch o
-            </Label>
-            <Input
-              type="time"
-              value={lunchTimeAt}
-              onChange={(e) => handleLunchTimeChange(e.target.value)}
-              min="06:00"
-              max="23:00"
-              className="bg-card border-border focus:border-primary"
-              aria-label="Godzina serwowania lunchu"
-            />
-            {lunchTimeAt && (
-              <p className="text-xs text-muted-foreground">
-                Restauracje serwujące o {lunchTimeAt}
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  return <Sheet open={isOpen} onOpenChange={changePanel}>
+    <FilterToolbar searchLabel="Szukaj restauracji" searchPlaceholder="Szukaj restauracji (min. 2 znaki)…"
+      searchQuery={searchQuery} onSearchChange={handleSearchChange} criteria={criteria}
+      onRemove={removeCriterion} clearDisabled={criteria.length === 0 && searchQuery.length < 2}
+      onClear={() => { cancelSearch(); setSearchQuery(""); onChange({}); }} />
+    <FilterPanel title="Restauracja na Twoją przerwę" submitLabel="Pokaż restauracje"
+      onCancel={() => changePanel(false)} onSubmit={event => {
+        event.preventDefault();
+        cancelSearch();
+        const next = withSearch(draft, searchQuery);
+        if (next.distance && userLocation) next.distance = { ...next.distance, from: userLocation };
+        onChange(next);
+        setIsOpen(false);
+      }}>
+      <FieldGroup className="px-4">
+        {userLocation && <Field>
+          <FieldLabel htmlFor="restaurant-distance-slider">Odległość: {draft.distance?.radius ?? 10} km</FieldLabel>
+          <Slider id="restaurant-distance-slider" min={0.5} max={25} step={0.5} value={[draft.distance?.radius ?? 10]}
+            onValueChange={([radius]) => setDraft(previous => ({ ...previous, distance: { radius, from: userLocation } }))}
+            aria-label={`Maksymalna odległość: ${draft.distance?.radius ?? 10} km`} />
+        </Field>}
+        <FieldSet>
+          <FieldLegend>Poziom cenowy</FieldLegend>
+          <ToggleGroup type="multiple" variant="outline" spacing={2} className="flex-wrap" aria-label="Poziom cenowy"
+            value={draft.priceLevels ?? []} onValueChange={values => setDraft(previous => ({
+              ...previous, priceLevels: priceLevelValues.filter(value => values.includes(value)),
+            }))}>
+            {priceLevelValues.map(value => <ToggleGroupItem key={value} value={value}>{priceLabels[value]}</ToggleGroupItem>)}
+          </ToggleGroup>
+        </FieldSet>
+        <FieldSet>
+          <FieldLegend>Typ kuchni</FieldLegend>
+          <FieldGroup className="grid grid-cols-2 gap-3">
+            {cuisineTypeValues.map(value => <Field key={value} orientation="horizontal">
+              <Checkbox id={`restaurant-cuisine-${value}`} checked={draft.cuisineTypes?.includes(value) ?? false}
+                onCheckedChange={checked => setDraft(previous => ({ ...previous, cuisineTypes: checked
+                  ? [...(previous.cuisineTypes ?? []), value]
+                  : previous.cuisineTypes?.filter(cuisine => cuisine !== value),
+                }))} />
+              <FieldLabel className="min-w-0 [overflow-wrap:anywhere]" htmlFor={`restaurant-cuisine-${value}`}>{cuisineLabels[value]}</FieldLabel>
+            </Field>)}
+          </FieldGroup>
+        </FieldSet>
+        <Field>
+          <FieldLabel htmlFor="restaurant-lunch-time">Serwuje lunch o</FieldLabel>
+          <Input id="restaurant-lunch-time" type="time" min="06:00" max="23:00" value={draft.lunchTimeAt ?? ""}
+            onChange={event => setDraft(previous => ({ ...previous, lunchTimeAt: event.target.value || undefined }))}
+            aria-label="Godzina serwowania lunchu" />
+        </Field>
+      </FieldGroup>
+    </FilterPanel>
+  </Sheet>;
 }
