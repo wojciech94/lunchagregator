@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.2](https://github.com/wojciech94/lunchagregator/compare/v0.9.1...v0.9.2) (2026-10-10)
+
+
+### Bug Fixes
+
+* **ui:** centralize semantic colors and remove local overrides ([79a1a89](https://github.com/wojciech94/lunchagregator/commit/79a1a8915af7378ad616251d52f332d459440cc1))
+
 ## [0.9.1](https://github.com/wojciech94/lunchagregator/compare/v0.9.0...v0.9.1) (2026-10-10)
 
 
