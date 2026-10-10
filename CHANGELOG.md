@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/wojciech94/lunchagregator/compare/v0.8.0...v0.9.0) (2026-10-10)
+
+
+### Features
+
+* **ui:** implement approved lunch browsing design ([0cec33c](https://github.com/wojciech94/lunchagregator/commit/0cec33c7ba58d823b2c29bd93795fb7c8a0f12a1))
+
 ## [0.8.0](https://github.com/wojciech94/lunchagregator/compare/v0.7.1...v0.8.0) (2026-10-09)
 
 
