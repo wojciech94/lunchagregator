@@ -13,6 +13,9 @@ current Restaurant identity and compare it with the retained verification identi
 Changed or missing identity requires re-verification; a manually disabled binding
 with matching identity remains disabled. The previously confirmed branch is shown
 separately, and missing Restaurants explicitly fall back to the saved source identity.
+Location-only Restaurants with a null, empty or whitespace-only address remain in
+the inventory with an explicit missing-address notice and require re-verification;
+their previous verified address is historical evidence, not the current address.
 Only a successfully resolved active binding shows the fetch panel.
 Configuration state does not attest current menu availability.
 
@@ -60,3 +63,8 @@ unrelated lint warnings. A fresh official Sofa browser inspection on 2026-10-10 
 `40,31` in body text. This corroborates the specific guard; it does not identify
 the site's hiding reason or current weekday lunch availability. The production
 Admin Restaurant inventory was inspected read-only; no artifact was removed.
+
+The subsequent nullable-address review fix passed all 12 Admin-page tests,
+including three cleared-address regressions, plus affected ESLint and typecheck.
+Adapter/action evidence above and the previous production build are reused: no
+imports, runtime boundaries, dependencies or adapter contracts changed in this fix.

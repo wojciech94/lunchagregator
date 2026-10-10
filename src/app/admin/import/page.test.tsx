@@ -55,6 +55,17 @@ it('keeps missing Restaurant identity explicitly unverified', async () => {
   expect(screen.getByRole('status')).toHaveTextContent('Wymaga ponownej weryfikacji');
   expect(screen.getByText(/Zapisana tożsamość/)).toBeInTheDocument();
 });
+it.each([null, '', '   '])('keeps the inventory available when a Restaurant address is cleared (%#)', async address => {
+  mocks.list.mockResolvedValue([{ ...binding, enabled: false }]);
+  mocks.restaurant.mockResolvedValue({ id: binding.restaurant_id, name: 'Sofa', address });
+  render(await Page());
+  expect(screen.getByRole('heading', { name: 'Sofa' })).toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent('Wymaga ponownej weryfikacji');
+  expect(screen.getByText(/Brak adresu restauracji/)).toBeInTheDocument();
+  expect(screen.getByText(/Wcześniej potwierdzony oddział/)).toHaveTextContent('Saved address');
+  expect(screen.queryByText(/Konfiguracja importu jest niedostępna/)).not.toBeInTheDocument();
+  expect(screen.queryByRole('button')).not.toBeInTheDocument();
+});
 it('shows unsupported trial limitations and avoids claiming the saved identity is current', async () => {
   mocks.list.mockResolvedValue([{ ...binding, source_id: 'html-restaurant', enabled: false, verified_at: null,
     trial: { supported: false, limitations: ['Ambiguous branch'], dishes: [], fetchedAt: '2026-10-10T12:00:00Z', finalUrl: binding.source_url, excerpt: '', identityEvidence: '' } }]);

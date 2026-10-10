@@ -11,7 +11,7 @@ export async function listImportBindings(): Promise<ImportBinding[]> {
 }
 
 /** Session client and RLS; no environment UUID fallback. */
-export async function getImportRestaurant(restaurantId: string): Promise<{ id: string; name: string; address: string } | null> {
+export async function getImportRestaurant(restaurantId: string): Promise<{ id: string; name: string; address: string | null } | null> {
   const client = await createClient();
   const { data, error } = await client.from('restaurants').select('id,name,address').eq('id', restaurantId).maybeSingle();
   if (error) throw new Error('Nie można odczytać restauracji źródła.');

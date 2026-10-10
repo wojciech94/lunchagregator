@@ -21,7 +21,7 @@ export default async function LunchImportPage() {
       {!configured.length && <p role="status">Brak skonfigurowanych źródeł. Otwórz właściwą restaurację, sprawdź źródło i potwierdź oddział.</p>}
       {configured.map(({ binding, resolved, restaurant }) => <section key={binding.source_id} className="flex flex-col gap-3 rounded-lg border border-border p-4">
         <h2 className="text-lg font-semibold">{restaurant?.name ?? binding.source_name}</h2>
-        <p>{restaurant?.address ?? binding.source_address}</p>
+        <p>{restaurant ? restaurant.address?.trim() || 'Brak adresu restauracji — wymaga ponownej weryfikacji' : binding.source_address}</p>
         {!restaurant && <p className="text-sm text-muted-foreground">Zapisana tożsamość źródła; aktualne dane lokalu sprawdź w ustawieniach.</p>}
         {binding.verified_at && <p className="text-sm text-muted-foreground">Wcześniej potwierdzony oddział: {binding.verified_name} — {binding.verified_address}</p>}
         <p role="status">Status: {importSourceStatus(binding, !!resolved, restaurant)}</p>
