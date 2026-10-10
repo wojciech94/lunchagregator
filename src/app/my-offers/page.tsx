@@ -67,7 +67,7 @@ function OfferRow({ row }: { row: MyOfferRow }) {
       </div>
       <Link
         href={row.menu_entry_id ? '/my-menus' : `/offers/${row.id}/edit`}
-        className="text-sm text-primary underline underline-offset-4 hover:text-primary/80 shrink-0 min-h-[44px] flex items-center"
+        className="text-sm text-primary underline underline-offset-4 hover:decoration-2 shrink-0 min-h-[44px] flex items-center"
       >
         {row.menu_entry_id ? 'Edytuj menu' : 'Edytuj'}
       </Link>

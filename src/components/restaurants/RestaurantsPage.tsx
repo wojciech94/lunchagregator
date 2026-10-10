@@ -118,7 +118,7 @@ export function RestaurantsPage({ initialData }: RestaurantsPageProps) {
 
       {/* Manual address input fallback */}
       {showAddressInput && (
-        <div className="rounded-md border border-border bg-card p-4 shadow-[0_1.2px_0_0_rgba(0,0,0,0.03)]">
+        <div className="rounded-md border border-border bg-card p-4 ">
           <div className="flex items-center gap-2 mb-3">
             <MapPin className="size-4 text-primary" />
             <p className="text-sm text-muted-foreground">

@@ -26,10 +26,17 @@ These values are mapped to existing variables in `src/app/globals.css`. The prot
 | ring | `#245C3D` | `#B9DEC1` | Keyboard focus |
 | destructive | `#A52B26` | `#FFA8A1` | Errors and destructive actions |
 | destructive-foreground | `#FFFFFF` | `#361511` | Text on destructive |
+| warning | `#FFF3DD` | `#36291C` | Warning surface |
+| warning-foreground | `#8A4B0D` | `#F0C184` | Warning text/icons |
+| warning-border | `#A87832` | `#9F7840` | Warning boundaries and suggested-field ring |
+| success | `#245C3D` | `#B9DEC1` | Success text/icons |
+| overlay | `#000000` | `#000000` | Modal backdrop, used at 50% opacity |
 
 Use semantic tokens throughout components. Input outlines are stronger than decorative card borders. Never reduce text contrast with opacity. Check rendered contrast before production: at least 4.5:1 for normal text, 3:1 for large text and control boundaries/focus indicators. The prototype logs computed token-pair ratios for both themes; this is not a complete accessibility audit.
 
 Contribution and save actions use the shared Button variants, including Add restaurant, restaurant-detail Add offer, the My offers empty-state action and Save changes. Their hover follows `primary` in both themes; do not restore legacy per-screen blue hover colors.
+
+Status colors use `warning`, `warning-foreground`, `warning-border` and `success`; keep status text/icons so meaning does not rely on color. Price-level metadata uses neutral outline Badge variants and explicit labels. Active contribution navigation and open/active account controls are styled by Button variants via `aria-current`, `data-state` and `data-active`, not local color overrides. Shared Checkbox, Textarea, Tabs, Badge and Slider use the same semantic palette for both themes. See the [source color audit](docs/design/color-audit.md) for scope and verification limits.
 
 Keep Inter (already configured) for production. Prototype uses a system sans stack to run offline. Typography: page title 36/40 desktop, 28/32 mobile; section 24/30; dish 20/26; body 16/24; metadata 14/20; small label 12/18. Use weight 600 for titles, 700 for price, tabular numerals for prices. No all-caps form labels; small uppercase eyebrow labels are decorative context only.
 

@@ -227,7 +227,7 @@ export function RestaurantForm({
           Podaj adres restauracji. Można go pominąć, jeśli lokalizacja restauracji jest już ustawiona.
         </p>
         {isGeocoding && <p className="text-xs text-muted-foreground mt-1 animate-pulse">Geokodowanie...</p>}
-        {geocodeMessage && <p className="text-xs text-amber-400 mt-1">{geocodeMessage}</p>}
+        {geocodeMessage && <p className="text-xs text-warning-foreground mt-1">{geocodeMessage}</p>}
       </FormField>
 
       {/* Price Level */}
@@ -346,7 +346,7 @@ function FormField({
       <Label htmlFor={htmlFor} className="flex-wrap text-xs font-medium uppercase tracking-wider text-muted-foreground">
         {label}
         {required && <span className="text-destructive ml-0.5">*</span>}
-        {isOptional && <span className="font-normal normal-case tracking-normal ml-1.5 text-muted-foreground/60">(opcjonalne)</span>}
+        {isOptional && <span className="font-normal normal-case tracking-normal ml-1.5 text-muted-foreground">(opcjonalne)</span>}
       </Label>
       {children}
       {error && (

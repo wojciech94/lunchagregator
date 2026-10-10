@@ -91,7 +91,7 @@ export function NavMobileMenu({ isAdmin = false, isAuthenticated = false, email,
           <div className="pt-3 mt-2 border-t border-border">
             <p className="px-3 text-xs text-muted-foreground">Lokalizacja</p>
             <p className="px-3 py-2 text-sm text-foreground [overflow-wrap:anywhere]">{coordinates ? label ?? "Lokalizacja ustawiona" : "Lokalizacja nieustawiona"}</p>
-            <Button variant="ghost" className="min-h-[44px] text-foreground" aria-haspopup="dialog"
+            <Button variant="ghost" className="min-h-[44px]" aria-haspopup="dialog"
               onClick={() => { setLocationOpen(true); setOpen(false); }}>
               {coordinates ? "Zmień lokalizację" : "Ustaw lokalizację"}
             </Button>

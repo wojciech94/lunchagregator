@@ -492,7 +492,7 @@ function FormField({
           </span>
         )}
         {isMissing && (
-          <span className="inline-flex items-center gap-1 ml-2 text-xs text-amber-600 dark:text-amber-400">
+          <span className="inline-flex items-center gap-1 ml-2 text-xs text-warning-foreground">
             <AlertTriangle className="size-3" aria-hidden="true" />
             wymaga uzupełnienia
           </span>
@@ -501,7 +501,7 @@ function FormField({
       <div
         className={cn(
           isMissing &&
-            "rounded-md ring-2 ring-amber-400/60 ring-offset-1 ring-offset-background"
+            "rounded-md ring-2 ring-warning-border ring-offset-1 ring-offset-background"
         )}
       >
         {children}
